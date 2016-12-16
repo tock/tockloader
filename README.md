@@ -7,7 +7,7 @@ Install
 -------
 
 ```
-sudo pip3 install tock-loader
+sudo pip3 install tockloader
 ```
 
 Usage

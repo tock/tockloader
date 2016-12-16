@@ -352,7 +352,7 @@ def main ():
 	flash.set_defaults(func=command_flash)
 	flash.add_argument('binary',
 		help='The binary file or files to flash to the chip',
-		nargs='*')
+		nargs='+')
 	flash.add_argument('--address', '-a',
 		help='Address to flash the binary at',
 		type=lambda x: int(x, 0),
@@ -363,7 +363,11 @@ def main ():
 	listen.set_defaults(func=command_listen)
 
 	args = parser.parse_args()
-	args.func(args)
+	if hasattr(args, 'func'):
+		args.func(args)
+	else:
+		print('Missing Command. Run with --help to see supported commands.')
+		sys.exit(1)
 
 
 if __name__ == "__main__":

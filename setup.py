@@ -5,7 +5,7 @@ setup(name='tockloader',
       description='TockOS Support Tool',
       author='Tock Project Developers',
       author_email='tock-dev@googlegroups.com',
-      url='https://github.com/helena-project/tock-loader',
+      url='https://github.com/helena-project/tockloader',
       packages=['tockloader'],
       entry_points={
         'console_scripts': [

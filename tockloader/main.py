@@ -74,15 +74,22 @@ class TockLoader:
 		# one to use
 		if port == None:
 			print('No serial port specified. Discovering attached serial devices...')
-			ports = list(serial.tools.list_ports.comports())
-			if len(ports) == 0:
-				print('No serial ports found. Is the board connected?')
-				return False
+			# Start by looking for one with "tock" in the description
+			ports = list(serial.tools.list_ports.grep('tock'))
+			if len(ports) > 0:
+				# Use the first one
+				print('Using "{}"'.format(ports[0]))
+				port = ports[0][0]
 			else:
+				# Just find any port and use the first one
+				ports = list(serial.tools.list_ports.comports())
+				if len(ports) == 0:
+					print('No serial ports found. Is the board connected?')
+					return False
+
 				print('Found {} serial port(s).'.format(len(ports)))
 				print('Using "{}"'.format(ports[0]))
-
-			port = ports[0][0]
+				port = ports[0][0]
 
 		# Open the actual serial port
 		self.sp = serial.Serial()

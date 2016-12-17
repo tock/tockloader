@@ -266,7 +266,7 @@ class TockLoader:
 		crc_loader = crc_function(binary, 0)
 
 		if crc_bootloader != crc_loader:
-			print('Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}')
+			print('Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}'.format(crc_loader, crc_bootloader))
 			return False
 		else:
 			print('CRC check passed. Binaries successfully loaded.')

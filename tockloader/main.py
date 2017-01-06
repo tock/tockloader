@@ -315,6 +315,57 @@ class TockLoader:
 		return True
 
 
+	# Add the binary to the end of the currently flashed apps
+	def append_binary (self, binary, address):
+		# Enter bootloader mode to get things started
+		entered = self._enter_bootloader_mode();
+		if not entered:
+			return False
+
+		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
+		if len(binary) % 512 != 0:
+			remaining = 512 - (len(binary) % 512)
+			binary += bytes([0xFF]*remaining)
+
+		# Time the programming operation
+		then = time.time()
+
+		# Find the end of the existing apps
+		start_address = address
+
+		while (True):
+			header_length = 76 # Version 1
+			flash = self._read_range(start_address, header_length)
+
+			# Get all the fields from the header
+			atbfh = self._parse_tbf_header(flash)
+
+			if atbfh['version'] == 1:
+				start_address += atbfh['total_size']
+			else:
+				# At the end of valid apps
+				break
+
+		print('Found next available app location: {:#010x}'.format(start_address))
+		print('Adding the binary...')
+		flashed = self._flash_binary(start_address, binary)
+		if not flashed:
+			return False
+
+		# And check the CRC
+		crc_passed = self._check_crc(start_address, binary)
+		if not crc_passed:
+			return False
+
+		# How long did it take?
+		now = time.time()
+		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
+
+		# Done
+		self._exit_bootloader_mode()
+		return True
+
+
 	############################
 	## Internal Helper Functions
 	############################
@@ -606,6 +657,29 @@ def command_replace (args):
 		print('Could not replace the binary.')
 		sys.exit(1)
 
+
+def command_append (args):
+	# Load in all binaries
+	binary = bytes([])
+	for binary_filename in args.binary:
+		try:
+			with open(binary_filename, 'rb') as f:
+				binary += f.read()
+		except Exception as e:
+			print('Error opening and reading "{}"'.format(binary_filename))
+			sys.exit(1)
+
+	# Flash the binary to the chip
+	tock_loader = TockLoader()
+	success = tock_loader.open(port=args.port)
+	if not success:
+		print('Could not open the serial port. Make sure the board is plugged in.')
+		sys.exit(1)
+	success = tock_loader.append_binary(binary, args.address)
+	if not success:
+		print('Could not flash the binaries.')
+		sys.exit(1)
+
 ################################################################################
 ## Setup and parse command line arguments
 ################################################################################
@@ -655,6 +729,17 @@ def main ():
 		help='The binary file to use as the replacement',
 		nargs=1)
 	replace.add_argument('--address', '-a',
+		help='Address where apps are placed',
+		type=lambda x: int(x, 0),
+		default=0x30000)
+
+	append = subparser.add_parser('append',
+		help='Add an app to the end of the already flashed apps')
+	append.set_defaults(func=command_append)
+	append.add_argument('binary',
+		help='The binary file to use as the replacement',
+		nargs='+')
+	append.add_argument('--address', '-a',
 		help='Address where apps are placed',
 		type=lambda x: int(x, 0),
 		default=0x30000)

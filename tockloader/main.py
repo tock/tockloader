@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import binascii
 import struct
 import sys
 import time
@@ -29,7 +30,7 @@ COMMAND_WRITE_PAGE         = 0x07
 COMMAND_XEBLOCK            = 0x08
 COMMAND_XWPAGE             = 0x09
 COMMAND_CRCRX              = 0x10
-COMMAND_RRANGE             = 0x11
+COMMAND_READ_RANGE         = 0x11
 COMMAND_XRRANGE            = 0x12
 COMMAND_SATTR              = 0x13
 COMMAND_GATTR              = 0x14
@@ -51,7 +52,7 @@ RESPONSE_UNKNOWN            = 0x16
 RESPONSE_XFTIMEOUT          = 0x17
 RESPONSE_XFEPE              = 0x18
 RESPONSE_CRCRX              = 0x19
-RESPONSE_RRANGE             = 0x20
+RESPONSE_READ_RANGE         = 0x20
 RESPONSE_XRRANGE            = 0x21
 RESPONSE_GATTR              = 0x22
 RESPONSE_CRC_INTERNAL_FLASH = 0x23
@@ -299,6 +300,140 @@ class TockLoader:
 		miniterm.close()
 
 
+	# Query the chip's flash to determine which apps are installed.
+	def list_apps (self, address, verbose):
+		# Enter bootloader mode to get things started
+		self.enter_bootloader_mode();
+
+		# Make sure the bootloader is actually active and we can talk to it.
+		alive = self.ping_bootloader_and_wait_for_response()
+		if not alive:
+			print('Error connecting to bootloader. No "pong" received.')
+			print('Things that could be wrong:')
+			print('  - The bootloader is not flashed on the chip')
+			print('  - The DTR/RTS lines are not working')
+			print('  - The serial port being used is incorrect')
+			print('  - The bootloader API has changed')
+			print('  - There is a bug in this script')
+			return False
+
+		# Keep track of which app this is
+		app_index = 0
+		start_address = address
+
+
+		# Read the first range of bytes from the application section of flash
+		# to get the Tock Binary Format header.
+
+		while (True):
+			header_lengh = 76 # Version 1
+			flash = self._read_range(start_address, header_lengh)
+
+			# Read first word to get the TBF version
+			version = struct.unpack('<I', flash[0:4])[0]
+
+			if version == 1:
+				tbf_header = struct.unpack('<IIIIIIIIIIIIIIIIII', flash[4:76])
+				total_size = tbf_header[0]
+				entry_offset = tbf_header[1]
+				rel_data_offset = tbf_header[2]
+				rel_data_size = tbf_header[3]
+				text_offset = tbf_header[4]
+				text_size = tbf_header[5]
+				got_offset = tbf_header[6]
+				got_size = tbf_header[7]
+				data_offset = tbf_header[8]
+				data_size = tbf_header[9]
+				bss_mem_offset = tbf_header[10]
+				bss_mem_size = tbf_header[11]
+				min_stack_len = tbf_header[12]
+				min_app_heap_len = tbf_header[13]
+				min_kernel_heap_len = tbf_header[14]
+				package_name_offset = tbf_header[15]
+				package_name_size = tbf_header[16]
+				checksum = tbf_header[17]
+
+				# Get name if possible
+				name = ''
+				if package_name_size > 0:
+					name_memory = self._read_range(start_address + package_name_offset, package_name_size)
+					name = name_memory.decode('utf-8')
+
+				print('[App {}]'.format(app_index))
+				print('  Name:                  {}'.format(name))
+				print('  Flash Start Address:   {:#010x}'.format(start_address))
+				print('  Flash End Address:     {:#010x}'.format(start_address+total_size-1))
+
+				if verbose:
+					print('  Flash End Address:     {:#010x}'.format(start_address+total_size-1))
+					print('  Entry Address:         {:#010x}'.format(start_address+entry_offset))
+					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+rel_data_offset, rel_data_size))
+					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+text_offset, text_size))
+					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+got_offset, got_size))
+					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+data_offset, data_size))
+					print('  BSS Memory Address:    {:#010x} (length: {} bytes)'.format(start_address+bss_mem_offset, bss_mem_size))
+					print('  Minimum Stack Size:    {} bytes'.format(min_stack_len))
+					print('  Minimum Heap Size:     {} bytes'.format(min_app_heap_len))
+					print('  Minimum Grant Size:    {} bytes'.format(min_kernel_heap_len))
+					print('  Checksum:              {:#010x}'.format(checksum))
+
+				# Increment to next app and check there
+				start_address += total_size
+				app_index += 1
+			elif version == 0xffffffff or version == 0:
+				if app_index == 0:
+					print('No apps currently flashed.')
+				break
+			else:
+				print('Found Tock Binary Format header version {}'.format(version))
+				print('This version of tockloader does not know how to parse that.')
+				break
+
+			print('')
+
+		# Done
+		self.exit_bootloader_mode()
+		return True
+
+
+	# Setup a command to send to the bootloader and handle the response.
+	def _issue_command (self, command, message, sync, response_len, response_code):
+		if sync:
+			self.sp.write(SYNC_MESSAGE)
+			time.sleep(0.0001)
+
+		# Generate the message to send to the bootloader
+		pkt = message + bytes([ESCAPE_CHAR, command])
+		self.sp.write(pkt)
+
+		# Response has a two byte header, then response_len bytes
+		ret = self.sp.read(2 + response_len)
+		if len(ret) < 2:
+			print('Error: No response after issuing command')
+			return (False, bytes())
+
+		if ret[0] != ESCAPE_CHAR:
+			print('Error: Invalid response from bootloader (no escape character)')
+			return (False, bytes())
+		if ret[1] != response_code:
+			print('Error: Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
+			return (False, bytes())
+		if len(ret) != 2 + response_len:
+			print('Error: Incorrect number of bytes received')
+			return (False, bytes())
+
+		return (True, ret[2:])
+
+	# Read a specific range of flash.
+	def _read_range (self, address, length):
+		message = struct.pack('<IH', address, length)
+		success, flash = self._issue_command(COMMAND_READ_RANGE, message, True, length, RESPONSE_READ_RANGE)
+
+		if not success:
+			print('Error: Could not read flash')
+		return flash
+
+
 ################################################################################
 ## Command Functions
 ################################################################################
@@ -338,6 +473,15 @@ def command_listen (args):
 	tock_loader.run_terminal()
 
 
+def command_list (args):
+	tock_loader = TockLoader()
+	success = tock_loader.open(port=args.port)
+	if not success:
+		print('Could not open the serial port. Make sure the board is plugged in.')
+		sys.exit(1)
+	tock_loader.list_apps(args.address, args.verbose)
+
+
 ################################################################################
 ## Setup and parse command line arguments
 ################################################################################
@@ -368,6 +512,17 @@ def main ():
 	listen = subparser.add_parser('listen',
 		help='Open a terminal to receive UART data')
 	listen.set_defaults(func=command_listen)
+
+	listcmd = subparser.add_parser('list',
+		help='List the apps installed on the board')
+	listcmd.set_defaults(func=command_list)
+	listcmd.add_argument('--address', '-a',
+		help='Address to flash the binary at',
+		type=lambda x: int(x, 0),
+		default=0x30000)
+	listcmd.add_argument('--verbose', '-v',
+		help='Print more information',
+		action='store_true')
 
 	args = parser.parse_args()
 	if hasattr(args, 'func'):

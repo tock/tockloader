@@ -140,6 +140,11 @@ class TockLoader:
 		if not crc_passed:
 			return False
 
+		# Then erase the next page. This ensures that flash is clean at the
+		# end of the installed apps and makes things nicer for future uses of
+		# this script.
+		self._erase_page(address + len(binary))
+
 		# How long did that take
 		now = time.time()
 		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
@@ -364,6 +369,11 @@ class TockLoader:
 		if not crc_passed:
 			return False
 
+		# Then erase the next page. This ensures that flash is clean at the
+		# end of the installed apps and makes things nicer for future uses of
+		# this script.
+		self._erase_page(start_address + len(binary))
+
 		# How long did it take?
 		now = time.time()
 		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
@@ -521,10 +531,31 @@ class TockLoader:
 			print('Error: Could not read flash')
 		return flash
 
+	# Read a specific range of flash.
+	def _erase_page (self, address):
+		message = struct.pack('<I', address)
+		success, ret = self._issue_command(COMMAND_ERASE_PAGE, message, True, 0, RESPONSE_OK)
+
+		if not success:
+			if ret[1] == RESPONSE_BADADDR:
+				print('Error: Page erase address was not on a page boundary.')
+			elif ret[1] == RESPONSE_BADARGS:
+				print('Error: Need to supply erase page with correct 4 byte address.')
+			elif ret[1] == RESPONSE_INTERROR:
+				print('Error: Internal error when erasing flash page.')
+			else:
+				print('Error: 0x{:X}'.format(ret[1]))
+		return success
+
 	# Get the bootloader to compute a CRC
 	def _get_crc_internal_flash (self, address, length):
 		message = struct.pack('<II', address, length)
 		success, crc = self._issue_command(COMMAND_CRC_INTERNAL_FLASH, message, True, 4, RESPONSE_CRC_INTERNAL_FLASH)
+
+		# There is a bug in a version of the bootloader where the CRC returns 6
+		# bytes and not just 4. Need to read just in case to grab those extra
+		# bytes.
+		self.sp.read(2)
 
 		if not success:
 			if crc[1] == RESPONSE_BADADDR:

@@ -230,37 +230,10 @@ class TockLoader:
 		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 		# Check the CRC
-		# Start by doing a sync
-		self.sp.write(SYNC_MESSAGE)
-		time.sleep(0.0001)
+		crc_data = self._get_crc_internal_flash(address, len(binary))
 
-		# Generate the message to send to the bootloader
-		pkt = struct.pack('<II', address, len(binary)) + bytes([ESCAPE_CHAR, COMMAND_CRC_INTERNAL_FLASH])
-		self.sp.write(pkt)
-
-		# Response has a two byte header, then four byte CRC
-		ret = self.sp.read(6)
-		if len(ret) < 2:
-			print('Error: No response when requesting the CRC')
-			return False
-
-		# Check that we got a valid return code
-		if ret[0] != ESCAPE_CHAR:
-			print('Error: Invalid response from bootloader when asking for CRC')
-			return False
-
-		if ret[1] != RESPONSE_CRC_INTERNAL_FLASH:
-			print('Error: Error when flashing page')
-			if ret[1] == RESPONSE_BADADDR:
-				print('Error: RESPONSE_BADADDR: Invalid address for CRC (address: 0x{:X})'.format(address))
-			elif ret[1] == RESPONSE_BADARGS:
-				print('Error: RESPONSE_BADARGS: Invalid length for CRC check')
-			else:
-				print('Error: 0x{:X}'.format(ret[1]))
-			return False
-
-		# Now interpret the last four bytes as the CRC
-		crc_bootloader = struct.unpack("<I", ret[2:6])[0]
+		# Now interpret the returned bytes as the CRC
+		crc_bootloader = struct.unpack("<I", crc_data[0:4])[0]
 
 		# Calculate the CRC locally
 		crc_function = crcmod.mkCrcFun(0x104c11db7, initCrc=0, xorOut=0xFFFFFFFF)
@@ -414,13 +387,13 @@ class TockLoader:
 
 		if ret[0] != ESCAPE_CHAR:
 			print('Error: Invalid response from bootloader (no escape character)')
-			return (False, bytes())
+			return (False, ret[0:2])
 		if ret[1] != response_code:
 			print('Error: Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
-			return (False, bytes())
+			return (False, ret[0:2])
 		if len(ret) != 2 + response_len:
 			print('Error: Incorrect number of bytes received')
-			return (False, bytes())
+			return (False, ret[0:2])
 
 		return (True, ret[2:])
 
@@ -432,6 +405,22 @@ class TockLoader:
 		if not success:
 			print('Error: Could not read flash')
 		return flash
+
+	# Get the bootloader to compute a CRC
+	def _get_crc_internal_flash (self, address, length):
+		message = struct.pack('<II', address, length)
+		success, crc = self._issue_command(COMMAND_CRC_INTERNAL_FLASH, message, True, 4, RESPONSE_CRC_INTERNAL_FLASH)
+
+		if not success:
+			if crc[1] == RESPONSE_BADADDR:
+				print('Error: RESPONSE_BADADDR: Invalid address for CRC (address: 0x{:X})'.format(address))
+			elif crc[1] == RESPONSE_BADARGS:
+				print('Error: RESPONSE_BADARGS: Invalid length for CRC check')
+			else:
+				print('Error: 0x{:X}'.format(crc[1]))
+			return bytes()
+
+		return crc
 
 
 ################################################################################

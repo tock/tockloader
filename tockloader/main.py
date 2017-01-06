@@ -316,7 +316,7 @@ class TockLoader:
 
 
 	# Add the binary to the end of the currently flashed apps
-	def append_binary (self, binary, address):
+	def append_binary (self, binary, address, force):
 		# Enter bootloader mode to get things started
 		entered = self._enter_bootloader_mode();
 		if not entered:
@@ -342,9 +342,16 @@ class TockLoader:
 
 			if atbfh['version'] == 1:
 				start_address += atbfh['total_size']
-			else:
+			elif atbfh['version'] == 0 or atbfh['version'] == 0xffffffff or force:
 				# At the end of valid apps
 				break
+			else:
+				print('Found Tock Binary Format header version {}'.format(atbfh['version']))
+				print('This version of tockloader does not know how to parse that.')
+				print('Not sure if it is save to flash an app here.')
+				print('Add --force to add the app here anyway.')
+				print('Aborting.')
+				return False
 
 		print('Found next available app location: {:#010x}'.format(start_address))
 		print('Adding the binary...')
@@ -675,7 +682,7 @@ def command_append (args):
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
-	success = tock_loader.append_binary(binary, args.address)
+	success = tock_loader.append_binary(binary, args.address, args.force)
 	if not success:
 		print('Could not flash the binaries.')
 		sys.exit(1)
@@ -743,6 +750,9 @@ def main ():
 		help='Address where apps are placed',
 		type=lambda x: int(x, 0),
 		default=0x30000)
+	append.add_argument('--force',
+		help='Add the binary at the end of known apps unconditionally',
+		action='store_true')
 
 	args = parser.parse_args()
 	if hasattr(args, 'func'):

@@ -641,9 +641,6 @@ def command_flash (args):
 			print('Error opening and reading "{}"'.format(binary_filename))
 			sys.exit(1)
 
-	# Temporary: append 0x00s to signal the end of valid applications
-	binary += bytes([0]*8)
-
 	# Flash the binary to the chip
 	tock_loader = TockLoader()
 	success = tock_loader.open(port=args.port)

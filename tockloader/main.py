@@ -109,9 +109,219 @@ class TockLoader:
 
 		return True
 
+
+	# Tell the bootloader to save the binary blob to an address in internal
+	# flash.
+	#
+	# This will pad the binary as needed, so don't worry about the binary being
+	# a certain length.
+	#
+	# Returns False if there is an error.
+	def flash_binary (self, binary, address):
+		# Enter bootloader mode to get things started
+		entered = self._enter_bootloader_mode();
+		if not entered:
+			return False
+
+		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
+		if len(binary) % 512 != 0:
+			remaining = 512 - (len(binary) % 512)
+			binary += bytes([0xFF]*remaining)
+
+		# Time the programming operation
+		then = time.time()
+
+		flashed = self._flash_binary(address, binary)
+		if not flashed:
+			return False
+
+		# And check the CRC
+		crc_passed = self._check_crc(address, binary)
+		if not crc_passed:
+			return False
+
+		# How long did that take
+		now = time.time()
+		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
+
+		# All done, now run the application
+		self._exit_bootloader_mode()
+
+		return True
+
+	# Run miniterm for receiving data from the board.
+	def run_terminal (self):
+		# Use trusty miniterm
+		miniterm = serial.tools.miniterm.Miniterm(
+			self.sp,
+			echo=False,
+			eol='crlf',
+			filters=['default'])
+
+		# Ctrl+c to exit.
+		miniterm.exit_character = serial.tools.miniterm.unichr(0x03)
+		miniterm.set_rx_encoding('UTF-8')
+		miniterm.set_tx_encoding('UTF-8')
+
+		miniterm.start()
+		try:
+			miniterm.join(True)
+		except KeyboardInterrupt:
+			pass
+		miniterm.join()
+		miniterm.close()
+
+
+	# Query the chip's flash to determine which apps are installed.
+	def list_apps (self, address, verbose):
+		# Enter bootloader mode to get things started
+		entered = self._enter_bootloader_mode();
+		if not entered:
+			return False
+
+		# Keep track of which app this is
+		app_index = 0
+		start_address = address
+
+		# Read the first range of bytes from the application section of flash
+		# to get the Tock Binary Format header.
+		while (True):
+			header_length = 76 # Version 1
+			flash = self._read_range(start_address, header_length)
+
+			# Get all the fields from the header
+			tbfh = self._parse_tbf_header(flash)
+
+			if tbfh['version'] == 1:
+
+				# Get name if possible
+				name = self._get_app_name(start_address + tbfh['package_name_offset'], tbfh['package_name_size'])
+
+				print('[App {}]'.format(app_index))
+				print('  Name:                  {}'.format(name))
+				print('  Flash Start Address:   {:#010x}'.format(start_address))
+				print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
+
+				if verbose:
+					print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
+					print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
+					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
+					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
+					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
+					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
+					print('  BSS Memory Address:    {:#010x} (length: {} bytes)'.format(start_address+tbfh['bss_mem_offset'], tbfh['bss_mem_size']))
+					print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
+					print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
+					print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
+					print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
+
+				# Increment to next app and check there
+				start_address += tbfh['total_size']
+				app_index += 1
+			elif tbfh['version'] == 0xffffffff or tbfh['version'] == 0:
+				if app_index == 0:
+					print('No apps currently flashed.')
+				break
+			else:
+				print('Found Tock Binary Format header version {}'.format(tbfh['version']))
+				print('This version of tockloader does not know how to parse that.')
+				break
+
+			print('')
+
+		# Done
+		self._exit_bootloader_mode()
+		return True
+
+
+	# Inspect the given binary and find one that matches that's already programmed,
+	# then replace it on the chip. address is the starting address to search
+	# for apps.
+	def replace_binary (self, binary, address):
+		# Enter bootloader mode to get things started
+		entered = self._enter_bootloader_mode();
+		if not entered:
+			return False
+
+		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
+		if len(binary) % 512 != 0:
+			remaining = 512 - (len(binary) % 512)
+			binary += bytes([0xFF]*remaining)
+
+		# Get the application name and properties to match it with
+		tbfh = self._parse_tbf_header(binary)
+
+		# Need its name to match to existing apps
+		name_binary = binary[tbfh['package_name_offset']:tbfh['package_name_offset']+tbfh['package_name_size']];
+		new_name = name_binary.decode('utf-8')
+
+		# Time the programming operation
+		then = time.time()
+
+		# Find the matching app and make sure there is enough space
+		start_address = address
+
+		while (True):
+			header_length = 76 # Version 1
+			flash = self._read_range(start_address, header_length)
+
+			# Get all the fields from the header
+			atbfh = self._parse_tbf_header(flash)
+
+			if atbfh['version'] == 1:
+				# Get the name out of the app
+				name = self._get_app_name(start_address+atbfh['package_name_offset'], atbfh['package_name_size'])
+
+				# Check that the name matches the app we are trying to flash
+				if name == new_name:
+					# Now check that the app is the same size
+					if atbfh['total_size'] == tbfh['total_size']:
+						# Great we can just overwrite it!
+						print('Found matching binary at address {:#010x}'.format(start_address))
+						print('Replacing the binary...')
+						flashed = self._flash_binary(start_address, binary)
+						if not flashed:
+							return False
+
+						# And check the CRC
+						crc_passed = self._check_crc(start_address, binary)
+						if not crc_passed:
+							return False
+
+						break
+
+					else:
+						print('Replacement app ({} bytes) is not the same size as the existing app ({} bytes)'.format(atbfh['total_size'], tbfh['total_size']))
+						print('Cannot replace this app.')
+						print('In the future, we could move apps so they all can fit.')
+						print('But that future isn\'t today')
+						return False
+
+				start_address += atbfh['total_size']
+
+			else:
+				# At the end of valid apps
+				# We did not find a matching app.
+				print('No app named "{}" found on the board.'.format(new_name))
+				print('Cannot replace.')
+				return False
+
+		# How long did it take?
+		now = time.time()
+		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
+
+		# Done
+		self._exit_bootloader_mode()
+		return True
+
+
+	############################
+	## Internal Helper Functions
+	############################
+
 	# Reset the chip and assert the bootloader select pin to enter bootloader
 	# mode.
-	def enter_bootloader_mode (self):
+	def _toggle_bootloader_entry (self):
 		# Reset the SAM4L
 		self.sp.dtr = 1
 		# Set RTS to make the SAM4L go into bootloader mode
@@ -125,8 +335,26 @@ class TockLoader:
 		# The select line can go back high
 		self.sp.rts = 0
 
+	# Reset the chip and assert the bootloader select pin to enter bootloader
+	# mode.
+	def _enter_bootloader_mode (self):
+		self._toggle_bootloader_entry()
+
+		# Make sure the bootloader is actually active and we can talk to it.
+		alive = self._ping_bootloader_and_wait_for_response()
+		if not alive:
+			print('Error connecting to bootloader. No "pong" received.')
+			print('Things that could be wrong:')
+			print('  - The bootloader is not flashed on the chip')
+			print('  - The DTR/RTS lines are not working')
+			print('  - The serial port being used is incorrect')
+			print('  - The bootloader API has changed')
+			print('  - There is a bug in this script')
+			return False
+		return True
+
 	# Reset the chip to exit bootloader mode
-	def exit_bootloader_mode (self):
+	def _exit_bootloader_mode (self):
 		# Reset the SAM4L
 		self.sp.dtr = 1
 		# Make sure this line is de-asserted (high)
@@ -137,7 +365,7 @@ class TockLoader:
 		self.sp.dtr = 0
 
 	# Returns True if the device is there and responding, False otherwise
-	def ping_bootloader_and_wait_for_response (self):
+	def _ping_bootloader_and_wait_for_response (self):
 		for i in range(30):
 			# Try to ping the SAM4L to ensure it is in bootloader mode
 			ping_pkt = bytes([0xFC, 0x01])
@@ -149,38 +377,37 @@ class TockLoader:
 				return True
 		return False
 
+	# Setup a command to send to the bootloader and handle the response.
+	def _issue_command (self, command, message, sync, response_len, response_code):
+		if sync:
+			self.sp.write(SYNC_MESSAGE)
+			time.sleep(0.0001)
 
-	# Tell the bootloader to save the binary blob to an address in internal
-	# flash.
-	#
-	# This will pad the binary as needed, so don't worry about the binary being
-	# a certain length.
-	#
-	# Returns False if there is an error.
-	def flash_binary (self, binary, address):
-		# Enter bootloader mode to get things started
-		self.enter_bootloader_mode();
+		# Generate the message to send to the bootloader
+		pkt = message + bytes([ESCAPE_CHAR, command])
+		self.sp.write(pkt)
 
-		# Make sure the bootloader is actually active and we can talk to it.
-		alive = self.ping_bootloader_and_wait_for_response()
-		if not alive:
-			print('Error connecting to bootloader. No "pong" received.')
-			print('Things that could be wrong:')
-			print('  - The bootloader is not flashed on the chip')
-			print('  - The DTR/RTS lines are not working')
-			print('  - The serial port being used is incorrect')
-			print('  - The bootloader API has changed')
-			print('  - There is a bug in this script')
-			return False
+		# Response has a two byte header, then response_len bytes
+		ret = self.sp.read(2 + response_len)
+		if len(ret) < 2:
+			print('Error: No response after issuing command')
+			return (False, bytes())
 
-		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
-		if len(binary) % 512 != 0:
-			remaining = 512 - (len(binary) % 512)
-			binary += bytes([0xFF]*remaining)
+		if ret[0] != ESCAPE_CHAR:
+			print('Error: Invalid response from bootloader (no escape character)')
+			return (False, ret[0:2])
+		if ret[1] != response_code:
+			print('Error: Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
+			return (False, ret[0:2])
+		if len(ret) != 2 + response_len:
+			print('Error: Incorrect number of bytes received')
+			return (False, ret[0:2])
 
-		# Time the programming operation
-		then = time.time()
+		return (True, ret[2:])
 
+	# Write pages until a binary has been flashed. binary must have a length that
+	# is a multiple of 512.
+	def _flash_binary (self, address, binary):
 		# Loop through the binary 512 bytes at a time until it has been flashed
 		# to the chip.
 		for i in range(len(binary) // 512):
@@ -225,177 +452,7 @@ class TockLoader:
 					print('Error: 0x{:X}'.format(ret[1]))
 				return False
 
-		# How long did that take
-		now = time.time()
-		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
-
-		# Check the CRC
-		crc_data = self._get_crc_internal_flash(address, len(binary))
-
-		# Now interpret the returned bytes as the CRC
-		crc_bootloader = struct.unpack("<I", crc_data[0:4])[0]
-
-		# Calculate the CRC locally
-		crc_function = crcmod.mkCrcFun(0x104c11db7, initCrc=0, xorOut=0xFFFFFFFF)
-		crc_loader = crc_function(binary, 0)
-
-		if crc_bootloader != crc_loader:
-			print('Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}'.format(crc_loader, crc_bootloader))
-			return False
-		else:
-			print('CRC check passed. Binaries successfully loaded.')
-
-		# All done, now run the application
-		self.exit_bootloader_mode()
-
 		return True
-
-	# Run miniterm for receiving data from the board.
-	def run_terminal (self):
-		# Use trusty miniterm
-		miniterm = serial.tools.miniterm.Miniterm(
-			self.sp,
-			echo=False,
-			eol='crlf',
-			filters=['default'])
-
-		# Ctrl+c to exit.
-		miniterm.exit_character = serial.tools.miniterm.unichr(0x03)
-		miniterm.set_rx_encoding('UTF-8')
-		miniterm.set_tx_encoding('UTF-8')
-
-		miniterm.start()
-		try:
-			miniterm.join(True)
-		except KeyboardInterrupt:
-			pass
-		miniterm.join()
-		miniterm.close()
-
-
-	# Query the chip's flash to determine which apps are installed.
-	def list_apps (self, address, verbose):
-		# Enter bootloader mode to get things started
-		self.enter_bootloader_mode();
-
-		# Make sure the bootloader is actually active and we can talk to it.
-		alive = self.ping_bootloader_and_wait_for_response()
-		if not alive:
-			print('Error connecting to bootloader. No "pong" received.')
-			print('Things that could be wrong:')
-			print('  - The bootloader is not flashed on the chip')
-			print('  - The DTR/RTS lines are not working')
-			print('  - The serial port being used is incorrect')
-			print('  - The bootloader API has changed')
-			print('  - There is a bug in this script')
-			return False
-
-		# Keep track of which app this is
-		app_index = 0
-		start_address = address
-
-
-		# Read the first range of bytes from the application section of flash
-		# to get the Tock Binary Format header.
-
-		while (True):
-			header_lengh = 76 # Version 1
-			flash = self._read_range(start_address, header_lengh)
-
-			# Read first word to get the TBF version
-			version = struct.unpack('<I', flash[0:4])[0]
-
-			if version == 1:
-				tbf_header = struct.unpack('<IIIIIIIIIIIIIIIIII', flash[4:76])
-				total_size = tbf_header[0]
-				entry_offset = tbf_header[1]
-				rel_data_offset = tbf_header[2]
-				rel_data_size = tbf_header[3]
-				text_offset = tbf_header[4]
-				text_size = tbf_header[5]
-				got_offset = tbf_header[6]
-				got_size = tbf_header[7]
-				data_offset = tbf_header[8]
-				data_size = tbf_header[9]
-				bss_mem_offset = tbf_header[10]
-				bss_mem_size = tbf_header[11]
-				min_stack_len = tbf_header[12]
-				min_app_heap_len = tbf_header[13]
-				min_kernel_heap_len = tbf_header[14]
-				package_name_offset = tbf_header[15]
-				package_name_size = tbf_header[16]
-				checksum = tbf_header[17]
-
-				# Get name if possible
-				name = ''
-				if package_name_size > 0:
-					name_memory = self._read_range(start_address + package_name_offset, package_name_size)
-					name = name_memory.decode('utf-8')
-
-				print('[App {}]'.format(app_index))
-				print('  Name:                  {}'.format(name))
-				print('  Flash Start Address:   {:#010x}'.format(start_address))
-				print('  Flash End Address:     {:#010x}'.format(start_address+total_size-1))
-
-				if verbose:
-					print('  Flash End Address:     {:#010x}'.format(start_address+total_size-1))
-					print('  Entry Address:         {:#010x}'.format(start_address+entry_offset))
-					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+rel_data_offset, rel_data_size))
-					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+text_offset, text_size))
-					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+got_offset, got_size))
-					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+data_offset, data_size))
-					print('  BSS Memory Address:    {:#010x} (length: {} bytes)'.format(start_address+bss_mem_offset, bss_mem_size))
-					print('  Minimum Stack Size:    {} bytes'.format(min_stack_len))
-					print('  Minimum Heap Size:     {} bytes'.format(min_app_heap_len))
-					print('  Minimum Grant Size:    {} bytes'.format(min_kernel_heap_len))
-					print('  Checksum:              {:#010x}'.format(checksum))
-
-				# Increment to next app and check there
-				start_address += total_size
-				app_index += 1
-			elif version == 0xffffffff or version == 0:
-				if app_index == 0:
-					print('No apps currently flashed.')
-				break
-			else:
-				print('Found Tock Binary Format header version {}'.format(version))
-				print('This version of tockloader does not know how to parse that.')
-				break
-
-			print('')
-
-		# Done
-		self.exit_bootloader_mode()
-		return True
-
-
-	# Setup a command to send to the bootloader and handle the response.
-	def _issue_command (self, command, message, sync, response_len, response_code):
-		if sync:
-			self.sp.write(SYNC_MESSAGE)
-			time.sleep(0.0001)
-
-		# Generate the message to send to the bootloader
-		pkt = message + bytes([ESCAPE_CHAR, command])
-		self.sp.write(pkt)
-
-		# Response has a two byte header, then response_len bytes
-		ret = self.sp.read(2 + response_len)
-		if len(ret) < 2:
-			print('Error: No response after issuing command')
-			return (False, bytes())
-
-		if ret[0] != ESCAPE_CHAR:
-			print('Error: Invalid response from bootloader (no escape character)')
-			return (False, ret[0:2])
-		if ret[1] != response_code:
-			print('Error: Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
-			return (False, ret[0:2])
-		if len(ret) != 2 + response_len:
-			print('Error: Incorrect number of bytes received')
-			return (False, ret[0:2])
-
-		return (True, ret[2:])
 
 	# Read a specific range of flash.
 	def _read_range (self, address, length):
@@ -421,6 +478,63 @@ class TockLoader:
 			return bytes()
 
 		return crc
+
+	# Compares the CRC of the local binary to the one calculated by the bootloader
+	def _check_crc (self, address, binary):
+		# Check the CRC
+		crc_data = self._get_crc_internal_flash(address, len(binary))
+
+		# Now interpret the returned bytes as the CRC
+		crc_bootloader = struct.unpack("<I", crc_data[0:4])[0]
+
+		# Calculate the CRC locally
+		crc_function = crcmod.mkCrcFun(0x104c11db7, initCrc=0, xorOut=0xFFFFFFFF)
+		crc_loader = crc_function(binary, 0)
+
+		if crc_bootloader != crc_loader:
+			print('Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}'.format(crc_loader, crc_bootloader))
+			return False
+		else:
+			print('CRC check passed. Binaries successfully loaded.')
+			return True
+
+	# Retrieve bytes from the board and interpret them as a string
+	def _get_app_name (self, address, length):
+		if length == 0:
+			return ''
+
+		name_memory = self._read_range(address, length)
+		return name_memory.decode('utf-8')
+
+	# Parses a buffer into the Tock Binary Format header fields
+	def _parse_tbf_header (self, buffer):
+		out = {}
+
+		# Read first word to get the TBF version
+		out['version'] = struct.unpack('<I', buffer[0:4])[0]
+
+		if out['version'] == 1:
+			tbf_header = struct.unpack('<IIIIIIIIIIIIIIIIII', buffer[4:76])
+			out['total_size'] = tbf_header[0]
+			out['entry_offset'] = tbf_header[1]
+			out['rel_data_offset'] = tbf_header[2]
+			out['rel_data_size'] = tbf_header[3]
+			out['text_offset'] = tbf_header[4]
+			out['text_size'] = tbf_header[5]
+			out['got_offset'] = tbf_header[6]
+			out['got_size'] = tbf_header[7]
+			out['data_offset'] = tbf_header[8]
+			out['data_size'] = tbf_header[9]
+			out['bss_mem_offset'] = tbf_header[10]
+			out['bss_mem_size'] = tbf_header[11]
+			out['min_stack_len'] = tbf_header[12]
+			out['min_app_heap_len'] = tbf_header[13]
+			out['min_kernel_heap_len'] = tbf_header[14]
+			out['package_name_offset'] = tbf_header[15]
+			out['package_name_size'] = tbf_header[16]
+			out['checksum'] = tbf_header[17]
+
+		return out
 
 
 ################################################################################
@@ -471,6 +585,27 @@ def command_list (args):
 	tock_loader.list_apps(args.address, args.verbose)
 
 
+def command_replace (args):
+	# Load in all binaries
+	binary = bytes([])
+	try:
+		with open(args.binary[0], 'rb') as f:
+			binary += f.read()
+	except Exception as e:
+		print('Error opening and reading "{}"'.format(args.binary[0]))
+		sys.exit(1)
+
+	# Flash the binary to the chip
+	tock_loader = TockLoader()
+	success = tock_loader.open(port=args.port)
+	if not success:
+		print('Could not open the serial port. Make sure the board is plugged in.')
+		sys.exit(1)
+	success = tock_loader.replace_binary(binary, args.address)
+	if not success:
+		print('Could not replace the binary.')
+		sys.exit(1)
+
 ################################################################################
 ## Setup and parse command line arguments
 ################################################################################
@@ -512,6 +647,17 @@ def main ():
 	listcmd.add_argument('--verbose', '-v',
 		help='Print more information',
 		action='store_true')
+
+	replace = subparser.add_parser('replace',
+		help='Replace an already flashed app with this binary')
+	replace.set_defaults(func=command_replace)
+	replace.add_argument('binary',
+		help='The binary file to use as the replacement',
+		nargs=1)
+	replace.add_argument('--address', '-a',
+		help='Address where apps are placed',
+		type=lambda x: int(x, 0),
+		default=0x30000)
 
 	args = parser.parse_args()
 	if hasattr(args, 'func'):

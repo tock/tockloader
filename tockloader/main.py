@@ -183,7 +183,7 @@ class TockLoader:
 
 
 	# Query the chip's flash to determine which apps are installed.
-	def list_apps (self, address, verbose):
+	def list_apps (self, address, verbose, quiet):
 		# Enter bootloader mode to get things started
 		entered = self._enter_bootloader_mode();
 		if not entered:
@@ -192,6 +192,7 @@ class TockLoader:
 		# Keep track of which app this is
 		app_index = 0
 		start_address = address
+		app_names = []
 
 		# Read the first range of bytes from the application section of flash
 		# to get the Tock Binary Format header.
@@ -207,23 +208,26 @@ class TockLoader:
 				# Get name if possible
 				name = self._get_app_name(start_address + tbfh['package_name_offset'], tbfh['package_name_size'])
 
-				print('[App {}]'.format(app_index))
-				print('  Name:                  {}'.format(name))
-				print('  Flash Start Address:   {:#010x}'.format(start_address))
-				print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
-
-				if verbose:
+				if quiet:
+					app_names.append(name)
+				else:
+					print('[App {}]'.format(app_index))
+					print('  Name:                  {}'.format(name))
+					print('  Flash Start Address:   {:#010x}'.format(start_address))
 					print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
-					print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
-					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
-					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
-					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
-					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
-					print('  BSS Memory Address:    {:#010x} (length: {} bytes)'.format(start_address+tbfh['bss_mem_offset'], tbfh['bss_mem_size']))
-					print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
-					print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
-					print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
-					print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
+
+					if verbose:
+						print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
+						print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
+						print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
+						print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
+						print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
+						print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
+						print('  BSS Memory Address:    {:#010x} (length: {} bytes)'.format(start_address+tbfh['bss_mem_offset'], tbfh['bss_mem_size']))
+						print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
+						print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
+						print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
+						print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
 
 				# Increment to next app and check there
 				start_address += tbfh['total_size']
@@ -237,7 +241,11 @@ class TockLoader:
 				print('This version of tockloader does not know how to parse that.')
 				break
 
-			print('')
+			if not quiet:
+				print('')
+
+		if quiet:
+			print(' '.join(app_names))
 
 		# Done
 		self._exit_bootloader_mode()
@@ -726,7 +734,7 @@ def command_list (args):
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
-	tock_loader.list_apps(args.address, args.verbose)
+	tock_loader.list_apps(args.address, args.verbose, args.quiet)
 
 
 def command_replace (args):
@@ -817,6 +825,9 @@ def main ():
 		default=0x30000)
 	listcmd.add_argument('--verbose', '-v',
 		help='Print more information',
+		action='store_true')
+	listcmd.add_argument('--quiet', '-q',
+		help='Print just a list of application names',
 		action='store_true')
 
 	replace = subparser.add_parser('replace',

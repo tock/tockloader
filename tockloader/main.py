@@ -118,6 +118,28 @@ class TockLoader:
 
 		return True
 
+	# Given a binary that contains one or more apps, and an address to put
+	# those apps, this checks that the apps will be correctly aligned
+	def _apps_are_aligned_correctly (self, binary, address):
+		start_address = address
+
+		while True:
+			tbfh = self._parse_tbf_header(binary)
+
+			if tbfh['version'] == 1:
+				if not self._app_is_aligned_correctly(start_address, tbfh['total_size']):
+					return False
+
+				start_address += tbfh['total_size']
+				binary = binary[tbfh['total_size']:]
+				if len(binary) == 0:
+					break
+			else:
+				break
+
+		# If we haven't returned false yet, we're good
+		return True
+
 
 	# Tell the bootloader to save the binary blob to an address in internal
 	# flash.
@@ -207,7 +229,7 @@ class TockLoader:
 			# Get all the fields from the header
 			tbfh = self._parse_tbf_header(flash)
 
-			if tbfh['version'] == 1:
+			if tbfh['valid']:
 
 				# Get name if possible
 				name = self._get_app_name(start_address + tbfh['package_name_offset'], tbfh['package_name_size'])
@@ -217,10 +239,14 @@ class TockLoader:
 				else:
 					print('[App {}]'.format(app_index))
 					print('  Name:                  {}'.format(name))
-					print('  Flash Start Address:   {:#010x}'.format(start_address))
-					print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
+					print('  Total Size in Flash:   {} bytes'.format(tbfh['total_size']))
+
+					# Check if this app is OK with the MPU region requirements.
+					if not self._app_is_aligned_correctly(start_address, tbfh['total_size']):
+						print('  [WARNING] App is misaligned for the MPU')
 
 					if verbose:
+						print('  Flash Start Address:   {:#010x}'.format(start_address))
 						print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
 						print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
 						print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
@@ -235,13 +261,12 @@ class TockLoader:
 				# Increment to next app and check there
 				start_address += tbfh['total_size']
 				app_index += 1
-			elif tbfh['version'] == 0xffffffff or tbfh['version'] == 0:
-				if app_index == 0:
-					print('No apps currently flashed.')
-				break
 			else:
-				print('Found Tock Binary Format header version {}'.format(tbfh['version']))
-				print('This version of tockloader does not know how to parse that.')
+				if (tbfh['version'] == 0xffffffff or tbfh['version'] == 0) and app_index == 0:
+					print('No apps currently flashed.')
+				else:
+					print('Found Tock Binary Format header version {}'.format(tbfh['version']))
+					print('This version of tockloader does not know how to parse that.')
 				break
 
 			if not quiet:
@@ -297,6 +322,9 @@ class TockLoader:
 				if name == new_name:
 					# Now check that the app is the same size
 					if atbfh['total_size'] == tbfh['total_size']:
+						a = self._app_is_aligned_correctly(start_address, len(binary))
+						print(a)
+
 						# Great we can just overwrite it!
 						print('Found matching binary at address {:#010x}'.format(start_address))
 						print('Replacing the binary...')
@@ -626,7 +654,7 @@ class TockLoader:
 
 	# Parses a buffer into the Tock Binary Format header fields
 	def _parse_tbf_header (self, buffer):
-		out = {}
+		out = {'valid': False}
 
 		# Read first word to get the TBF version
 		out['version'] = struct.unpack('<I', buffer[0:4])[0]
@@ -652,7 +680,35 @@ class TockLoader:
 			out['package_name_size'] = tbf_header[16]
 			out['checksum'] = tbf_header[17]
 
+			xor = out['version'] ^ out['total_size'] ^ out['entry_offset'] \
+			      ^ out['rel_data_offset'] ^ out['rel_data_size'] ^ out['text_offset'] \
+			      ^ out['text_size'] ^ out['got_offset'] ^ out['got_size'] \
+			      ^ out['data_offset'] ^ out['data_size'] ^ out['bss_mem_offset'] \
+			      ^ out['bss_mem_size'] ^ out['min_stack_len'] \
+			      ^ out['min_app_heap_len'] ^ out['min_kernel_heap_len'] \
+			      ^ out['package_name_offset'] ^ out['package_name_size']
+
+			if xor == out['checksum']:
+				out['valid'] = True
+
 		return out
+
+	# Check if putting an app at this address will be OK with the MPU.
+	def _app_is_aligned_correctly (self, address, size):
+		# The rule for the MPU is that the size of the protected region must be
+		# a power of two, and that the region is aligned on a multiple of that
+		# size.
+
+		# Check if not power of two
+		if (size & (size - 1)) != 0:
+			return False
+
+		# Check that address is a multiple of size
+		multiple = address // size
+		if multiple * size != address:
+			return False
+
+		return True
 
 
 ################################################################################

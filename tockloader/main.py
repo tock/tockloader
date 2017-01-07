@@ -73,6 +73,10 @@ SYNC_MESSAGE = bytes([0x00, ESCAPE_CHAR, COMMAND_RESET])
 ################################################################################
 
 class TockLoader:
+	def __init__ (self, args):
+		self.debug = args.debug
+
+
 	# Open the serial port to the chip/bootloader
 	def open (self, port):
 
@@ -395,6 +399,23 @@ class TockLoader:
 		return True
 
 
+	# Erase flash where apps go
+	def erase_apps (self, address):
+		# Enter bootloader mode to get things started
+		entered = self._enter_bootloader_mode();
+		if not entered:
+			return False
+
+		# Then erase the next page. This ensures that flash is clean at the
+		# end of the installed apps and makes things nicer for future uses of
+		# this script.
+		self._erase_page(address)
+
+		# Done
+		self._exit_bootloader_mode()
+		return True
+
+
 	############################
 	## Internal Helper Functions
 	############################
@@ -464,11 +485,23 @@ class TockLoader:
 			time.sleep(0.0001)
 
 		# Generate the message to send to the bootloader
-		pkt = message + bytes([ESCAPE_CHAR, command])
+		escaped_message = message.replace(bytes([ESCAPE_CHAR]), bytes([ESCAPE_CHAR, ESCAPE_CHAR]))
+		pkt = escaped_message + bytes([ESCAPE_CHAR, command])
 		self.sp.write(pkt)
 
 		# Response has a two byte header, then response_len bytes
 		ret = self.sp.read(2 + response_len)
+
+		# Response is escaped, so we need to handle that
+		while True:
+			num_escaped = ret.count(bytes([ESCAPE_CHAR, ESCAPE_CHAR]))
+			if num_escaped > 0:
+				# De-escape, and then read in the missing characters.
+				ret = ret.replace(bytes([ESCAPE_CHAR, ESCAPE_CHAR]), bytes([ESCAPE_CHAR]))
+				ret += self.sp.read(num_escaped)
+			else:
+				break
+
 		if len(ret) < 2:
 			print('Error: No response after issuing command')
 			return (False, bytes())
@@ -491,36 +524,17 @@ class TockLoader:
 		# Loop through the binary 512 bytes at a time until it has been flashed
 		# to the chip.
 		for i in range(len(binary) // 512):
-			# First we write the sync string to make sure the bootloader is ready
-			# to receive this page of the binary.
-			self.sp.write(SYNC_MESSAGE)
-			time.sleep(0.0001)
-
-			# Now create the packet that we send to the bootloader. First four
+			# Create the packet that we send to the bootloader. First four
 			# bytes are the address of the page.
 			pkt = struct.pack('<I', address + (i*512))
 
 			# Next are the 512 bytes that go into the page.
 			pkt += binary[i*512: (i+1)*512]
 
-			# Escape any bytes that need to be escaped
-			pkt = pkt.replace(bytes([ESCAPE_CHAR]), bytes([ESCAPE_CHAR, ESCAPE_CHAR]))
+			# Write to bootloader
+			success, ret = self._issue_command(COMMAND_WRITE_PAGE, pkt, True, 0, RESPONSE_OK)
 
-			# Add the ending escape that ends the packet and the command byte
-			pkt += bytes([ESCAPE_CHAR, COMMAND_WRITE_PAGE])
-
-			# Send this page to the bootloader
-			self.sp.write(pkt)
-
-			# We expect a two byte response
-			ret = self.sp.read(2)
-
-			# Check that we get the RESPONSE_OK return code
-			if ret[0] != ESCAPE_CHAR:
-				print('Error: Invalid response from bootloader when flashing page')
-				return False
-
-			if ret[1] != RESPONSE_OK:
+			if not success:
 				print('Error: Error when flashing page')
 				if ret[1] == RESPONSE_BADADDR:
 					print('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*512)))
@@ -536,6 +550,9 @@ class TockLoader:
 
 	# Read a specific range of flash.
 	def _read_range (self, address, length):
+		if self.debug:
+			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
+
 		message = struct.pack('<IH', address, length)
 		success, flash = self._issue_command(COMMAND_READ_RANGE, message, True, length, RESPONSE_READ_RANGE)
 
@@ -705,7 +722,7 @@ def command_flash (args):
 	binary = collect_binaries(args.binary)
 
 	# Flash the binary to the chip
-	tock_loader = TockLoader()
+	tock_loader = TockLoader(args)
 	success = tock_loader.open(port=args.port)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
@@ -719,7 +736,7 @@ def command_flash (args):
 
 
 def command_listen (args):
-	tock_loader = TockLoader()
+	tock_loader = TockLoader(args)
 	success = tock_loader.open(port=args.port)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
@@ -728,7 +745,7 @@ def command_listen (args):
 
 
 def command_list (args):
-	tock_loader = TockLoader()
+	tock_loader = TockLoader(args)
 	success = tock_loader.open(port=args.port)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
@@ -743,7 +760,7 @@ def command_replace (args):
 	binary = collect_binaries(args.binary, True)
 
 	# Flash the binary to the chip
-	tock_loader = TockLoader()
+	tock_loader = TockLoader(args)
 	success = tock_loader.open(port=args.port)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
@@ -763,7 +780,7 @@ def command_append (args):
 	binary = collect_binaries(args.binary)
 
 	# Flash the binary to the chip
-	tock_loader = TockLoader()
+	tock_loader = TockLoader(args)
 	success = tock_loader.open(port=args.port)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
@@ -772,7 +789,21 @@ def command_append (args):
 	print('Adding binar(y|ies) to board...')
 	success = tock_loader.append_binary(binary, args.address, args.force)
 	if not success:
-		print('Could not flash the binaries.')
+		print('Could not add the binaries.')
+		sys.exit(1)
+
+
+def command_erase_apps (args):
+	tock_loader = TockLoader(args)
+	success = tock_loader.open(port=args.port)
+	if not success:
+		print('Could not open the serial port. Make sure the board is plugged in.')
+		sys.exit(1)
+
+	print('Removing apps...')
+	success = tock_loader.erase_apps(args.address)
+	if not success:
+		print('Could not erase the apps.')
 		sys.exit(1)
 
 ################################################################################
@@ -790,6 +821,10 @@ def main ():
 	parser.add_argument('--make',
 		action='store_true',
 		help='Run `make` before loading an application')
+
+	parser.add_argument('--debug',
+		action='store_true',
+		help='Print additional debugging information')
 
 	parser.add_argument('--version',
 		action='version',
@@ -853,6 +888,14 @@ def main ():
 	append.add_argument('--force',
 		help='Add the binary at the end of known apps unconditionally',
 		action='store_true')
+
+	eraseapps = subparser.add_parser('erase-apps',
+		help='Delete apps from the board')
+	eraseapps.set_defaults(func=command_erase_apps)
+	eraseapps.add_argument('--address', '-a',
+		help='Address where apps are placed',
+		type=lambda x: int(x, 0),
+		default=0x30000)
 
 	args = parser.parse_args()
 	if hasattr(args, 'func'):

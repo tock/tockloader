@@ -744,7 +744,7 @@ def main ():
 	parser.add_argument('--version',
 		action='version',
 		version=__version__,
-		help='Version of this script')
+		help='Tockloader version')
 
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(

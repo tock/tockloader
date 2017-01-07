@@ -3,7 +3,9 @@
 import argparse
 import binascii
 import glob
+import os
 import struct
+import subprocess
 import sys
 import time
 
@@ -633,21 +635,43 @@ class TockLoader:
 ## Command Functions
 ################################################################################
 
+# Checks for a Makefile, and it it exists runs `make`.
+def check_and_run_make (args):
+	if args.make:
+		if os.path.isfile('./Makefile'):
+			print('Running `make`...')
+			p = subprocess.Popen(['make'])
+			out, err = p.communicate()
+			if p.returncode != 0:
+				print('Error running make.')
+				sys.exit(1)
+
 def collect_binaries (binaries, single=False):
 	binary = bytes()
 
 	# Check if array of binaries is empty. If so, find them based on where this
 	# tool is being run.
 	if len(binaries) == 0 or binaries[0] == '':
+		print('No binaries passed to tockloader. Searching for binaries in subdirectories.')
+
+		# First check to see if things could be built that haven't been
+		if os.path.isfile('./Makefile'):
+			p = subprocess.Popen(['make', '-n'], stdout=subprocess.PIPE)
+			out, err = p.communicate()
+			# Check for the name of the compiler to see if there is work
+			# to be done
+			if 'arm-none-eabi-gcc' in out.decode('utf-8'):
+				print('Warning! There are uncompiled changes!')
+				print('You may want to run `make` before loading the application.')
+
 		# Search for ".bin" files
 		binaries = glob.glob('./**/*.bin', recursive=True)
 		if single:
 			binaries = binaries[0:1]
-
-		print('No binaries passed to tockloader. Searching for binaries in subdirectories.')
 		if len(binaries) == 0:
 			print('No binaries found.')
 			sys.exit(1)
+
 		print('Using: {}'.format(binaries))
 		print('Waiting one second before continuing...')
 		time.sleep(1)
@@ -668,6 +692,8 @@ def collect_binaries (binaries, single=False):
 
 
 def command_flash (args):
+	check_and_run_make(args)
+
 	# Load in all binaries
 	binary = collect_binaries(args.binary)
 
@@ -702,6 +728,8 @@ def command_list (args):
 
 
 def command_replace (args):
+	check_and_run_make(args)
+
 	# Load in all binaries
 	binary = collect_binaries(args.binary, True)
 
@@ -718,6 +746,8 @@ def command_replace (args):
 
 
 def command_append (args):
+	check_and_run_make(args)
+
 	# Load in all binaries
 	binary = collect_binaries(args.binary)
 
@@ -743,6 +773,10 @@ def main ():
 	# All commands need a serial port to talk to the board
 	parser.add_argument('--port', '-p',
 		help='The serial port to use')
+
+	parser.add_argument('--make',
+		action='store_true',
+		help='Run `make` before loading an application')
 
 	parser.add_argument('--version',
 		action='version',

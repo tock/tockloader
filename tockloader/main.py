@@ -645,6 +645,9 @@ def collect_binaries (binaries, single=False):
 			binaries = binaries[0:1]
 
 		print('No binaries passed to tockloader. Searching for binaries in subdirectories.')
+		if len(binaries) == 0:
+			print('No binaries found.')
+			sys.exit(1)
 		print('Using: {}'.format(binaries))
 		print('Waiting one second before continuing...')
 		time.sleep(1)

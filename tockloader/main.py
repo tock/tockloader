@@ -215,69 +215,105 @@ class TockLoader:
 		if not entered:
 			return False
 
-		# Keep track of which app this is
-		app_index = 0
-		start_address = address
-		app_names = []
+		# Get all apps based on their header
+		apps = self._extract_all_app_headers(address)
 
-		# Read the first range of bytes from the application section of flash
-		# to get the Tock Binary Format header.
-		while (True):
-			header_length = 76 # Version 1
-			flash = self._read_range(start_address, header_length)
+		if not quiet:
+			# Print info about each app
+			for i,app in enumerate(apps):
+				tbfh = app['header']
+				start_address = app['address']
 
-			# Get all the fields from the header
-			tbfh = self._parse_tbf_header(flash)
+				print('[App {}]'.format(i))
+				print('  Name:                  {}'.format(app['name']))
+				print('  Total Size in Flash:   {} bytes'.format(tbfh['total_size']))
 
-			if tbfh['valid']:
+				# Check if this app is OK with the MPU region requirements.
+				if not self._app_is_aligned_correctly(start_address, tbfh['total_size']):
+					print('  [WARNING] App is misaligned for the MPU')
 
-				# Get name if possible
-				name = self._get_app_name(start_address + tbfh['package_name_offset'], tbfh['package_name_size'])
-
-				if quiet:
-					app_names.append(name)
-				else:
-					print('[App {}]'.format(app_index))
-					print('  Name:                  {}'.format(name))
-					print('  Total Size in Flash:   {} bytes'.format(tbfh['total_size']))
-
-					# Check if this app is OK with the MPU region requirements.
-					if not self._app_is_aligned_correctly(start_address, tbfh['total_size']):
-						print('  [WARNING] App is misaligned for the MPU')
-
-					if verbose:
-						print('  Flash Start Address:   {:#010x}'.format(start_address))
-						print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
-						print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
-						print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
-						print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
-						print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
-						print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
-						print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
-						print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
-						print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
-						print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
-
-				# Increment to next app and check there
-				start_address += tbfh['total_size']
-				app_index += 1
-			else:
-				if (tbfh['version'] == 0xffffffff or tbfh['version'] == 0) and app_index == 0:
-					print('No apps currently flashed.')
-				else:
-					print('Found Tock Binary Format header version {}'.format(tbfh['version']))
-					print('This version of tockloader does not know how to parse that.')
-				break
-
-			if not quiet:
+				if verbose:
+					print('  Flash Start Address:   {:#010x}'.format(start_address))
+					print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
+					print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
+					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
+					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
+					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
+					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
+					print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
+					print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
+					print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
+					print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
 				print('')
 
-		if quiet:
+		else:
+			# In quiet mode just show the names.
+			app_names = []
+			for app in apps:
+				app_names.append(app['name'])
 			print(' '.join(app_names))
 
 		# Done
 		self._exit_bootloader_mode()
 		return True
+
+	def _extract_all_app_headers (self, address):
+		apps = []
+
+		# Jump through the linked list of apps
+		while (True):
+			header_length = 76 # Version 1
+			flash = self._read_range(address, header_length)
+
+			# Get all the fields from the header
+			tbfh = self._parse_tbf_header(flash)
+
+			if tbfh['valid']:
+				# Get the name out of the app
+				name = self._get_app_name(address+tbfh['package_name_offset'], tbfh['package_name_size'])
+
+				apps.append({
+					'address': address,
+					'header': tbfh,
+					'name': name,
+				})
+
+				address += tbfh['total_size']
+
+			else:
+				break
+
+		return apps
+
+	# Given an array of apps, some of which are new and some of which exist,
+	# sort them in flash so they are in descending size order.
+	def _reshuffle_apps(self, address, apps):
+		# We are given an array of apps. First we need to order them by size.
+		apps.sort(key=lambda x: x['header']['total_size'], reverse=True)
+
+		# Now iterate to see if the address has changed
+		start_address = address
+		for app in apps:
+			# If the address already matches, then we are good.
+			# On to the next app.
+			if app['address'] != start_address:
+				# If they don't, then we need to read the binary out of
+				# flash and save it to be moved, as well as update the address.
+				# However, we may have a new binary to use, so we don't need to
+				# fetch it.
+				if 'binary' not in app:
+					app['binary'] = self._read_range(app['address'], app['header']['total_size'])
+
+				# Either way save the new address.
+				app['address'] = start_address
+
+			start_address += app['header']['total_size']
+
+		# Now flash all apps that have a binary field. The presence of the
+		# binary indicates that they are new or moved.
+		for app in apps:
+			if 'binary' in app:
+				self._flash_binary(app['address'], app['binary'])
 
 
 	# Inspect the given binary and find one that matches that's already programmed,
@@ -304,53 +340,38 @@ class TockLoader:
 		# Time the programming operation
 		then = time.time()
 
-		# Find the matching app and make sure there is enough space
-		start_address = address
+		# Get a list of installed apps
+		apps = self._extract_all_app_headers(address)
 
-		while (True):
-			header_length = 76 # Version 1
-			flash = self._read_range(start_address, header_length)
-
-			# Get all the fields from the header
-			atbfh = self._parse_tbf_header(flash)
-
-			if atbfh['version'] == 1:
-				# Get the name out of the app
-				name = self._get_app_name(start_address+atbfh['package_name_offset'], atbfh['package_name_size'])
-
-				# Check that the name matches the app we are trying to flash
-				if name == new_name:
-					# Now check that the app is the same size
-					if atbfh['total_size'] == tbfh['total_size']:
-						a = self._app_is_aligned_correctly(start_address, len(binary))
-						print(a)
-
-						# Great we can just overwrite it!
-						print('Found matching binary at address {:#010x}'.format(start_address))
-						print('Replacing the binary...')
-						flashed = self._flash_binary(start_address, binary)
-						if not flashed:
-							return False
-
-						# And check the CRC
-						crc_passed = self._check_crc(start_address, binary)
-						if not crc_passed:
-							return False
-
-						break
-
-					else:
-						print('Replacement app ({} bytes) is not the same size as the existing app ({} bytes)'.format(atbfh['total_size'], tbfh['total_size']))
-						print('Cannot replace this app.')
-						print('In the future, we could move apps so they all can fit.')
-						print('But that future isn\'t today')
+		# Check to see if this app is in there
+		for app in apps:
+			if app['name'] == new_name:
+				if app['header']['total_size'] == tbfh['total_size']:
+					# Great we can just overwrite it!
+					print('Found matching binary at address {:#010x}'.format(app['address']))
+					print('Replacing the binary...')
+					flashed = self._flash_binary(app['address'], binary)
+					if not flashed:
 						return False
 
-				start_address += atbfh['total_size']
+					# And check the CRC
+					crc_passed = self._check_crc(app['address'], binary)
+					if not crc_passed:
+						return False
+
+				else:
+					# Need to expand this app's slot and possibly reshuffle apps
+					print('Found matching binary, but the size has changed.')
+
+					app['address'] = None
+					app['binary'] = binary
+					app['header'] = tbfh
+
+					self._reshuffle_apps(address, apps)
+
+				break
 
 			else:
-				# At the end of valid apps
-				# We did not find a matching app.
 				print('No app named "{}" found on the board.'.format(new_name))
 				print('Cannot replace.')
 				return False
@@ -581,12 +602,30 @@ class TockLoader:
 		if self.debug:
 			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
 
-		message = struct.pack('<IH', address, length)
-		success, flash = self._issue_command(COMMAND_READ_RANGE, message, True, length, RESPONSE_READ_RANGE)
+		# Can only read up to 4095 bytes at a time.
+		MAX_READ = 4095
+		read = bytes()
+		this_length = 0
+		remaining = length
+		while remaining > 0:
+			if remaining > MAX_READ:
+				this_length = MAX_READ
+				remaining -= MAX_READ
+			else:
+				this_length = remaining
+				remaining = 0
 
-		if not success:
-			print('Error: Could not read flash')
-		return flash
+			message = struct.pack('<IH', address, this_length)
+			success, flash = self._issue_command(COMMAND_READ_RANGE, message, True, this_length, RESPONSE_READ_RANGE)
+
+			if not success:
+				print('Error: Could not read flash')
+			else:
+				read += flash
+
+			address += this_length
+
+		return read
 
 	# Read a specific range of flash.
 	def _erase_page (self, address):

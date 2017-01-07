@@ -223,7 +223,6 @@ class TockLoader:
 						print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
 						print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
 						print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
-						print('  BSS Memory Address:    {:#010x} (length: {} bytes)'.format(start_address+tbfh['bss_mem_offset'], tbfh['bss_mem_size']))
 						print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
 						print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
 						print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))

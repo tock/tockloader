@@ -12,6 +12,8 @@ import serial
 import serial.tools.list_ports
 import serial.tools.miniterm
 
+from ._version import __version__
+
 
 ################################################################################
 ## Global Bootloader Constants
@@ -739,6 +741,11 @@ def main ():
 	parser.add_argument('--port', '-p',
 		help='The serial port to use')
 
+	parser.add_argument('--version',
+		action='version',
+		version=__version__,
+		help='Version of this script')
+
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(
 		title='Commands')
@@ -802,5 +809,5 @@ def main ():
 		sys.exit(1)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+	main()

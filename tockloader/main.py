@@ -703,6 +703,8 @@ def command_flash (args):
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
+
+	print('Flashing binar(y|ies) to board...')
 	success = tock_loader.flash_binary(binary, args.address)
 	if not success:
 		print('Could not flash the binaries.')
@@ -739,6 +741,8 @@ def command_replace (args):
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
+
+	print('Replacing binary on the board...')
 	success = tock_loader.replace_binary(binary, args.address)
 	if not success:
 		print('Could not replace the binary.')
@@ -757,6 +761,8 @@ def command_append (args):
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
+
+	print('Adding binar(y|ies) to board...')
 	success = tock_loader.append_binary(binary, args.address, args.force)
 	if not success:
 		print('Could not flash the binaries.')

@@ -2,6 +2,7 @@
 
 import argparse
 import binascii
+import glob
 import struct
 import sys
 import time
@@ -630,16 +631,40 @@ class TockLoader:
 ## Command Functions
 ################################################################################
 
-def command_flash (args):
-	# Load in all binaries
-	binary = bytes([])
-	for binary_filename in args.binary:
+def collect_binaries (binaries, single=False):
+	binary = bytes()
+
+	# Check if array of binaries is empty. If so, find them based on where this
+	# tool is being run.
+	if len(binaries) == 0 or binaries[0] == '':
+		# Search for ".bin" files
+		binaries = glob.glob('./**/*.bin', recursive=True)
+		if single:
+			binaries = binaries[0:1]
+
+		print('No binaries passed to tockloader. Searching for binaries in subdirectories.')
+		print('Using: {}'.format(binaries))
+		print('Waiting one second before continuing...')
+		time.sleep(1)
+
+	# Concatenate the binaries.
+	for binary_filename in binaries:
 		try:
 			with open(binary_filename, 'rb') as f:
 				binary += f.read()
 		except Exception as e:
 			print('Error opening and reading "{}"'.format(binary_filename))
 			sys.exit(1)
+
+		if single:
+			break
+
+	return binary
+
+
+def command_flash (args):
+	# Load in all binaries
+	binary = collect_binaries(args.binary)
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader()
@@ -673,13 +698,7 @@ def command_list (args):
 
 def command_replace (args):
 	# Load in all binaries
-	binary = bytes([])
-	try:
-		with open(args.binary[0], 'rb') as f:
-			binary += f.read()
-	except Exception as e:
-		print('Error opening and reading "{}"'.format(args.binary[0]))
-		sys.exit(1)
+	binary = collect_binaries(args.binary, True)
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader()
@@ -695,14 +714,7 @@ def command_replace (args):
 
 def command_append (args):
 	# Load in all binaries
-	binary = bytes([])
-	for binary_filename in args.binary:
-		try:
-			with open(binary_filename, 'rb') as f:
-				binary += f.read()
-		except Exception as e:
-			print('Error opening and reading "{}"'.format(binary_filename))
-			sys.exit(1)
+	binary = collect_binaries(args.binary)
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader()
@@ -736,7 +748,7 @@ def main ():
 	flash.set_defaults(func=command_flash)
 	flash.add_argument('binary',
 		help='The binary file or files to flash to the chip',
-		nargs='+')
+		nargs='*')
 	flash.add_argument('--address', '-a',
 		help='Address to flash the binary at',
 		type=lambda x: int(x, 0),
@@ -762,7 +774,7 @@ def main ():
 	replace.set_defaults(func=command_replace)
 	replace.add_argument('binary',
 		help='The binary file to use as the replacement',
-		nargs=1)
+		nargs='*')
 	replace.add_argument('--address', '-a',
 		help='Address where apps are placed',
 		type=lambda x: int(x, 0),
@@ -772,8 +784,8 @@ def main ():
 		help='Add an app to the end of the already flashed apps')
 	append.set_defaults(func=command_append)
 	append.add_argument('binary',
-		help='The binary file to use as the replacement',
-		nargs='+')
+		help='The binary file to add to the end',
+		nargs='*')
 	append.add_argument('--address', '-a',
 		help='Address where apps are placed',
 		type=lambda x: int(x, 0),

@@ -34,6 +34,10 @@ Print information about the apps currently loaded onto the board.
 Replace an application that is already flashed to the board with a new
 binary.
 
-### `tockloader append`
+### `tockloader add`
 
-Add an application binary to the end of the valid array of apps in flash.
+Add an application binary (or binaries) to the list of installed apps.
+
+### `tockloader remove [application name]`
+
+Remove an application from flash by its name.

@@ -257,26 +257,51 @@ class TockLoader:
 		self._exit_bootloader_mode()
 		return True
 
-	def _extract_all_app_headers (self, address):
+	# Iterate through the flash on the board or a local binary for
+	# the header information about each app.
+	def _extract_all_app_headers (self, address_or_binary):
 		apps = []
+
+		# Check which mode we are in
+		if type(address_or_binary) == type(bytes()):
+			onboard = False
+			address = 0
+		else:
+			onboard = True
+			address = address_or_binary
 
 		# Jump through the linked list of apps
 		while (True):
 			header_length = 76 # Version 1
-			flash = self._read_range(address, header_length)
+			if onboard:
+				flash = self._read_range(address, header_length)
+			else:
+				flash = address_or_binary[address:address+header_length]
+				if len(flash) < header_length:
+					break
 
 			# Get all the fields from the header
 			tbfh = self._parse_tbf_header(flash)
 
 			if tbfh['valid']:
 				# Get the name out of the app
-				name = self._get_app_name(address+tbfh['package_name_offset'], tbfh['package_name_size'])
+				if onboard:
+					name = self._get_app_name(address+tbfh['package_name_offset'], tbfh['package_name_size'])
+					app_address = address
+				else:
+					start = address+tbfh['package_name_offset']
+					name = address_or_binary[start:start+tbfh['package_name_size']].decode('utf-8')
+					app_address = None
 
 				apps.append({
-					'address': address,
+					'address': app_address,
 					'header': tbfh,
 					'name': name,
 				})
+
+				# If this is a local binary, also add the binary
+				if not onboard:
+					apps[-1]['binary'] = address_or_binary[address:address+tbfh['total_size']]
 
 				address += tbfh['total_size']
 
@@ -311,9 +336,16 @@ class TockLoader:
 
 		# Now flash all apps that have a binary field. The presence of the
 		# binary indicates that they are new or moved.
+		end = address
 		for app in apps:
 			if 'binary' in app:
 				self._flash_binary(app['address'], app['binary'])
+				end = app['address'] + len(app['binary'])
+
+		# Then erase the next page. This ensures that flash is clean at the
+		# end of the installed apps and makes things nicer for future uses of
+		# this script.
+		self._erase_page(end)
 
 
 	# Inspect the given binary and find one that matches that's already programmed,
@@ -366,7 +398,6 @@ class TockLoader:
 					app['address'] = None
 					app['binary'] = binary
 					app['header'] = tbfh
-
 					self._reshuffle_apps(address, apps)
 
 				break
@@ -385,8 +416,8 @@ class TockLoader:
 		return True
 
 
-	# Add the binary to the end of the currently flashed apps
-	def append_binary (self, binary, address, force):
+	# Add the app to the list of the currently flashed apps
+	def add_binary (self, binary, address):
 		# Enter bootloader mode to get things started
 		entered = self._enter_bootloader_mode();
 		if not entered:
@@ -400,44 +431,51 @@ class TockLoader:
 		# Time the programming operation
 		then = time.time()
 
-		# Find the end of the existing apps
-		start_address = address
+		# Get a list of installed apps
+		apps = self._extract_all_app_headers(address)
+		# Add the new apps
+		apps += self._extract_all_app_headers(binary)
 
-		while (True):
-			header_length = 76 # Version 1
-			flash = self._read_range(start_address, header_length)
+		self._reshuffle_apps(address, apps)
 
-			# Get all the fields from the header
-			atbfh = self._parse_tbf_header(flash)
+		# # Find the end of the existing apps
+		# start_address = address
 
-			if atbfh['version'] == 1:
-				start_address += atbfh['total_size']
-			elif atbfh['version'] == 0 or atbfh['version'] == 0xffffffff or force:
-				# At the end of valid apps
-				break
-			else:
-				print('Found Tock Binary Format header version {}'.format(atbfh['version']))
-				print('This version of tockloader does not know how to parse that.')
-				print('Not sure if it is save to flash an app here.')
-				print('Add --force to add the app here anyway.')
-				print('Aborting.')
-				return False
+		# while (True):
+		# 	header_length = 76 # Version 1
+		# 	flash = self._read_range(start_address, header_length)
 
-		print('Found next available app location: {:#010x}'.format(start_address))
-		print('Adding the binary...')
-		flashed = self._flash_binary(start_address, binary)
-		if not flashed:
-			return False
+		# 	# Get all the fields from the header
+		# 	atbfh = self._parse_tbf_header(flash)
 
-		# And check the CRC
-		crc_passed = self._check_crc(start_address, binary)
-		if not crc_passed:
-			return False
+		# 	if atbfh['version'] == 1:
+		# 		start_address += atbfh['total_size']
+		# 	elif atbfh['version'] == 0 or atbfh['version'] == 0xffffffff or force:
+		# 		# At the end of valid apps
+		# 		break
+		# 	else:
+		# 		print('Found Tock Binary Format header version {}'.format(atbfh['version']))
+		# 		print('This version of tockloader does not know how to parse that.')
+		# 		print('Not sure if it is save to flash an app here.')
+		# 		print('Add --force to add the app here anyway.')
+		# 		print('Aborting.')
+		# 		return False
 
-		# Then erase the next page. This ensures that flash is clean at the
-		# end of the installed apps and makes things nicer for future uses of
-		# this script.
-		self._erase_page(start_address + len(binary))
+		# print('Found next available app location: {:#010x}'.format(start_address))
+		# print('Adding the binary...')
+		# flashed = self._flash_binary(start_address, binary)
+		# if not flashed:
+		# 	return False
+
+		# # And check the CRC
+		# crc_passed = self._check_crc(start_address, binary)
+		# if not crc_passed:
+		# 	return False
+
+		# # Then erase the next page. This ensures that flash is clean at the
+		# # end of the installed apps and makes things nicer for future uses of
+		# # this script.
+		# self._erase_page(start_address + len(binary))
 
 		# How long did it take?
 		now = time.time()
@@ -868,7 +906,7 @@ def command_replace (args):
 		sys.exit(1)
 
 
-def command_append (args):
+def command_add (args):
 	check_and_run_make(args)
 
 	# Load in all binaries
@@ -882,7 +920,7 @@ def command_append (args):
 		sys.exit(1)
 
 	print('Adding binar(y|ies) to board...')
-	success = tock_loader.append_binary(binary, args.address, args.force)
+	success = tock_loader.add_binary(binary, args.address)
 	if not success:
 		print('Could not add the binaries.')
 		sys.exit(1)
@@ -970,19 +1008,16 @@ def main ():
 		type=lambda x: int(x, 0),
 		default=0x30000)
 
-	append = subparser.add_parser('append',
-		help='Add an app to the end of the already flashed apps')
-	append.set_defaults(func=command_append)
-	append.add_argument('binary',
+	add = subparser.add_parser('add',
+		help='Add an app to the already flashed apps')
+	add.set_defaults(func=command_add)
+	add.add_argument('binary',
 		help='The binary file to add to the end',
 		nargs='*')
-	append.add_argument('--address', '-a',
+	add.add_argument('--address', '-a',
 		help='Address where apps are placed',
 		type=lambda x: int(x, 0),
 		default=0x30000)
-	append.add_argument('--force',
-		help='Add the binary at the end of known apps unconditionally',
-		action='store_true')
 
 	eraseapps = subparser.add_parser('erase-apps',
 		help='Delete apps from the board')

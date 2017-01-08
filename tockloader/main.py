@@ -219,6 +219,9 @@ class TockLoader:
 					print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
 				print('')
 
+			if len(apps) == 0:
+				print('No found apps.')
+
 		else:
 			# In quiet mode just show the names.
 			app_names = []
@@ -311,6 +314,45 @@ class TockLoader:
 		# How long did it take?
 		now = time.time()
 		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
+
+		# Done
+		self._exit_bootloader_mode()
+		return True
+
+
+	# Add the app to the list of the currently flashed apps
+	def remove_app (self, app_name, address):
+		# Enter bootloader mode to get things started
+		entered = self._enter_bootloader_mode();
+		if not entered:
+			return False
+
+		# Time the programming operation
+		then = time.time()
+
+		# Get a list of installed apps
+		apps = self._extract_all_app_headers(address)
+
+		# Remove the on if its there
+		app_index = -1
+		for i,app in enumerate(apps):
+			if app['name'] == app_name:
+				app_index = i
+				break
+
+		if app_index >= 0:
+			apps.pop(app_index)
+
+			# Now take the remaining apps and make sure they are on the board
+			# properly.
+			self._reshuffle_apps(address, apps)
+
+		else:
+			print('Could not find the app on the board.')
+
+		# How long did it take?
+		now = time.time()
+		print('Removed app in {:0.3f} seconds'.format(now-then))
 
 		# Done
 		self._exit_bootloader_mode()
@@ -852,6 +894,20 @@ def command_add (args):
 		sys.exit(1)
 
 
+def command_remove (args):
+	tock_loader = TockLoader(args)
+	success = tock_loader.open(port=args.port)
+	if not success:
+		print('Could not open the serial port. Make sure the board is plugged in.')
+		sys.exit(1)
+
+	print('Removing app "{}" from board...'.format(args.name[0]))
+	success = tock_loader.remove_app(args.name[0], args.address)
+	if not success:
+		print('Could not remove the app.')
+		sys.exit(1)
+
+
 def command_erase_apps (args):
 	tock_loader = TockLoader(args)
 	success = tock_loader.open(port=args.port)
@@ -941,6 +997,17 @@ def main ():
 		help='The binary file to add to the end',
 		nargs='*')
 	add.add_argument('--address', '-a',
+		help='Address where apps are placed',
+		type=lambda x: int(x, 0),
+		default=0x30000)
+
+	remove = subparser.add_parser('remove',
+		help='Remove an already flashed app')
+	remove.set_defaults(func=command_remove)
+	remove.add_argument('name',
+		help='The name of the app to remove',
+		nargs=1)
+	remove.add_argument('--address', '-a',
 		help='Address where apps are placed',
 		type=lambda x: int(x, 0),
 		default=0x30000)

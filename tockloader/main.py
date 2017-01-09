@@ -429,7 +429,7 @@ class TockLoader:
 	def _ping_bootloader_and_wait_for_response (self):
 		for i in range(30):
 			# Try to ping the SAM4L to ensure it is in bootloader mode
-			ping_pkt = bytes([0xFC, 0x01])
+			ping_pkt = bytes([ESCAPE_CHAR, COMMAND_PING])
 			self.sp.write(ping_pkt)
 
 			ret = self.sp.read(2)

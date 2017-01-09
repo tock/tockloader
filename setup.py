@@ -1,5 +1,10 @@
 from setuptools import setup
 
+# Save people like Pat from themselves:
+import sys
+if sys.version_info < (3,0):
+    sys.exit('Sorry, Python < 3.0 is not supported')
+
 import re
 VERSIONFILE="tockloader/_version.py"
 verstrline = open(VERSIONFILE, "rt").read()

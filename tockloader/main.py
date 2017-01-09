@@ -927,31 +927,37 @@ def command_erase_apps (args):
 ################################################################################
 
 def main ():
-	# Setup command line arguments
-	parser = argparse.ArgumentParser()
+	# Create a common parent parser for arguments shared by all subparsers
+	parent = argparse.ArgumentParser(add_help=False)
 
 	# All commands need a serial port to talk to the board
-	parser.add_argument('--port', '-p',
+	parent.add_argument('--port', '-p',
 		help='The serial port to use')
 
-	parser.add_argument('--make',
+	parent.add_argument('--make',
 		action='store_true',
 		help='Run `make` before loading an application')
 
-	parser.add_argument('--debug',
+	parent.add_argument('--debug',
 		action='store_true',
 		help='Print additional debugging information')
 
-	parser.add_argument('--version',
+	parent.add_argument('--version',
 		action='version',
 		version=__version__,
 		help='Tockloader version')
+
+
+	# The top-level parser object
+	parser = argparse.ArgumentParser(parents=[parent])
+
 
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(
 		title='Commands')
 
 	flash = subparser.add_parser('flash',
+		parents=[parent],
 		help='Flash binaries to the chip')
 	flash.set_defaults(func=command_flash)
 	flash.add_argument('binary',
@@ -963,10 +969,12 @@ def main ():
 		default=0x30000)
 
 	listen = subparser.add_parser('listen',
+		parents=[parent],
 		help='Open a terminal to receive UART data')
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',
+		parents=[parent],
 		help='List the apps installed on the board')
 	listcmd.set_defaults(func=command_list)
 	listcmd.add_argument('--address', '-a',
@@ -981,6 +989,7 @@ def main ():
 		action='store_true')
 
 	replace = subparser.add_parser('replace',
+		parents=[parent],
 		help='Replace an already flashed app with this binary')
 	replace.set_defaults(func=command_replace)
 	replace.add_argument('binary',
@@ -992,6 +1001,7 @@ def main ():
 		default=0x30000)
 
 	add = subparser.add_parser('add',
+		parents=[parent],
 		help='Add an app to the already flashed apps')
 	add.set_defaults(func=command_add)
 	add.add_argument('binary',
@@ -1003,6 +1013,7 @@ def main ():
 		default=0x30000)
 
 	remove = subparser.add_parser('remove',
+		parents=[parent],
 		help='Remove an already flashed app')
 	remove.set_defaults(func=command_remove)
 	remove.add_argument('name',
@@ -1014,6 +1025,7 @@ def main ():
 		default=0x30000)
 
 	eraseapps = subparser.add_parser('erase-apps',
+		parents=[parent],
 		help='Delete apps from the board')
 	eraseapps.set_defaults(func=command_erase_apps)
 	eraseapps.add_argument('--address', '-a',

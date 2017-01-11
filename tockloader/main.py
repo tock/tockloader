@@ -481,7 +481,7 @@ class TockLoader:
 	# Write pages until a binary has been flashed. binary must have a length that
 	# is a multiple of 512.
 	def _flash_binary (self, address, binary):
-		assert binary % 512 == 0
+		assert len(binary) % 512 == 0
 		# Loop through the binary 512 bytes at a time until it has been flashed
 		# to the chip.
 		for i in range(len(binary) // 512):

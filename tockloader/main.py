@@ -278,10 +278,10 @@ class TockLoader:
 
 				break
 
-			else:
-				print('No app named "{}" found on the board.'.format(new_name))
-				print('Cannot replace.')
-				return False
+		else:
+			print('No app named "{}" found on the board.'.format(new_name))
+			print('Cannot replace.')
+			return False
 
 		# How long did it take?
 		now = time.time()

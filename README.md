@@ -41,3 +41,13 @@ Add an application binary (or binaries) to the list of installed apps.
 ### `tockloader remove [application name]`
 
 Remove an application from flash by its name.
+
+
+
+Upload to PyPI
+--------------
+
+Internal note.
+
+    python3 setup.py sdist
+    twine upload dist/tockloader-X.X.X.tar.gz

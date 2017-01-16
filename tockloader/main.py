@@ -93,6 +93,9 @@ class TockLoader:
 			else:
 				# Just find any port and use the first one
 				ports = list(serial.tools.list_ports.comports())
+				# Mac's will report Bluetooth devices with serial, which is
+				# almost certainly never what you want, so drop these
+				ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
 				if len(ports) == 0:
 					print('No serial ports found. Is the board connected?')
 					return False

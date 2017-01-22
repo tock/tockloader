@@ -775,7 +775,8 @@ def check_and_run_make (args):
 				print('Error running make.')
 				sys.exit(1)
 
-def collect_binaries (binaries, single=False):
+def collect_binaries (args, single=False):
+	binaries = args.binary
 	binary = bytes()
 
 	# Check if array of binaries is empty. If so, find them based on where this
@@ -801,6 +802,46 @@ def collect_binaries (binaries, single=False):
 			print('No binaries found.')
 			sys.exit(1)
 
+		# Opportunistically match the .elf files and validate they were built
+		# with all the flags that Tock applications require
+		tock_flags = ('-msingle-pic-base', '-mpic-register=r9', '-mno-pic-data-is-text-relative')
+		if not args.no_check_switches:
+			for binfile in binaries:
+				if binfile[-4:] == '.bin':
+					elffile = binfile[:-4] + '.elf'
+					if os.path.exists(elffile):
+						p = subprocess.Popen(['arm-none-eabi-readelf',
+								'-p', '.GCC.command.line', elffile],
+								stdout=subprocess.PIPE,
+								stderr=subprocess.PIPE)
+						out, err = p.communicate()
+						if 'does not exist' in err.decode('utf-8'):
+							print('Error: Missing section .GCC.command.line in ' + elffile)
+							print('')
+							print('Tock requires that applications are built with')
+							print('  -frecord-gcc-switches')
+							print('to validate that all required flags were used')
+							print('')
+							print('To skip this check, run tockloader with --no-check-switches')
+							sys.exit(-1)
+
+						out = out.decode('utf-8')
+						for flag in tock_flags:
+							if flag not in out:
+								bad_flag = flag
+								break
+							else:
+								bad_flag = None
+
+						if bad_flag:
+							print('Error: Application built without required flag: ' + bad_flag)
+							print('')
+							print('Tock requires that applications are built with')
+							print('  ' + '\n  '.join(tock_flags))
+							print('')
+							print('To skip this check, run tockloader with --no-check-switches')
+							sys.exit(-1)
+
 		print('Using: {}'.format(binaries))
 		print('Waiting one second before continuing...')
 		time.sleep(1)
@@ -824,7 +865,7 @@ def command_flash (args):
 	check_and_run_make(args)
 
 	# Load in all binaries
-	binary = collect_binaries(args.binary)
+	binary = collect_binaries(args)
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
@@ -862,7 +903,7 @@ def command_replace (args):
 	check_and_run_make(args)
 
 	# Load in all binaries
-	binary = collect_binaries(args.binary, True)
+	binary = collect_binaries(args, True)
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
@@ -882,7 +923,7 @@ def command_add (args):
 	check_and_run_make(args)
 
 	# Load in all binaries
-	binary = collect_binaries(args.binary)
+	binary = collect_binaries(args)
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
@@ -950,6 +991,9 @@ def main ():
 		version=__version__,
 		help='Tockloader version')
 
+	parent.add_argument('--no-check-switches',
+		action='store_true',
+		help='Do not validate the flags used when binaries were built')
 
 	# The top-level parser object
 	parser = argparse.ArgumentParser(parents=[parent])

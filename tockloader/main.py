@@ -406,6 +406,13 @@ class TockLoader:
 
 		# Make sure the bootloader is actually active and we can talk to it.
 		alive = self._ping_bootloader_and_wait_for_response()
+
+		if not alive:
+			# Give it another go
+			time.sleep(1)
+			self._toggle_bootloader_entry()
+			alive = self._ping_bootloader_and_wait_for_response()
+
 		if not alive:
 			print('Error connecting to bootloader. No "pong" received.')
 			print('Things that could be wrong:')

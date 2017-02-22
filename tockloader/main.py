@@ -103,6 +103,50 @@ def set_terminal_title_from_port(port):
 atexit.register(set_terminal_title, "")
 
 
+def menu(options, *,
+		return_type,
+		default_index=0,
+		prompt='Which option? '
+		):
+	'''Present a menu of choices to a user
+
+	`options` should be a like-list object whose iterated objects can be coerced
+	into strings.
+
+	`return_type` must be set to one of
+	  - "index" - for the index into the options array
+	  - "value" - for the option value chosen
+
+	`default_index` is the index to present as the default value (what happens
+	if the user simply presses enter). Passing `None` disables default
+	selection.
+	'''
+	print()
+	for i,opt in enumerate(options):
+		print("[{}]\t{}".format(i, opt))
+	if default_index is not None:
+		prompt += '[{}] '.format(default_index)
+	print()
+
+	resp = input(prompt)
+	if resp == '':
+		resp = default_index
+	else:
+		try:
+			resp = int(resp)
+			if resp < 0 or resp > len(options):
+				raise ValueError
+		except:
+			return menu(options, return_type=return_type,
+					default_index=default_index, prompt=prompt)
+
+	if return_type == 'index':
+		return resp
+	elif return_type == 'value':
+		return options[resp]
+	else:
+		raise NotImplementedError("Menu caller asked for bad return_type")
+
 ################################################################################
 ## Main Bootloader Interface
 ################################################################################
@@ -125,11 +169,12 @@ class TockLoader:
 				device_name = args.device_name
 
 			ports = list(serial.tools.list_ports.grep(device_name))
-			if len(ports) > 0:
-				# Use the first one
+			if len(ports) == 1:
+				# Easy case, use the one that matches
 				print('Using "{}"'.format(ports[0]))
-				set_terminal_title_from_port_info(ports[0])
-				port = ports[0][0]
+				index = 0
+			elif len(ports) > 1:
+				index = menu(ports, return_type='index')
 			else:
 				# Just find any port and use the first one
 				ports = list(serial.tools.list_ports.comports())
@@ -141,11 +186,15 @@ class TockLoader:
 					return False
 
 				print('No serial port with device name "{}" found'.format(device_name))
-
 				print('Found {} serial port(s).'.format(len(ports)))
-				print('Using "{}"'.format(ports[0]))
-				set_terminal_title_from_port_info(ports[0])
-				port = ports[0][0]
+
+				if len(ports) == 1:
+					print('Using "{}"'.format(ports[0]))
+					index = 0
+				else:
+					index = menu(ports, return_type='index')
+			port = ports[index][0]
+			set_terminal_title_from_port_info(ports[index])
 		else:
 			port = args.port
 			set_terminal_title_from_port(port)

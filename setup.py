@@ -28,7 +28,7 @@ setup(name='tockloader',
         ]
       },
       install_requires=[
-          "colorama" >= "0.3.7",
+          "colorama >= 0.3.7",
           "crcmod >= 1.7",
           "pyserial >= 3.0.1",
           ],

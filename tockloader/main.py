@@ -113,14 +113,18 @@ class TockLoader:
 
 
 	# Open the serial port to the chip/bootloader
-	def open (self, port):
+	def open (self, args):
 
 		# Check to see if the serial port was specified or we should find
 		# one to use
-		if port == None:
-			print('No serial port specified. Discovering attached serial devices...')
-			# Start by looking for one with "tock" in the description
-			ports = list(serial.tools.list_ports.grep('tock'))
+		if args.port == None:
+			if args.device_name == None:
+				device_name = 'tock'
+				print('No device name specified. Using default "{}"'.format(device_name))
+			else:
+				device_name = args.device_name
+
+			ports = list(serial.tools.list_ports.grep(device_name))
 			if len(ports) > 0:
 				# Use the first one
 				print('Using "{}"'.format(ports[0]))
@@ -136,11 +140,14 @@ class TockLoader:
 					print('No serial ports found. Is the board connected?')
 					return False
 
+				print('No serial port with device name "{}" found'.format(device_name))
+
 				print('Found {} serial port(s).'.format(len(ports)))
 				print('Using "{}"'.format(ports[0]))
 				set_terminal_title_from_port_info(ports[0])
 				port = ports[0][0]
 		else:
+			port = args.port
 			set_terminal_title_from_port(port)
 
 		# Open the actual serial port
@@ -915,7 +922,7 @@ def command_flash (args):
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(port=args.port)
+	success = tock_loader.open(args)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
@@ -929,7 +936,7 @@ def command_flash (args):
 
 def command_listen (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(port=args.port)
+	success = tock_loader.open(args)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
@@ -938,7 +945,7 @@ def command_listen (args):
 
 def command_list (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(port=args.port)
+	success = tock_loader.open(args)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
@@ -953,7 +960,7 @@ def command_replace (args):
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(port=args.port)
+	success = tock_loader.open(args)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
@@ -973,7 +980,7 @@ def command_add (args):
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(port=args.port)
+	success = tock_loader.open(args)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
@@ -987,7 +994,7 @@ def command_add (args):
 
 def command_remove (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(port=args.port)
+	success = tock_loader.open(args)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
@@ -1001,7 +1008,7 @@ def command_remove (args):
 
 def command_erase_apps (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(port=args.port)
+	success = tock_loader.open(args)
 	if not success:
 		print('Could not open the serial port. Make sure the board is plugged in.')
 		sys.exit(1)
@@ -1023,6 +1030,9 @@ def main ():
 	# All commands need a serial port to talk to the board
 	parent.add_argument('--port', '-p',
 		help='The serial port to use')
+
+	parent.add_argument('--device-name', '-d',
+		help='Search for a serial device with the given name')
 
 	parent.add_argument('--make',
 		action='store_true',

@@ -27,5 +27,9 @@ setup(name='tockloader',
           'tockloader = tockloader.main:main'
         ]
       },
-      install_requires=["crcmod >= 1.7", "pyserial >= 3.0.1"],
+      install_requires=[
+          "colorama" >= "0.3.7",
+          "crcmod >= 1.7",
+          "pyserial >= 3.0.1",
+          ],
      )

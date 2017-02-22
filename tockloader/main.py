@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import atexit
 import binascii
+import colorama
 import glob
 import os
 import struct
@@ -69,6 +71,39 @@ SYNC_MESSAGE = bytes([0x00, ESCAPE_CHAR, COMMAND_RESET])
 
 
 ################################################################################
+## Niceties and Support
+################################################################################
+
+from serial.tools import list_ports_common
+
+def set_terminal_title(title):
+	print(colorama.ansi.set_title(title))
+
+def set_terminal_title_from_port_info(info):
+	extras = ["Tockloader"]
+	if info.manufacturer and info.manufacturer != 'n/a':
+		extras.append(info.manufacturer)
+	if info.name and info.name != 'n/a':
+		extras.append(info.name)
+	if info.description and info.description != 'n/a':
+		extras.append(info.description)
+	#if info.hwid and info.hwid != 'n/a':
+	#	extras.append(info.hwid)
+	if info.product and info.product != 'n/a':
+		if info.product != info.description:
+			extras.append(info.product)
+	title = ' : '.join(extras)
+
+	set_terminal_title(title)
+
+def set_terminal_title_from_port(port):
+	set_terminal_title("Tockloader : " + port)
+
+# Cleanup any title the program may set
+atexit.register(set_terminal_title, "")
+
+
+################################################################################
 ## Main Bootloader Interface
 ################################################################################
 
@@ -89,6 +124,7 @@ class TockLoader:
 			if len(ports) > 0:
 				# Use the first one
 				print('Using "{}"'.format(ports[0]))
+				set_terminal_title_from_port_info(ports[0])
 				port = ports[0][0]
 			else:
 				# Just find any port and use the first one
@@ -102,7 +138,10 @@ class TockLoader:
 
 				print('Found {} serial port(s).'.format(len(ports)))
 				print('Using "{}"'.format(ports[0]))
+				set_terminal_title_from_port_info(ports[0])
 				port = ports[0][0]
+		else:
+			set_terminal_title_from_port(port)
 
 		# Open the actual serial port
 		self.sp = serial.Serial()

@@ -49,5 +49,5 @@ Upload to PyPI
 
 Internal note.
 
-    python3 setup.py sdist
-    twine upload dist/tockloader-X.X.X.tar.gz
+    python3 setup.py sdist bdist_wheel
+    twine upload dist/*

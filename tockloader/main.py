@@ -1104,22 +1104,24 @@ def main ():
 	parser = argparse.ArgumentParser(parents=[parent])
 	before_command_args = parser.parse_known_args()
 
+	# Parser for all flashing commands
+	parent_flashing = argparse.ArgumentParser(add_help=False)
+	parent_flashing.add_argument('--address', '-a',
+		help='Address to flash the binary at',
+		type=lambda x: int(x, 0),
+		default=0x30000)
 
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(
 		title='Commands')
 
 	flash = subparser.add_parser('flash',
-		parents=[parent],
+		parents=[parent, parent_flashing],
 		help='Flash binaries to the chip')
 	flash.set_defaults(func=command_flash)
 	flash.add_argument('binary',
 		help='The binary file or files to flash to the chip',
 		nargs='*')
-	flash.add_argument('--address', '-a',
-		help='Address to flash the binary at',
-		type=lambda x: int(x, 0),
-		default=0x30000)
 
 	listen = subparser.add_parser('listen',
 		parents=[parent],
@@ -1127,13 +1129,9 @@ def main ():
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',
-		parents=[parent],
+		parents=[parent, parent_flashing],
 		help='List the apps installed on the board')
 	listcmd.set_defaults(func=command_list)
-	listcmd.add_argument('--address', '-a',
-		help='Address to flash the binary at',
-		type=lambda x: int(x, 0),
-		default=0x30000)
 	listcmd.add_argument('--verbose', '-v',
 		help='Print more information',
 		action='store_true')
@@ -1142,49 +1140,33 @@ def main ():
 		action='store_true')
 
 	replace = subparser.add_parser('replace',
-		parents=[parent],
+		parents=[parent, parent_flashing],
 		help='Replace an already flashed app with this binary')
 	replace.set_defaults(func=command_replace)
 	replace.add_argument('binary',
 		help='The binary file to use as the replacement',
 		nargs='*')
-	replace.add_argument('--address', '-a',
-		help='Address where apps are placed',
-		type=lambda x: int(x, 0),
-		default=0x30000)
 
 	add = subparser.add_parser('add',
-		parents=[parent],
+		parents=[parent, parent_flashing],
 		help='Add an app to the already flashed apps')
 	add.set_defaults(func=command_add)
 	add.add_argument('binary',
 		help='The binary file to add to the end',
 		nargs='*')
-	add.add_argument('--address', '-a',
-		help='Address where apps are placed',
-		type=lambda x: int(x, 0),
-		default=0x30000)
 
 	remove = subparser.add_parser('remove',
-		parents=[parent],
+		parents=[parent, parent_flashing],
 		help='Remove an already flashed app')
 	remove.set_defaults(func=command_remove)
 	remove.add_argument('name',
 		help='The name of the app to remove',
 		nargs=1)
-	remove.add_argument('--address', '-a',
-		help='Address where apps are placed',
-		type=lambda x: int(x, 0),
-		default=0x30000)
 
 	eraseapps = subparser.add_parser('erase-apps',
-		parents=[parent],
+		parents=[parent, parent_flashing],
 		help='Delete apps from the board')
 	eraseapps.set_defaults(func=command_erase_apps)
-	eraseapps.add_argument('--address', '-a',
-		help='Address where apps are placed',
-		type=lambda x: int(x, 0),
-		default=0x30000)
 
 	args = parser.parse_args()
 

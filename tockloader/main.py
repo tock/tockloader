@@ -1102,6 +1102,7 @@ def main ():
 
 	# The top-level parser object
 	parser = argparse.ArgumentParser(parents=[parent])
+	before_command_args = parser.parse_known_args()
 
 
 	# Support multiple commands for this tool
@@ -1186,6 +1187,15 @@ def main ():
 		default=0x30000)
 
 	args = parser.parse_args()
+
+	# Concat the args before the command with those that were specified
+	# after the command. This is a workaround because for some reason python
+	# won't parse a set of parent options before the "command" option
+	# (or it is getting overwritten).
+	for key,value in vars(before_command_args[0]).items():
+		if getattr(args, key) == None and value != None:
+			setattr(args, key, value)
+
 	if hasattr(args, 'func'):
 		args.func(args)
 	else:

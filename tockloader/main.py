@@ -154,6 +154,7 @@ def menu(options, *,
 class TockLoader:
 	def __init__ (self, args):
 		self.debug = args.debug
+		self.args = args
 
 
 	# Open the serial port to the chip/bootloader
@@ -583,9 +584,20 @@ class TockLoader:
 
 		return (True, ret[2:])
 
+	def _flash_binary (self, address, binary):
+		return self._choose_correct_function('flash_binary', address, binary)
+
+	def _choose_correct_function (self, function, *args):
+		protocol = 'bootloader'
+		if self.args.jtag:
+			protocol = 'jtag'
+
+		correct_function = getattr(self, '_{}_{}'.format(function, protocol))
+		return correct_function(*args)
+
 	# Write pages until a binary has been flashed. binary must have a length that
 	# is a multiple of 512.
-	def _flash_binary (self, address, binary):
+	def _flash_binary_bootloader (self, address, binary):
 		assert len(binary) % 512 == 0
 		# Loop through the binary 512 bytes at a time until it has been flashed
 		# to the chip.
@@ -615,6 +627,24 @@ class TockLoader:
 		# And check the CRC
 		crc_passed = self._check_crc(address, binary)
 		if not crc_passed:
+			return False
+
+		return True
+
+	# Write using JTAG
+	def _flash_binary_jtag (self, address, binary):
+
+		with open('k.bin', 'wb') as f:
+			f.write(binary)
+
+		with open('flash-app.jtag', 'w') as jlink_file:
+			jlink_file.write('r\n');
+			jlink_file.write('loadbin k.bin, {:#x}\n'.format(address));
+			jlink_file.write('verifybin k.bin, {:#x}\n'.format(address));
+			jlink_file.write('r\ng\nq\n');
+
+		ret = os.system('JLinkExe -device ATSAM4LC8C -if swd -speed 1200 -AutoConnect 1 flash-app.jtag')
+		if ret != 0:
 			return False
 
 		return True
@@ -1110,6 +1140,9 @@ def main ():
 		help='Address to flash the binary at',
 		type=lambda x: int(x, 0),
 		default=0x30000)
+	parent_flashing.add_argument('--jtag',
+		action='store_true',
+		help='Use JTAG and JLinkExe to flash.')
 
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(

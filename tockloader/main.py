@@ -494,42 +494,50 @@ class TockLoader:
 		# Check to see if the serial port was specified or we should find
 		# one to use
 		if args.port == None:
-			if args.device_name == None:
-				device_name = 'tock'
-				print('No device name specified. Using default "{}"'.format(device_name))
-			else:
-				device_name = args.device_name
+			# Nothing was specified, so we look for something marked as "Tock".
+			# If we can't find something, it is OK.
+			device_name = 'tock'
+			must_match = False
+			print('No device name specified. Using default "{}"'.format(device_name))
+		else:
+			# Since we specified, make sure we connect to that.
+			device_name = args.port
+			must_match = True
 
-			ports = list(serial.tools.list_ports.grep(device_name))
+		# Look for a matching port
+		ports = list(serial.tools.list_ports.grep(device_name))
+		if len(ports) == 1:
+			# Easy case, use the one that matches
+			print('Using "{}"'.format(ports[0]))
+			index = 0
+		elif len(ports) > 1:
+			index = menu(ports, return_type='index')
+		else:
+			if must_match:
+				# We want to find a very specific board. If this does not
+				# exist, we want to fail.
+				print('Could not find a board matching "{}"'.format(device_name))
+				return False
+
+			# Just find any port and use the first one
+			ports = list(serial.tools.list_ports.comports())
+			# Mac's will report Bluetooth devices with serial, which is
+			# almost certainly never what you want, so drop these
+			ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
+			if len(ports) == 0:
+				print('No serial ports found. Is the board connected?')
+				return False
+
+			print('No serial port with device name "{}" found'.format(device_name))
+			print('Found {} serial port(s).'.format(len(ports)))
+
 			if len(ports) == 1:
-				# Easy case, use the one that matches
 				print('Using "{}"'.format(ports[0]))
 				index = 0
-			elif len(ports) > 1:
-				index = menu(ports, return_type='index')
 			else:
-				# Just find any port and use the first one
-				ports = list(serial.tools.list_ports.comports())
-				# Mac's will report Bluetooth devices with serial, which is
-				# almost certainly never what you want, so drop these
-				ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
-				if len(ports) == 0:
-					print('No serial ports found. Is the board connected?')
-					return False
-
-				print('No serial port with device name "{}" found'.format(device_name))
-				print('Found {} serial port(s).'.format(len(ports)))
-
-				if len(ports) == 1:
-					print('Using "{}"'.format(ports[0]))
-					index = 0
-				else:
-					index = menu(ports, return_type='index')
-			port = ports[index][0]
-			set_terminal_title_from_port_info(ports[index])
-		else:
-			port = args.port
-			set_terminal_title_from_port(port)
+				index = menu(ports, return_type='index')
+		port = ports[index][0]
+		set_terminal_title_from_port_info(ports[index])
 
 		# Open the actual serial port
 		self.sp = serial.Serial()
@@ -1241,10 +1249,7 @@ def main ():
 
 	# All commands need a serial port to talk to the board
 	parent.add_argument('--port', '-p',
-		help='The serial port to use')
-
-	parent.add_argument('--device-name', '-d',
-		help='Search for a serial device with the given name')
+		help='The serial port or device name to use')
 
 	parent.add_argument('--make',
 		action='store_true',

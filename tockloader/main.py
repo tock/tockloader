@@ -233,7 +233,7 @@ class TockLoader:
 	# Returns False if there is an error.
 	def flash_binary (self, binary, address):
 		# Enter bootloader mode to get things started
-		entered = self._enter_bootloader_mode();
+		entered = self._start_communication_with_board();
 		if not entered:
 			return False
 
@@ -259,7 +259,7 @@ class TockLoader:
 		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 		# All done, now run the application
-		self._exit_bootloader_mode()
+		self._end_communication_with_board()
 
 		return True
 
@@ -289,7 +289,7 @@ class TockLoader:
 	# Query the chip's flash to determine which apps are installed.
 	def list_apps (self, address, verbose, quiet):
 		# Enter bootloader mode to get things started
-		entered = self._enter_bootloader_mode();
+		entered = self._start_communication_with_board();
 		if not entered:
 			return False
 
@@ -335,7 +335,7 @@ class TockLoader:
 			print(' '.join(app_names))
 
 		# Done
-		self._exit_bootloader_mode()
+		self._end_communication_with_board()
 		return True
 
 
@@ -344,7 +344,7 @@ class TockLoader:
 	# for apps.
 	def replace_binary (self, binary, address):
 		# Enter bootloader mode to get things started
-		entered = self._enter_bootloader_mode();
+		entered = self._start_communication_with_board();
 		if not entered:
 			return False
 
@@ -393,14 +393,14 @@ class TockLoader:
 		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 		# Done
-		self._exit_bootloader_mode()
+		self._end_communication_with_board()
 		return True
 
 
 	# Add the app to the list of the currently flashed apps
 	def add_binary (self, binary, address):
 		# Enter bootloader mode to get things started
-		entered = self._enter_bootloader_mode();
+		entered = self._start_communication_with_board();
 		if not entered:
 			return False
 
@@ -421,14 +421,14 @@ class TockLoader:
 		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 		# Done
-		self._exit_bootloader_mode()
+		self._end_communication_with_board()
 		return True
 
 
 	# Add the app to the list of the currently flashed apps
 	def remove_app (self, app_name, address):
 		# Enter bootloader mode to get things started
-		entered = self._enter_bootloader_mode();
+		entered = self._start_communication_with_board();
 		if not entered:
 			return False
 
@@ -460,14 +460,14 @@ class TockLoader:
 		print('Removed app in {:0.3f} seconds'.format(now-then))
 
 		# Done
-		self._exit_bootloader_mode()
+		self._end_communication_with_board()
 		return True
 
 
 	# Erase flash where apps go
 	def erase_apps (self, address):
 		# Enter bootloader mode to get things started
-		entered = self._enter_bootloader_mode();
+		entered = self._start_communication_with_board();
 		if not entered:
 			return False
 
@@ -477,12 +477,63 @@ class TockLoader:
 		self._erase_page(address)
 
 		# Done
-		self._exit_bootloader_mode()
+		self._end_communication_with_board()
 		return True
 
 
 	############################################################################
-	## Internal Helper Functions
+	## Internal Helper Functions for Communicating with Boards
+	############################################################################
+
+	# Based on the transport method used, there may be some setup required
+	# to connect to the board. This function runs the setup needed to connect
+	# to the board.
+	#
+	# For the bootloader, the board needs to be reset and told to enter the
+	# bootloader mode.
+	# For JTAG, this is unnecessary.
+	def _start_communication_with_board (self):
+		if self.args.jtag:
+			return True
+		else:
+			return self._enter_bootloader_mode()
+
+	# Opposite of start comms with the board.
+	#
+	# For the bootloader, this resets the board so that the main code runs
+	# instead of the bootloader.
+	def _end_communication_with_board (self):
+		if self.args.jtag:
+			return True
+		else:
+			return self._exit_bootloader_mode()
+
+	# Flash a binary blob to the board at the given address.
+	def _flash_binary (self, address, binary):
+		return self._choose_correct_function('flash_binary', address, binary)
+
+	# Erase a single page of the flash at the given address.
+	def _erase_page (self, address):
+		return self._choose_correct_function('erase_page', address)
+
+	# Read a given number of bytes from flash at a certain address.
+	def _read_range (self, address, length):
+		if self.debug:
+			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
+
+		return self._choose_correct_function('read_range', address, length)
+
+	def _choose_correct_function (self, function, *args):
+		protocol = 'bootloader'
+		if self.args.jtag:
+			protocol = 'jtag'
+
+		correct_function = getattr(self, '_{}_{}'.format(function, protocol))
+		return correct_function(*args)
+
+
+	############################################################################
+	## Bootloader Specific Functions
 	############################################################################
 
 	# Reset the chip and assert the bootloader select pin to enter bootloader
@@ -504,9 +555,6 @@ class TockLoader:
 	# Reset the chip and assert the bootloader select pin to enter bootloader
 	# mode.
 	def _enter_bootloader_mode (self):
-		if self.args.jtag:
-			return True
-
 		self._toggle_bootloader_entry()
 
 		# Make sure the bootloader is actually active and we can talk to it.
@@ -596,64 +644,6 @@ class TockLoader:
 
 		return (True, ret[2:])
 
-	def _run_jtag_commands (self, commands, binary, write=True):
-		delete = True
-		if self.debug:
-			delete = False
-
-		if binary:
-			temp_bin = tempfile.NamedTemporaryFile(mode='w+b', suffix='.bin', delete=delete)
-			if write:
-				temp_bin.write(binary)
-
-			# Update all of the commands with the name of the binary file
-			for i,command in enumerate(commands):
-				commands[i] = command.format(binary=temp_bin.name)
-
-		with tempfile.NamedTemporaryFile(mode='w', delete=delete) as jlink_file:
-			for command in commands:
-				jlink_file.write(command)
-
-			jlink_file.flush()
-
-			jlink_command = 'JLinkExe -device ATSAM4LC8C -if swd -speed 1200 -AutoConnect 1 {}'.format(jlink_file.name)
-
-			if self.debug:
-				print('Running "{}".'.format(jlink_command))
-
-			p = subprocess.run(jlink_command, shell=True, stdout=subprocess.PIPE)
-			if p.returncode != 0:
-				print('ERROR running JLinkExe')
-				print(p.stdout)
-				print(p.stderr)
-
-			if write == False:
-				# Wanted to read binary, so lets pull that
-				temp_bin.seek(0, 0)
-				return temp_bin.read()
-
-			return True
-
-	def _flash_binary (self, address, binary):
-		return self._choose_correct_function('flash_binary', address, binary)
-
-	def _erase_page (self, address):
-		return self._choose_correct_function('erase_page', address)
-
-	def _read_range (self, address, length):
-		if self.debug:
-			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
-
-		return self._choose_correct_function('read_range', address, length)
-
-	def _choose_correct_function (self, function, *args):
-		protocol = 'bootloader'
-		if self.args.jtag:
-			protocol = 'jtag'
-
-		correct_function = getattr(self, '_{}_{}'.format(function, protocol))
-		return correct_function(*args)
-
 	# Write pages until a binary has been flashed. binary must have a length that
 	# is a multiple of 512.
 	def _flash_binary_bootloader (self, address, binary):
@@ -690,17 +680,6 @@ class TockLoader:
 
 		return True
 
-	# Write using JTAG
-	def _flash_binary_jtag (self, address, binary):
-		commands = [
-			'r\n',
-			'loadbin {{binary}}, {address:#x}\n'.format(address=address),
-			'verifybin {{binary}}, {address:#x}\n'.format(address=address),
-			'r\ng\nq\n'
-		]
-
-		return self._run_jtag_commands(commands, binary)
-
 	# Read a specific range of flash.
 	def _read_range_bootloader (self, address, length):
 		# Can only read up to 4095 bytes at a time.
@@ -729,16 +708,6 @@ class TockLoader:
 		return read
 
 	# Read a specific range of flash.
-	def _read_range_jtag (self, address, length):
-		commands = [
-			'r\n',
-			'savebin {{binary}}, {address:#x} {length}\n'.format(address=address, length=length),
-			'r\ng\nq\n'
-		]
-
-		return self._run_jtag_commands(commands, bytes([0]), write=False)
-
-	# Read a specific range of flash.
 	def _erase_page_bootloader (self, address):
 		message = struct.pack('<I', address)
 		success, ret = self._issue_command(COMMAND_ERASE_PAGE, message, True, 0, RESPONSE_OK)
@@ -753,18 +722,6 @@ class TockLoader:
 			else:
 				print('Error: 0x{:X}'.format(ret[1]))
 		return success
-
-	# Read a specific range of flash.
-	def _erase_page_jtag (self, address):
-		binary = bytes([0xFF]*512)
-		commands = [
-			'r\n',
-			'loadbin {{binary}}, {address:#x}\n'.format(address=address),
-			'verifybin {{binary}}, {address:#x}\n'.format(address=address),
-			'r\ng\nq\n'
-		]
-
-		return self._run_jtag_commands(commands, binary)
 
 	# Get the bootloader to compute a CRC
 	def _get_crc_internal_flash (self, address, length):
@@ -805,6 +762,88 @@ class TockLoader:
 		else:
 			print('CRC check passed. Binaries successfully loaded.')
 			return True
+
+	############################################################################
+	## JTAG Specific Functions
+	############################################################################
+
+	def _run_jtag_commands (self, commands, binary, write=True):
+		delete = True
+		if self.debug:
+			delete = False
+
+		if binary:
+			temp_bin = tempfile.NamedTemporaryFile(mode='w+b', suffix='.bin', delete=delete)
+			if write:
+				temp_bin.write(binary)
+
+			# Update all of the commands with the name of the binary file
+			for i,command in enumerate(commands):
+				commands[i] = command.format(binary=temp_bin.name)
+
+		with tempfile.NamedTemporaryFile(mode='w', delete=delete) as jlink_file:
+			for command in commands:
+				jlink_file.write(command)
+
+			jlink_file.flush()
+
+			jlink_command = 'JLinkExe -device ATSAM4LC8C -if swd -speed 1200 -AutoConnect 1 {}'.format(jlink_file.name)
+
+			if self.debug:
+				print('Running "{}".'.format(jlink_command))
+
+			p = subprocess.run(jlink_command, shell=True, stdout=subprocess.PIPE)
+			if p.returncode != 0:
+				print('ERROR running JLinkExe')
+				print(p.stdout.decode('utf-8'))
+				print(p.stderr.decode('utf-8'))
+			elif self.debug:
+				print(p.stdout.decode('utf-8'))
+				print(p.stderr.decode('utf-8'))
+
+			if write == False:
+				# Wanted to read binary, so lets pull that
+				temp_bin.seek(0, 0)
+				return temp_bin.read()
+
+			return True
+
+	# Write using JTAG
+	def _flash_binary_jtag (self, address, binary):
+		commands = [
+			'r\n',
+			'loadbin {{binary}}, {address:#x}\n'.format(address=address),
+			'verifybin {{binary}}, {address:#x}\n'.format(address=address),
+			'r\ng\nq\n'
+		]
+
+		return self._run_jtag_commands(commands, binary)
+
+	# Read a specific range of flash.
+	def _read_range_jtag (self, address, length):
+		commands = [
+			'r\n',
+			'savebin {{binary}}, {address:#x} {length}\n'.format(address=address, length=length),
+			'r\ng\nq\n'
+		]
+
+		return self._run_jtag_commands(commands, bytes([0]), write=False)
+
+	# Read a specific range of flash.
+	def _erase_page_jtag (self, address):
+		binary = bytes([0xFF]*512)
+		commands = [
+			'r\n',
+			'loadbin {{binary}}, {address:#x}\n'.format(address=address),
+			'verifybin {{binary}}, {address:#x}\n'.format(address=address),
+			'r\ng\nq\n'
+		]
+
+		return self._run_jtag_commands(commands, binary)
+
+	############################################################################
+	## Helper Functions for Manipulating Binaries and TBF
+	############################################################################
 
 	# Given an array of apps, some of which are new and some of which exist,
 	# sort them in flash so they are in descending size order.

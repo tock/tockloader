@@ -210,6 +210,8 @@ class TockLoader:
 
 	# Run miniterm for receiving data from the board.
 	def run_terminal (self):
+		print('Listening for serial output.')
+
 		# Use trusty miniterm
 		miniterm = serial.tools.miniterm.Miniterm(
 			self.sp,

@@ -19,15 +19,14 @@ This tool installs a binary called `tockloader`, which supports several commands
 
 Listen to UART `printf()` data from a board.
 
-### `tockloader flash`
-
-Load binaries onto hardware platforms that are running a compatible bootloader.
-This is used by the [TockOS](https://github.com/helena-project/tock) Make system
-when application binaries are programmed to the board with `make program`.
-
 ### `tockloader list`
 
 Print information about the apps currently loaded onto the board.
+
+### `tockloader install`
+
+Load Tock applications on to the board. This will replace any existing apps
+already flashed on the device.
 
 ### `tockloader replace`
 
@@ -42,7 +41,11 @@ Add an application binary (or binaries) to the list of installed apps.
 
 Remove an application from flash by its name.
 
+### `tockloader flash`
 
+Load binaries onto hardware platforms that are running a compatible bootloader.
+This is used by the [TockOS](https://github.com/helena-project/tock) Make system
+when application binaries are programmed to the board with `make program`.
 
 Upload to PyPI
 --------------

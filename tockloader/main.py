@@ -208,6 +208,33 @@ class TockLoader:
 
 		return True
 
+
+	# Add the app to the list of the currently flashed apps
+	def install (self, binary, address):
+		# Enter bootloader mode to get things started
+		entered = self._start_communication_with_board();
+		if not entered:
+			return False
+
+		# Time the programming operation
+		then = time.time()
+
+		# Create a list of apps
+		apps = self._extract_all_app_headers(binary)
+
+		# Now that we have an array of all the apps that are supposed to be
+		# on the board, write them in the correct order.
+		self._reshuffle_apps(address, apps)
+
+		# How long did it take?
+		now = time.time()
+		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
+
+		# Done
+		self._end_communication_with_board()
+		return True
+
+
 	# Run miniterm for receiving data from the board.
 	def run_terminal (self):
 		print('Listening for serial output.')
@@ -1156,6 +1183,26 @@ def command_flash (args):
 		sys.exit(1)
 
 
+def command_install (args):
+	check_and_run_make(args)
+
+	# Load in all binaries
+	binary = collect_binaries(args)
+
+	# Install the apps on the board
+	tock_loader = TockLoader(args)
+	success = tock_loader.open(args)
+	if not success:
+		print('Could not open the serial port. Make sure the board is plugged in.')
+		sys.exit(1)
+
+	print('Installing apps on the board...')
+	success = tock_loader.install(binary, args.address)
+	if not success:
+		print('Could not add the binaries.')
+		sys.exit(1)
+
+
 def command_listen (args):
 	tock_loader = TockLoader(args)
 	success = tock_loader.open(args)
@@ -1288,12 +1335,12 @@ def main ():
 	subparser = parser.add_subparsers(
 		title='Commands')
 
-	flash = subparser.add_parser('flash',
+	install = subparser.add_parser('install',
 		parents=[parent, parent_flashing],
-		help='Flash binaries to the chip')
-	flash.set_defaults(func=command_flash)
-	flash.add_argument('binary',
-		help='The binary file or files to flash to the chip',
+		help='Install apps on the board')
+	install.set_defaults(func=command_install)
+	install.add_argument('binary',
+		help='The binary file or files to install',
 		nargs='*')
 
 	listen = subparser.add_parser('listen',
@@ -1340,6 +1387,14 @@ def main ():
 		parents=[parent, parent_flashing],
 		help='Delete apps from the board')
 	eraseapps.set_defaults(func=command_erase_apps)
+
+	flash = subparser.add_parser('flash',
+		parents=[parent, parent_flashing],
+		help='Flash binaries to the chip')
+	flash.set_defaults(func=command_flash)
+	flash.add_argument('binary',
+		help='The binary file or files to flash to the chip',
+		nargs='*')
 
 	args = parser.parse_args()
 

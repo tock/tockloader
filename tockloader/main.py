@@ -779,12 +779,17 @@ class TockLoader:
 	## JTAG Specific Functions
 	############################################################################
 
+	# commands: List of JLinkExe commands. Use {binary} for where the name of
+	#           the binary file should be substituted.
+	# binary:   A bytes() object that will be used to write to the board.
+	# write:    Set to true if the command writes binaries to the board.
+	#           Set to false if the command will read bits from the board.
 	def _run_jtag_commands (self, commands, binary, write=True):
 		delete = True
 		if self.debug:
 			delete = False
 
-		if binary:
+		if binary or not write:
 			temp_bin = tempfile.NamedTemporaryFile(mode='w+b', suffix='.bin', delete=delete)
 			if write:
 				temp_bin.write(binary)
@@ -797,7 +802,7 @@ class TockLoader:
 
 		with tempfile.NamedTemporaryFile(mode='w', delete=delete) as jlink_file:
 			for command in commands:
-				jlink_file.write(command)
+				jlink_file.write(command + '\n')
 
 			jlink_file.flush()
 
@@ -829,10 +834,10 @@ class TockLoader:
 	# Write using JTAG
 	def _flash_binary_jtag (self, address, binary):
 		commands = [
-			'r\n',
-			'loadbin {{binary}}, {address:#x}\n'.format(address=address),
-			'verifybin {{binary}}, {address:#x}\n'.format(address=address),
-			'r\ng\nq\n'
+			'r',
+			'loadbin {{binary}}, {address:#x}'.format(address=address),
+			'verifybin {{binary}}, {address:#x}'.format(address=address),
+			'r\ng\nq'
 		]
 
 		return self._run_jtag_commands(commands, binary)
@@ -840,21 +845,21 @@ class TockLoader:
 	# Read a specific range of flash.
 	def _read_range_jtag (self, address, length):
 		commands = [
-			'r\n',
-			'savebin {{binary}}, {address:#x} {length}\n'.format(address=address, length=length),
-			'r\ng\nq\n'
+			'r',
+			'savebin {{binary}}, {address:#x} {length}'.format(address=address, length=length),
+			'r\ng\nq'
 		]
 
-		return self._run_jtag_commands(commands, bytes([0]), write=False)
+		return self._run_jtag_commands(commands, None, write=False)
 
 	# Read a specific range of flash.
 	def _erase_page_jtag (self, address):
 		binary = bytes([0xFF]*512)
 		commands = [
-			'r\n',
-			'loadbin {{binary}}, {address:#x}\n'.format(address=address),
-			'verifybin {{binary}}, {address:#x}\n'.format(address=address),
-			'r\ng\nq\n'
+			'r',
+			'loadbin {{binary}}, {address:#x}'.format(address=address),
+			'verifybin {{binary}}, {address:#x}'.format(address=address),
+			'r\ng\nq'
 		]
 
 		return self._run_jtag_commands(commands, binary)

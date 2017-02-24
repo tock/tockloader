@@ -157,71 +157,16 @@ class TockLoader:
 		self.debug = args.debug
 		self.args = args
 
+		if not hasattr(self.args, 'jtag'):
+			self.args.jtag = False
 
-	# Open the serial port to the chip/bootloader
+
+	# Open the correct channel to talk to the board.
+	#
+	# For the bootloader, this means opening a serial port.
+	# For JTAG, not much needs to be done.
 	def open (self, args):
-		# Check to see if we are using JTAG. If so, we don't need to open
-		# a serial port.
-		# TODO(2017-02-24): Check that JTAG is connected
-		if self.args.jtag:
-			return True
-
-		# Check to see if the serial port was specified or we should find
-		# one to use
-		if args.port == None:
-			if args.device_name == None:
-				device_name = 'tock'
-				print('No device name specified. Using default "{}"'.format(device_name))
-			else:
-				device_name = args.device_name
-
-			ports = list(serial.tools.list_ports.grep(device_name))
-			if len(ports) == 1:
-				# Easy case, use the one that matches
-				print('Using "{}"'.format(ports[0]))
-				index = 0
-			elif len(ports) > 1:
-				index = menu(ports, return_type='index')
-			else:
-				# Just find any port and use the first one
-				ports = list(serial.tools.list_ports.comports())
-				# Mac's will report Bluetooth devices with serial, which is
-				# almost certainly never what you want, so drop these
-				ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
-				if len(ports) == 0:
-					print('No serial ports found. Is the board connected?')
-					return False
-
-				print('No serial port with device name "{}" found'.format(device_name))
-				print('Found {} serial port(s).'.format(len(ports)))
-
-				if len(ports) == 1:
-					print('Using "{}"'.format(ports[0]))
-					index = 0
-				else:
-					index = menu(ports, return_type='index')
-			port = ports[index][0]
-			set_terminal_title_from_port_info(ports[index])
-		else:
-			port = args.port
-			set_terminal_title_from_port(port)
-
-		# Open the actual serial port
-		self.sp = serial.Serial()
-		self.sp.port = port
-		self.sp.baudrate = 115200
-		self.sp.parity=serial.PARITY_NONE
-		self.sp.stopbits=1
-		self.sp.xonxoff=0
-		self.sp.rtscts=0
-		self.sp.timeout=0.5
-		# Try to set initial conditions, but not all platforms support them.
-		# https://github.com/pyserial/pyserial/issues/124#issuecomment-227235402
-		self.sp.dtr = 0
-		self.sp.rts = 0
-		self.sp.open()
-
-		return True
+		return self._open_link_to_board(args)
 
 
 	# Tell the bootloader to save the binary blob to an address in internal
@@ -485,6 +430,14 @@ class TockLoader:
 	## Internal Helper Functions for Communicating with Boards
 	############################################################################
 
+	# Setup a channel to the board based on how it is connected.
+	def _open_link_to_board (self, args):
+		if self.args.jtag:
+			# TODO(2017-02-24): Check that JTAG is connected
+			return True
+		else:
+			return self._open_link_to_board_bootloader(args)
+
 	# Based on the transport method used, there may be some setup required
 	# to connect to the board. This function runs the setup needed to connect
 	# to the board.
@@ -535,6 +488,65 @@ class TockLoader:
 	############################################################################
 	## Bootloader Specific Functions
 	############################################################################
+
+	# Open the serial port to the chip/bootloader
+	def _open_link_to_board_bootloader (self, args):
+		# Check to see if the serial port was specified or we should find
+		# one to use
+		if args.port == None:
+			if args.device_name == None:
+				device_name = 'tock'
+				print('No device name specified. Using default "{}"'.format(device_name))
+			else:
+				device_name = args.device_name
+
+			ports = list(serial.tools.list_ports.grep(device_name))
+			if len(ports) == 1:
+				# Easy case, use the one that matches
+				print('Using "{}"'.format(ports[0]))
+				index = 0
+			elif len(ports) > 1:
+				index = menu(ports, return_type='index')
+			else:
+				# Just find any port and use the first one
+				ports = list(serial.tools.list_ports.comports())
+				# Mac's will report Bluetooth devices with serial, which is
+				# almost certainly never what you want, so drop these
+				ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
+				if len(ports) == 0:
+					print('No serial ports found. Is the board connected?')
+					return False
+
+				print('No serial port with device name "{}" found'.format(device_name))
+				print('Found {} serial port(s).'.format(len(ports)))
+
+				if len(ports) == 1:
+					print('Using "{}"'.format(ports[0]))
+					index = 0
+				else:
+					index = menu(ports, return_type='index')
+			port = ports[index][0]
+			set_terminal_title_from_port_info(ports[index])
+		else:
+			port = args.port
+			set_terminal_title_from_port(port)
+
+		# Open the actual serial port
+		self.sp = serial.Serial()
+		self.sp.port = port
+		self.sp.baudrate = 115200
+		self.sp.parity=serial.PARITY_NONE
+		self.sp.stopbits=1
+		self.sp.xonxoff=0
+		self.sp.rtscts=0
+		self.sp.timeout=0.5
+		# Try to set initial conditions, but not all platforms support them.
+		# https://github.com/pyserial/pyserial/issues/124#issuecomment-227235402
+		self.sp.dtr = 0
+		self.sp.rts = 0
+		self.sp.open()
+
+		return True
 
 	# Reset the chip and assert the bootloader select pin to enter bootloader
 	# mode.
@@ -777,6 +789,8 @@ class TockLoader:
 			if write:
 				temp_bin.write(binary)
 
+			temp_bin.flush()
+
 			# Update all of the commands with the name of the binary file
 			for i,command in enumerate(commands):
 				commands[i] = command.format(binary=temp_bin.name)
@@ -792,14 +806,18 @@ class TockLoader:
 			if self.debug:
 				print('Running "{}".'.format(jlink_command))
 
-			p = subprocess.run(jlink_command, shell=True, stdout=subprocess.PIPE)
+			def print_output (subp):
+				if subp.stdout:
+					print(subp.stdout.decode('utf-8'))
+				if subp.stderr:
+					print(subp.stderr.decode('utf-8'))
+
+			p = subprocess.run(jlink_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			if p.returncode != 0:
 				print('ERROR running JLinkExe')
-				print(p.stdout.decode('utf-8'))
-				print(p.stderr.decode('utf-8'))
+				print_output(p)
 			elif self.debug:
-				print(p.stdout.decode('utf-8'))
-				print(p.stderr.decode('utf-8'))
+				print_output(p)
 
 			if write == False:
 				# Wanted to read binary, so lets pull that

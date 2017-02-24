@@ -9,6 +9,7 @@ import os
 import struct
 import subprocess
 import sys
+import tempfile
 import time
 
 import crcmod
@@ -159,6 +160,11 @@ class TockLoader:
 
 	# Open the serial port to the chip/bootloader
 	def open (self, args):
+		# Check to see if we are using JTAG. If so, we don't need to open
+		# a serial port.
+		# TODO(2017-02-24): Check that JTAG is connected
+		if self.args.jtag:
+			return True
 
 		# Check to see if the serial port was specified or we should find
 		# one to use
@@ -475,9 +481,9 @@ class TockLoader:
 		return True
 
 
-	############################
+	############################################################################
 	## Internal Helper Functions
-	############################
+	############################################################################
 
 	# Reset the chip and assert the bootloader select pin to enter bootloader
 	# mode.
@@ -498,6 +504,9 @@ class TockLoader:
 	# Reset the chip and assert the bootloader select pin to enter bootloader
 	# mode.
 	def _enter_bootloader_mode (self):
+		if self.args.jtag:
+			return True
+
 		self._toggle_bootloader_entry()
 
 		# Make sure the bootloader is actually active and we can talk to it.
@@ -522,6 +531,9 @@ class TockLoader:
 
 	# Reset the chip to exit bootloader mode
 	def _exit_bootloader_mode (self):
+		if self.args.jtag:
+			return True
+
 		# Reset the SAM4L
 		self.sp.dtr = 1
 		# Make sure this line is de-asserted (high)
@@ -584,8 +596,55 @@ class TockLoader:
 
 		return (True, ret[2:])
 
+	def _run_jtag_commands (self, commands, binary, write=True):
+		delete = True
+		if self.debug:
+			delete = False
+
+		if binary:
+			temp_bin = tempfile.NamedTemporaryFile(mode='w+b', suffix='.bin', delete=delete)
+			if write:
+				temp_bin.write(binary)
+
+			# Update all of the commands with the name of the binary file
+			for i,command in enumerate(commands):
+				commands[i] = command.format(binary=temp_bin.name)
+
+		with tempfile.NamedTemporaryFile(mode='w', delete=delete) as jlink_file:
+			for command in commands:
+				jlink_file.write(command)
+
+			jlink_file.flush()
+
+			jlink_command = 'JLinkExe -device ATSAM4LC8C -if swd -speed 1200 -AutoConnect 1 {}'.format(jlink_file.name)
+
+			if self.debug:
+				print('Running "{}".'.format(jlink_command))
+
+			p = subprocess.run(jlink_command, shell=True, stdout=subprocess.PIPE)
+			if p.returncode != 0:
+				print('ERROR running JLinkExe')
+				print(p.stdout)
+				print(p.stderr)
+
+			if write == False:
+				# Wanted to read binary, so lets pull that
+				temp_bin.seek(0, 0)
+				return temp_bin.read()
+
+			return True
+
 	def _flash_binary (self, address, binary):
 		return self._choose_correct_function('flash_binary', address, binary)
+
+	def _erase_page (self, address):
+		return self._choose_correct_function('erase_page', address)
+
+	def _read_range (self, address, length):
+		if self.debug:
+			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
+
+		return self._choose_correct_function('read_range', address, length)
 
 	def _choose_correct_function (self, function, *args):
 		protocol = 'bootloader'
@@ -633,27 +692,17 @@ class TockLoader:
 
 	# Write using JTAG
 	def _flash_binary_jtag (self, address, binary):
+		commands = [
+			'r\n',
+			'loadbin {{binary}}, {address:#x}\n'.format(address=address),
+			'verifybin {{binary}}, {address:#x}\n'.format(address=address),
+			'r\ng\nq\n'
+		]
 
-		with open('k.bin', 'wb') as f:
-			f.write(binary)
-
-		with open('flash-app.jtag', 'w') as jlink_file:
-			jlink_file.write('r\n');
-			jlink_file.write('loadbin k.bin, {:#x}\n'.format(address));
-			jlink_file.write('verifybin k.bin, {:#x}\n'.format(address));
-			jlink_file.write('r\ng\nq\n');
-
-		ret = os.system('JLinkExe -device ATSAM4LC8C -if swd -speed 1200 -AutoConnect 1 flash-app.jtag')
-		if ret != 0:
-			return False
-
-		return True
+		return self._run_jtag_commands(commands, binary)
 
 	# Read a specific range of flash.
-	def _read_range (self, address, length):
-		if self.debug:
-			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
-
+	def _read_range_bootloader (self, address, length):
 		# Can only read up to 4095 bytes at a time.
 		MAX_READ = 4095
 		read = bytes()
@@ -680,7 +729,17 @@ class TockLoader:
 		return read
 
 	# Read a specific range of flash.
-	def _erase_page (self, address):
+	def _read_range_jtag (self, address, length):
+		commands = [
+			'r\n',
+			'savebin {{binary}}, {address:#x} {length}\n'.format(address=address, length=length),
+			'r\ng\nq\n'
+		]
+
+		return self._run_jtag_commands(commands, bytes([0]), write=False)
+
+	# Read a specific range of flash.
+	def _erase_page_bootloader (self, address):
 		message = struct.pack('<I', address)
 		success, ret = self._issue_command(COMMAND_ERASE_PAGE, message, True, 0, RESPONSE_OK)
 
@@ -694,6 +753,18 @@ class TockLoader:
 			else:
 				print('Error: 0x{:X}'.format(ret[1]))
 		return success
+
+	# Read a specific range of flash.
+	def _erase_page_jtag (self, address):
+		binary = bytes([0xFF]*512)
+		commands = [
+			'r\n',
+			'loadbin {{binary}}, {address:#x}\n'.format(address=address),
+			'verifybin {{binary}}, {address:#x}\n'.format(address=address),
+			'r\ng\nq\n'
+		]
+
+		return self._run_jtag_commands(commands, binary)
 
 	# Get the bootloader to compute a CRC
 	def _get_crc_internal_flash (self, address, length):

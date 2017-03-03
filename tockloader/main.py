@@ -856,10 +856,20 @@ class TockLoader:
 
 			p = subprocess.run(jlink_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			if p.returncode != 0:
-				print('ERROR running JLinkExe')
+				print('ERROR: JTAG returned with error code ' + str(p.returncode))
 				print_output(p)
+				sys.exit(1)
 			elif self.debug:
 				print_output(p)
+
+			# check that there was a JTAG programmer and that it found a device
+			stdout = p.stdout.decode('utf-8')
+			if "USB...FAILED" in stdout:
+				print('ERROR: Cannot find JLink hardware. Is USB attached?')
+				sys.exit(1)
+			if "Can not connect to target." in stdout:
+				print('ERROR: Cannot find device. Is JTAG connected?')
+				sys.exit(1)
 
 			if write == False:
 				# Wanted to read binary, so lets pull that

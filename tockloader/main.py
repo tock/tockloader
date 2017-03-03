@@ -1297,7 +1297,7 @@ def main ():
 	parent = argparse.ArgumentParser(add_help=False)
 
 	# All commands need a serial port to talk to the board
-	parent.add_argument('--port', '-p',
+	parent.add_argument('--port', '-p', '--device', '-d',
 		help='The serial port or device name to use')
 
 	parent.add_argument('--make',
@@ -1337,14 +1337,6 @@ def main ():
 	subparser = parser.add_subparsers(
 		title='Commands')
 
-	install = subparser.add_parser('install',
-		parents=[parent, parent_flashing],
-		help='Install apps on the board')
-	install.set_defaults(func=command_install)
-	install.add_argument('binary',
-		help='The binary file or files to install',
-		nargs='*')
-
 	listen = subparser.add_parser('listen',
 		parents=[parent],
 		help='Open a terminal to receive UART data')
@@ -1361,12 +1353,12 @@ def main ():
 		help='Print just a list of application names',
 		action='store_true')
 
-	replace = subparser.add_parser('replace',
+	install = subparser.add_parser('install',
 		parents=[parent, parent_flashing],
-		help='Replace an already flashed app with this binary')
-	replace.set_defaults(func=command_replace)
-	replace.add_argument('binary',
-		help='The binary file to use as the replacement',
+		help='Install apps on the board')
+	install.set_defaults(func=command_install)
+	install.add_argument('binary',
+		help='The binary file or files to install',
 		nargs='*')
 
 	add = subparser.add_parser('add',
@@ -1375,6 +1367,14 @@ def main ():
 	add.set_defaults(func=command_add)
 	add.add_argument('binary',
 		help='The binary file to add to the end',
+		nargs='*')
+
+	replace = subparser.add_parser('replace',
+		parents=[parent, parent_flashing],
+		help='Replace an already flashed app with this binary')
+	replace.set_defaults(func=command_replace)
+	replace.add_argument('binary',
+		help='The binary file to use as the replacement',
 		nargs='*')
 
 	remove = subparser.add_parser('remove',
@@ -1411,7 +1411,8 @@ def main ():
 	if hasattr(args, 'func'):
 		args.func(args)
 	else:
-		print('Missing Command. Run with --help to see supported commands.')
+		print('Missing Command.\n')
+		parser.print_help()
 		sys.exit(1)
 
 

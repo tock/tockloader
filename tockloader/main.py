@@ -1311,15 +1311,17 @@ def main ():
 	parent.add_argument('--version',
 		action='version',
 		version=__version__,
-		help='Tockloader version')
+		help='Print Tockloader version and exit')
 
 	parent.add_argument('--no-check-switches',
 		action='store_true',
 		help='Do not validate the flags used when binaries were built')
 
+	# Get the list of arguments before any command
+	before_command_args = parent.parse_known_args()
+
 	# The top-level parser object
 	parser = argparse.ArgumentParser(parents=[parent])
-	before_command_args = parser.parse_known_args()
 
 	# Parser for all flashing commands
 	parent_flashing = argparse.ArgumentParser(add_help=False)

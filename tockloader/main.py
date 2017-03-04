@@ -358,9 +358,19 @@ class TockLoader:
 				break
 
 		else:
-			print('No app named "{}" found on the board.'.format(new_name))
-			print('Cannot replace.')
-			return False
+			if self.args.add == True:
+				# Just add this app. This is useful for `make program`.
+				print('App "{}" not found, but adding anyway.'.format(new_name))
+				apps.append({
+					'address': None,
+					'binary': binary,
+					'header': tbfh
+				})
+				self._reshuffle_apps(address, apps)
+			else:
+				print('No app named "{}" found on the board.'.format(new_name))
+				print('Cannot replace.')
+				return False
 
 		# How long did it take?
 		now = time.time()
@@ -1386,6 +1396,9 @@ def main ():
 	replace.add_argument('binary',
 		help='The binary file to use as the replacement',
 		nargs='*')
+	replace.add_argument('--add',
+		help='Add the app if it is not already on the board',
+		action='store_true')
 
 	remove = subparser.add_parser('remove',
 		parents=[parent, parent_flashing],

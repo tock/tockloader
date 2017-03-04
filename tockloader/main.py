@@ -40,8 +40,8 @@ COMMAND_XWPAGE             = 0x09
 COMMAND_CRCRX              = 0x10
 COMMAND_READ_RANGE         = 0x11
 COMMAND_XRRANGE            = 0x12
-COMMAND_SATTR              = 0x13
-COMMAND_GATTR              = 0x14
+COMMAND_SET_ATTRIBUTE      = 0x13
+COMMAND_GET_ATTRIBUTE      = 0x14
 COMMAND_CRC_INTERNAL_FLASH = 0x15
 COMMAND_CRCEF              = 0x16
 COMMAND_XEPAGE             = 0x17
@@ -62,7 +62,7 @@ RESPONSE_XFEPE              = 0x18
 RESPONSE_CRCRX              = 0x19
 RESPONSE_READ_RANGE         = 0x20
 RESPONSE_XRRANGE            = 0x21
-RESPONSE_GATTR              = 0x22
+RESPONSE_GET_ATTRIBUTE      = 0x22
 RESPONSE_CRC_INTERNAL_FLASH = 0x23
 RESPONSE_CRCXF              = 0x24
 RESPONSE_INFO               = 0x25
@@ -465,6 +465,77 @@ class TockLoader:
 		return True
 
 
+	# Download all attributes stored on the board
+	def list_attributes (self):
+		# Enter bootloader mode to get things started
+		entered = self._start_communication_with_board();
+		if not entered:
+			return False
+
+		for index in range(0, 16):
+			attribute = self._get_attribute(index)
+			if attribute:
+				print('{:02d}: {:>8} = {}'.format(index, attribute['key'], attribute['value']))
+			else:
+				print('{:02d}:'.format(index))
+
+		# Done
+		self._end_communication_with_board()
+		return True
+
+
+	# Download all attributes stored on the board
+	def set_attribute (self, key, value):
+		# Do some checking
+		if len(key.encode('utf-8')) > 8:
+			print('Key is too long. Must be 8 bytes or fewer.')
+			return False
+		if len(value.encode('utf-8')) > 55:
+			print('Value is too long. Must be 55 bytes or fewer.')
+			return False
+
+		# Enter bootloader mode to get things started
+		entered = self._start_communication_with_board();
+		if not entered:
+			return False
+
+		# Create the buffer to write as the attribute
+		out = bytes([])
+		# Add key
+		out += key.encode('utf-8')
+		out += bytes([0] * (8-len(out)))
+		# Add length
+		out += bytes([len(value.encode('utf-8'))])
+		# Add value
+		out += value.encode('utf-8')
+
+		# Find if this attribute key already exists
+		open_index = -1
+		for index in range(0, 16):
+			attribute = self._get_attribute(index)
+			if attribute:
+				if attribute['key'] == key:
+					print('Found existing key at slot {}. Overwriting.'.format(index))
+					self._set_attribute(index, out)
+					break
+			else:
+				# Save where we should put this attribute if it does not
+				# already exist.
+				if open_index == -1:
+					open_index = index
+		else:
+			if open_index == -1:
+				print('Error: No open space to save this attribute.')
+				return False
+			else:
+				print('Key not found. Writing new attribute to slot {}'.format(open_index))
+				self._set_attribute(open_index, out)
+
+		# Done
+		self._end_communication_with_board()
+		return True
+
+
 	############################################################################
 	## Internal Helper Functions for Communicating with Boards
 	############################################################################
@@ -514,6 +585,24 @@ class TockLoader:
 			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
 
 		return self._choose_correct_function('read_range', address, length)
+
+	def _get_attribute (self, index):
+		raw = self._choose_correct_function('get_attribute', index)
+		try:
+			key = raw[0:8].decode('utf-8').strip(bytes([0]).decode('utf-8'))
+			vlen = raw[8]
+			if vlen > 55:
+				return None
+			value = raw[9:9+vlen].decode('utf-8')
+			return {
+				'key': key,
+				'value': value
+			}
+		except Exception as e:
+			return None
+
+	def _set_attribute (self, index, raw):
+		return self._choose_correct_function('set_attribute', index, raw)
 
 	def _choose_correct_function (self, function, *args):
 		protocol = 'bootloader'
@@ -766,7 +855,7 @@ class TockLoader:
 
 		return read
 
-	# Read a specific range of flash.
+	# Erase a specific page.
 	def _erase_page_bootloader (self, address):
 		message = struct.pack('<I', address)
 		success, ret = self._issue_command(COMMAND_ERASE_PAGE, message, True, 0, RESPONSE_OK)
@@ -821,6 +910,36 @@ class TockLoader:
 		else:
 			print('CRC check passed. Binaries successfully loaded.')
 			return True
+
+	# Get a single attribute.
+	def _get_attribute_bootloader (self, index):
+		message = struct.pack('<B', index)
+		success, ret = self._issue_command(COMMAND_GET_ATTRIBUTE, message, True, 64, RESPONSE_GET_ATTRIBUTE)
+
+		if not success:
+			if ret[1] == RESPONSE_BADADDR:
+				print('Error: Attribute number is invalid.')
+			elif ret[1] == RESPONSE_BADARGS:
+				print('Error: Need to supply a correct attribute index.')
+			else:
+				print('Error: 0x{:X}'.format(ret[1]))
+		return ret
+
+	# Set a single attribute.
+	def _set_attribute_bootloader (self, index, raw):
+		message = struct.pack('<B', index) + raw
+		success, ret = self._issue_command(COMMAND_SET_ATTRIBUTE, message, True, 0, RESPONSE_OK)
+
+		if not success:
+			if ret[1] == RESPONSE_BADADDR:
+				print('Error: Attribute number is invalid.')
+			elif ret[1] == RESPONSE_BADARGS:
+				print('Error: Wrong length of attribute set packet.')
+			elif ret[1] == RESPONSE_INTERROR:
+				print('Error: Internal error when setting attribute.')
+			else:
+				print('Error: 0x{:X}'.format(ret[1]))
+		return ret
 
 	############################################################################
 	## JTAG Specific Functions
@@ -1308,6 +1427,34 @@ def command_erase_apps (args):
 		print('Could not erase the apps.')
 		sys.exit(1)
 
+
+def command_list_attributes (args):
+	tock_loader = TockLoader(args)
+	success = tock_loader.open(args)
+	if not success:
+		print('Could not open the serial port. Make sure the board is plugged in.')
+		sys.exit(1)
+
+	print('Listing attributes...')
+	success = tock_loader.list_attributes()
+	if not success:
+		print('Could not retrieve the attributes.')
+		sys.exit(1)
+
+
+def command_set_attribute (args):
+	tock_loader = TockLoader(args)
+	success = tock_loader.open(args)
+	if not success:
+		print('Could not open the serial port. Make sure the board is plugged in.')
+		sys.exit(1)
+
+	print('Setting attribute...')
+	success = tock_loader.set_attribute(args.key, args.value)
+	if not success:
+		print('Could not set the attribute.')
+		sys.exit(1)
+
 ################################################################################
 ## Setup and parse command line arguments
 ################################################################################
@@ -1420,6 +1567,20 @@ def main ():
 	flash.add_argument('binary',
 		help='The binary file or files to flash to the chip',
 		nargs='*')
+
+	listattributes = subparser.add_parser('list-attributes',
+		parents=[parent],
+		help='List attributes stored on the board')
+	listattributes.set_defaults(func=command_list_attributes)
+
+	setattribute = subparser.add_parser('set-attribute',
+		parents=[parent],
+		help='Stored attribute on the board')
+	setattribute.set_defaults(func=command_set_attribute)
+	setattribute.add_argument('key',
+		help='Attribute key')
+	setattribute.add_argument('value',
+		help='Attribute value')
 
 	args = parser.parse_args()
 

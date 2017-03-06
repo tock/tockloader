@@ -47,6 +47,16 @@ Load binaries onto hardware platforms that are running a compatible bootloader.
 This is used by the [TockOS](https://github.com/helena-project/tock) Make system
 when application binaries are programmed to the board with `make program`.
 
+### `tockloader list-attributes`
+
+Show all of the attributes that are stored on the board.
+
+### `tockloader set-attribute [attribute key] [attribute value]`
+
+Set a particular attribute key to the specified value. This will overwrite
+an existing attribute if the key matches.
+
+
 Upload to PyPI
 --------------
 

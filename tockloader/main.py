@@ -3,7 +3,6 @@
 import argparse
 import atexit
 import binascii
-import colorama
 import glob
 import os
 import struct
@@ -12,6 +11,7 @@ import sys
 import tempfile
 import time
 
+import colorama
 import crcmod
 import serial
 import serial.tools.list_ports

@@ -81,7 +81,7 @@ def set_terminal_title(title):
 	print(colorama.ansi.set_title(title))
 
 def set_terminal_title_from_port_info(info):
-	extras = ["Tockloader"]
+	extras = ['Tockloader']
 	if info.manufacturer and info.manufacturer != 'n/a':
 		extras.append(info.manufacturer)
 	if info.name and info.name != 'n/a':
@@ -98,10 +98,10 @@ def set_terminal_title_from_port_info(info):
 	set_terminal_title(title)
 
 def set_terminal_title_from_port(port):
-	set_terminal_title("Tockloader : " + port)
+	set_terminal_title('Tockloader : ' + port)
 
 # Cleanup any title the program may set
-atexit.register(set_terminal_title, "")
+atexit.register(set_terminal_title, '')
 
 
 def menu(options, *,
@@ -124,7 +124,7 @@ def menu(options, *,
 	'''
 	print()
 	for i,opt in enumerate(options):
-		print("[{}]\t{}".format(i, opt))
+		print('[{}]\t{}'.format(i, opt))
 	if default_index is not None:
 		prompt += '[{}] '.format(default_index)
 	print()
@@ -146,7 +146,7 @@ def menu(options, *,
 	elif return_type == 'value':
 		return options[resp]
 	else:
-		raise NotImplementedError("Menu caller asked for bad return_type")
+		raise NotImplementedError('Menu caller asked for bad return_type')
 
 ################################################################################
 ## Main Bootloader Interface
@@ -911,7 +911,7 @@ class TockLoader:
 		crc_data = self._get_crc_internal_flash(address, len(binary))
 
 		# Now interpret the returned bytes as the CRC
-		crc_bootloader = struct.unpack("<I", crc_data[0:4])[0]
+		crc_bootloader = struct.unpack('<I', crc_data[0:4])[0]
 
 		# Calculate the CRC locally
 		crc_function = crcmod.mkCrcFun(0x104c11db7, initCrc=0, xorOut=0xFFFFFFFF)
@@ -1006,10 +1006,10 @@ class TockLoader:
 
 			# check that there was a JTAG programmer and that it found a device
 			stdout = p.stdout.decode('utf-8')
-			if "USB...FAILED" in stdout:
+			if 'USB...FAILED' in stdout:
 				print('ERROR: Cannot find JLink hardware. Is USB attached?')
 				return False
-			if "Can not connect to target." in stdout:
+			if 'Can not connect to target.' in stdout:
 				print('ERROR: Cannot find device. Is JTAG connected?')
 				return False
 

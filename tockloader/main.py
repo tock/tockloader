@@ -197,7 +197,9 @@ class TockLoader:
 		# Then erase the next page. This ensures that flash is clean at the
 		# end of the installed apps and makes things nicer for future uses of
 		# this script.
-		self._erase_page(address + len(binary))
+		erased = self._erase_page(address + len(binary))
+		if not erased:
+			return False
 
 		# How long did that take
 		now = time.time()
@@ -224,7 +226,9 @@ class TockLoader:
 
 		# Now that we have an array of all the apps that are supposed to be
 		# on the board, write them in the correct order.
-		self._reshuffle_apps(address, apps)
+		shuffled = self._reshuffle_apps(address, apps)
+		if not shuffled:
+			return False
 
 		# How long did it take?
 		now = time.time()
@@ -353,7 +357,9 @@ class TockLoader:
 					app['address'] = None
 					app['binary'] = binary
 					app['header'] = tbfh
-					self._reshuffle_apps(address, apps)
+					shuffled = self._reshuffle_apps(address, apps)
+					if not shuffled:
+						return False
 
 				break
 
@@ -366,7 +372,9 @@ class TockLoader:
 					'binary': binary,
 					'header': tbfh
 				})
-				self._reshuffle_apps(address, apps)
+				shuffled = self._reshuffle_apps(address, apps)
+				if not shuffled:
+					return False
 			else:
 				print('No app named "{}" found on the board.'.format(new_name))
 				print('Cannot replace.')
@@ -398,7 +406,9 @@ class TockLoader:
 
 		# Now that we have an array of all the apps that are supposed to be
 		# on the board, write them in the correct order.
-		self._reshuffle_apps(address, apps)
+		shuffled = self._reshuffle_apps(address, apps)
+		if not shuffled:
+			return False
 
 		# How long did it take?
 		now = time.time()
@@ -434,7 +444,9 @@ class TockLoader:
 
 			# Now take the remaining apps and make sure they are on the board
 			# properly.
-			self._reshuffle_apps(address, apps)
+			shuffled = self._reshuffle_apps(address, apps)
+			if not shuffled:
+				return False
 
 		else:
 			print('Could not find the app on the board.')
@@ -458,7 +470,9 @@ class TockLoader:
 		# Then erase the next page. This ensures that flash is clean at the
 		# end of the installed apps and makes things nicer for future uses of
 		# this script.
-		self._erase_page(address)
+		erased = self._erase_page(address)
+		if not erased:
+			return False
 
 		# Done
 		self._end_communication_with_board()
@@ -543,7 +557,6 @@ class TockLoader:
 	# Setup a channel to the board based on how it is connected.
 	def _open_link_to_board (self, args):
 		if self.args.jtag:
-			# TODO(2017-02-24): Check that JTAG is connected
 			return True
 		else:
 			return self._open_link_to_board_bootloader(args)
@@ -987,7 +1000,7 @@ class TockLoader:
 			if p.returncode != 0:
 				print('ERROR: JTAG returned with error code ' + str(p.returncode))
 				print_output(p)
-				sys.exit(1)
+				return False
 			elif self.debug:
 				print_output(p)
 
@@ -995,10 +1008,10 @@ class TockLoader:
 			stdout = p.stdout.decode('utf-8')
 			if "USB...FAILED" in stdout:
 				print('ERROR: Cannot find JLink hardware. Is USB attached?')
-				sys.exit(1)
+				return False
 			if "Can not connect to target." in stdout:
 				print('ERROR: Cannot find device. Is JTAG connected?')
-				sys.exit(1)
+				return False
 
 			if write == False:
 				# Wanted to read binary, so lets pull that
@@ -1026,7 +1039,12 @@ class TockLoader:
 			'r\ng\nq'
 		]
 
-		return self._run_jtag_commands(commands, None, write=False)
+		# Always return a valid byte array (like the serial version does)
+		read = bytes()
+		result = self._run_jtag_commands(commands, None, write=False)
+		if result:
+			read += result
+		return read
 
 	# Read a specific range of flash.
 	def _erase_page_jtag (self, address):
@@ -1073,13 +1091,17 @@ class TockLoader:
 		end = address
 		for app in apps:
 			if 'binary' in app:
-				self._flash_binary(app['address'], app['binary'])
+				flashed = self._flash_binary(app['address'], app['binary'])
+				if not flashed:
+					return False
 				end = app['address'] + len(app['binary'])
 
 		# Then erase the next page. This ensures that flash is clean at the
 		# end of the installed apps and makes things nicer for future uses of
 		# this script.
-		self._erase_page(end)
+		erased = self._erase_page(end)
+		if not erased:
+			return False
 
 	# Iterate through the flash on the board or a local binary for
 	# the header information about each app.
@@ -1101,8 +1123,10 @@ class TockLoader:
 				flash = self._read_range(address, header_length)
 			else:
 				flash = address_or_binary[address:address+header_length]
-				if len(flash) < header_length:
-					break
+
+			# if there was an error, the binary array will be empty
+			if len(flash) < header_length:
+				break
 
 			# Get all the fields from the header
 			tbfh = self._parse_tbf_header(flash)

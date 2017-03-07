@@ -56,6 +56,14 @@ Set a particular attribute key to the specified value. This will overwrite
 an existing attribute if the key matches.
 
 
+Features
+--------
+
+- Supported communication protocols
+  - Serial over USB
+  - Segger JLinkExe JTAG support
+ 
+
 Upload to PyPI
 --------------
 

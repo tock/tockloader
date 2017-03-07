@@ -1,5 +1,4 @@
-Tock Loader
-===========
+# ![TockLoader](www.tockos.org/assets/img/tockloader.svg "Tockloader Logo")
 
 Tool for programming Tock onto hardware boards.
 

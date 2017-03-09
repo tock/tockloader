@@ -1150,6 +1150,7 @@ class TockLoader:
 		erased = self._erase_page(end)
 		if not erased:
 			return False
+		return True
 
 	# Iterate through the flash on the board or a local binary for
 	# the header information about each app.

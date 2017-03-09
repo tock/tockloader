@@ -160,6 +160,19 @@ class TockLoader:
 		if not hasattr(self.args, 'jtag'):
 			self.args.jtag = False
 
+		# Initialize a place to put JTAG specific state
+		self.jtag = {
+			'device': 'cortex-m0', # Choose a basic device at first
+			'known_boards': {
+				'hail': {
+					'device': 'ATSAM4LC8C',
+				},
+				'imix': {
+					'device': 'ATSAM4LC8C',
+				},
+			}
+		}
+
 
 	# Open the correct channel to talk to the board.
 	#
@@ -563,7 +576,7 @@ class TockLoader:
 	# Setup a channel to the board based on how it is connected.
 	def _open_link_to_board (self, args):
 		if self.args.jtag:
-			return True
+			return self._discover_jtag_device()
 		else:
 			return self._open_link_to_board_bootloader(args)
 
@@ -990,6 +1003,52 @@ class TockLoader:
 	## JTAG Specific Functions
 	############################################################################
 
+	# Try to discover which JLinkExe device we should used based on
+	# which board is connected.
+	# We do this by reading attributes using a generic "cortex-m0" device.
+	def _discover_jtag_device (self):
+		# Bail out early if the user specified a JLinkExe device for us.
+		if self.args.jtag_device:
+			self.jtag['device'] = self.args.jtag_device
+			return True
+
+		# User can also specify the board directly
+		if self.args.board:
+			if self.args.board in self.jtag['known_boards']:
+				self.jtag['device'] = self.jtag['known_boards'][self.args.board]['device']
+				return True
+			else:
+				print('Error: Board specified ("{}") is unknown.'.format(self.args.boards))
+				print('Known boards are: {}'.format(', '.join(list(self.jtag['known_boards'].keys()))))
+				return False
+
+		# Otherwise, see if the board can give us a hint.
+		is_bootloader = self._bootloader_is_present()
+		# So this is tricky. We don't want to fail here, but we can't really
+		# continue, since without a bootloader there are no attributes.
+		# It's possible things will just work as a "cortex-m0" device.
+		if not is_bootloader:
+			return True
+
+		# Check the attributes for a board attribute, and use that to set the
+		# JLinkExe device.
+		attributes = self._get_all_attributes()
+		for attribute in attributes:
+			if attribute and attribute['key'] == 'board':
+				board = attribute['value']
+				if board in self.jtag['known_boards']:
+					self.jtag['device'] = self.jtag['known_boards'][board]['device']
+				else:
+					print('Error: Board identified as "{}", but there is no JLinkExe device for that board.'.format(board))
+					return False
+				break
+		else:
+			print('Error: Could not find a "board" attribute. Unable to set the JLinkExe device.')
+			print('Maybe you want to specify a JLinkExe device explicitly with --jtag-device?')
+			return False
+
+		return True
+
 	# commands: List of JLinkExe commands. Use {binary} for where the name of
 	#           the binary file should be substituted.
 	# binary:   A bytes() object that will be used to write to the board.
@@ -1017,7 +1076,7 @@ class TockLoader:
 
 			jlink_file.flush()
 
-			jlink_command = 'JLinkExe -device ATSAM4LC8C -if swd -speed 1200 -AutoConnect 1 {}'.format(jlink_file.name)
+			jlink_command = 'JLinkExe -device {} -if swd -speed 1200 -AutoConnect 1 {}'.format(self.jtag['device'], jlink_file.name)
 
 			if self.debug:
 				print('Running "{}".'.format(jlink_command))
@@ -1575,6 +1634,10 @@ def main ():
 	parent_jtag.add_argument('--jtag',
 		action='store_true',
 		help='Use JTAG and JLinkExe to flash.')
+	parent_jtag.add_argument('--jtag-device',
+		help='The device type to pass to JLinkExe. Useful for initial commissioning.')
+	parent_jtag.add_argument('--board',
+		help='Explicitly specify the board that is being targeted.')
 
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(

@@ -486,8 +486,11 @@ class TockLoader:
 		if not entered:
 			return False
 
-		for index in range(0, 16):
-			attribute = self._get_attribute(index)
+		if not self._bootloader_is_present():
+			print('No bootloader found! That means there is nowhere for attributes to go.')
+			return False
+
+		for index, attribute in enumerate(self._get_all_attributes()):
 			if attribute:
 				print('{:02d}: {:>8} = {}'.format(index, attribute['key'], attribute['value']))
 			else:
@@ -513,6 +516,10 @@ class TockLoader:
 		if not entered:
 			return False
 
+		if not self._bootloader_is_present():
+			print('No bootloader found! That means there is nowhere for attributes to go.')
+			return False
+
 		# Create the buffer to write as the attribute
 		out = bytes([])
 		# Add key
@@ -525,8 +532,7 @@ class TockLoader:
 
 		# Find if this attribute key already exists
 		open_index = -1
-		for index in range(0, 16):
-			attribute = self._get_attribute(index)
+		for index, attribute in enumerate(self._get_all_attributes()):
 			if attribute:
 				if attribute['key'] == key:
 					print('Found existing key at slot {}. Overwriting.'.format(index))
@@ -599,8 +605,7 @@ class TockLoader:
 
 		return self._choose_correct_function('read_range', address, length)
 
-	def _get_attribute (self, index):
-		raw = self._choose_correct_function('get_attribute', index)
+	def _decode_attribute (self, raw):
 		try:
 			key = raw[0:8].decode('utf-8').strip(bytes([0]).decode('utf-8'))
 			vlen = raw[8]
@@ -614,8 +619,35 @@ class TockLoader:
 		except Exception as e:
 			return None
 
+	def _get_all_attributes (self):
+		if self.args.jtag:
+			# Read the entire block of attributes using JTAG.
+			# This is much faster.
+			def chunks(l, n):
+				for i in range(0, len(l), n):
+					yield l[i:i + n]
+			raw = self._read_range_jtag(0xfc00, 64*16)
+			attributes = [self._decode_attribute(r) for r in chunks(raw, 64)]
+		else:
+			attributes = []
+			for index in range(0, 16):
+				attributes.append(self._get_attribute(index))
+		return attributes
+
+	def _get_attribute (self, index):
+		raw = self._choose_correct_function('get_attribute', index)
+		return self._decode_attribute(raw)
+
 	def _set_attribute (self, index, raw):
 		return self._choose_correct_function('set_attribute', index, raw)
+
+	def _bootloader_is_present (self):
+		# Constants for the bootloader flag
+		address = 0xfa00
+		length = 14
+		flag = self._choose_correct_function('read_range', address, length)
+		flag_str = flag.decode('utf-8')
+		return flag_str == 'TOCKBOOTLOADER'
 
 	def _choose_correct_function (self, function, *args):
 		protocol = 'bootloader'
@@ -1044,6 +1076,11 @@ class TockLoader:
 		result = self._run_jtag_commands(commands, None, write=False)
 		if result:
 			read += result
+
+		# Check to make sure we didn't get too many
+		if len(read) > length:
+			read = read[0:length]
+
 		return read
 
 	# Read a specific range of flash.
@@ -1057,6 +1094,17 @@ class TockLoader:
 		]
 
 		return self._run_jtag_commands(commands, binary)
+
+	# Get a single attribute.
+	def _get_attribute_jtag (self, index):
+		address = 0xfc00 + (64 * index)
+		attribute_raw = self._read_range_jtag(address, 64)
+		return attribute_raw
+
+	# Set a single attribute.
+	def _set_attribute_jtag (self, index, raw):
+		address = 0xfc00 + (64 * index)
+		return self._flash_binary_jtag(address, raw)
 
 	############################################################################
 	## Helper Functions for Manipulating Binaries and TBF
@@ -1520,7 +1568,10 @@ def main ():
 		help='Address to flash the binary at',
 		type=lambda x: int(x, 0),
 		default=0x30000)
-	parent_flashing.add_argument('--jtag',
+
+	# Parser for most commands
+	parent_jtag = argparse.ArgumentParser(add_help=False)
+	parent_jtag.add_argument('--jtag',
 		action='store_true',
 		help='Use JTAG and JLinkExe to flash.')
 
@@ -1534,7 +1585,7 @@ def main ():
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',
-		parents=[parent, parent_flashing],
+		parents=[parent, parent_flashing, parent_jtag],
 		help='List the apps installed on the board')
 	listcmd.set_defaults(func=command_list)
 	listcmd.add_argument('--verbose', '-v',
@@ -1545,7 +1596,7 @@ def main ():
 		action='store_true')
 
 	install = subparser.add_parser('install',
-		parents=[parent, parent_flashing],
+		parents=[parent, parent_flashing, parent_jtag],
 		help='Install apps on the board')
 	install.set_defaults(func=command_install)
 	install.add_argument('binary',
@@ -1553,7 +1604,7 @@ def main ():
 		nargs='*')
 
 	add = subparser.add_parser('add',
-		parents=[parent, parent_flashing],
+		parents=[parent, parent_flashing, parent_jtag],
 		help='Add an app to the already flashed apps')
 	add.set_defaults(func=command_add)
 	add.add_argument('binary',
@@ -1561,7 +1612,7 @@ def main ():
 		nargs='*')
 
 	replace = subparser.add_parser('replace',
-		parents=[parent, parent_flashing],
+		parents=[parent, parent_flashing, parent_jtag],
 		help='Replace an already flashed app with this binary')
 	replace.set_defaults(func=command_replace)
 	replace.add_argument('binary',
@@ -1572,7 +1623,7 @@ def main ():
 		action='store_true')
 
 	remove = subparser.add_parser('remove',
-		parents=[parent, parent_flashing],
+		parents=[parent, parent_flashing, parent_jtag],
 		help='Remove an already flashed app')
 	remove.set_defaults(func=command_remove)
 	remove.add_argument('name',
@@ -1580,12 +1631,12 @@ def main ():
 		nargs=1)
 
 	eraseapps = subparser.add_parser('erase-apps',
-		parents=[parent, parent_flashing],
+		parents=[parent, parent_flashing, parent_jtag],
 		help='Delete apps from the board')
 	eraseapps.set_defaults(func=command_erase_apps)
 
 	flash = subparser.add_parser('flash',
-		parents=[parent, parent_flashing],
+		parents=[parent, parent_flashing, parent_jtag],
 		help='Flash binaries to the chip')
 	flash.set_defaults(func=command_flash)
 	flash.add_argument('binary',
@@ -1593,12 +1644,12 @@ def main ():
 		nargs='*')
 
 	listattributes = subparser.add_parser('list-attributes',
-		parents=[parent],
+		parents=[parent, parent_jtag],
 		help='List attributes stored on the board')
 	listattributes.set_defaults(func=command_list_attributes)
 
 	setattribute = subparser.add_parser('set-attribute',
-		parents=[parent],
+		parents=[parent, parent_jtag],
 		help='Stored attribute on the board')
 	setattribute.set_defaults(func=command_set_attribute)
 	setattribute.add_argument('key',

@@ -179,7 +179,7 @@ class TockLoader:
 	# For the bootloader, this means opening a serial port.
 	# For JTAG, not much needs to be done.
 	def open (self, args):
-		return self._open_link_to_board(args)
+		self._open_link_to_board(args)
 
 
 	# Tell the bootloader to save the binary blob to an address in internal
@@ -187,13 +187,9 @@ class TockLoader:
 	#
 	# This will pad the binary as needed, so don't worry about the binary being
 	# a certain length.
-	#
-	# Returns False if there is an error.
 	def flash_binary (self, binary, address):
 		# Enter bootloader mode to get things started
-		entered = self._start_communication_with_board();
-		if not entered:
-			return False
+		self._start_communication_with_board();
 
 		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
 		if len(binary) % 512 != 0:
@@ -203,16 +199,12 @@ class TockLoader:
 		# Time the programming operation
 		then = time.time()
 
-		flashed = self._flash_binary(address, binary)
-		if not flashed:
-			return False
+		self._flash_binary(address, binary)
 
 		# Then erase the next page. This ensures that flash is clean at the
 		# end of the installed apps and makes things nicer for future uses of
 		# this script.
-		erased = self._erase_page(address + len(binary))
-		if not erased:
-			return False
+		self._erase_page(address + len(binary))
 
 		# How long did that take
 		now = time.time()
@@ -221,15 +213,11 @@ class TockLoader:
 		# All done, now run the application
 		self._end_communication_with_board()
 
-		return True
-
 
 	# Add the app to the list of the currently flashed apps
 	def install (self, binary, address):
 		# Enter bootloader mode to get things started
-		entered = self._start_communication_with_board();
-		if not entered:
-			return False
+		self._start_communication_with_board();
 
 		# Time the programming operation
 		then = time.time()
@@ -239,9 +227,7 @@ class TockLoader:
 
 		# Now that we have an array of all the apps that are supposed to be
 		# on the board, write them in the correct order.
-		shuffled = self._reshuffle_apps(address, apps)
-		if not shuffled:
-			return False
+		self._reshuffle_apps(address, apps)
 
 		# How long did it take?
 		now = time.time()
@@ -249,7 +235,6 @@ class TockLoader:
 
 		# Done
 		self._end_communication_with_board()
-		return True
 
 
 	# Run miniterm for receiving data from the board.
@@ -280,9 +265,7 @@ class TockLoader:
 	# Query the chip's flash to determine which apps are installed.
 	def list_apps (self, address, verbose, quiet):
 		# Enter bootloader mode to get things started
-		entered = self._start_communication_with_board();
-		if not entered:
-			return False
+		self._start_communication_with_board();
 
 		# Get all apps based on their header
 		apps = self._extract_all_app_headers(address)
@@ -327,7 +310,6 @@ class TockLoader:
 
 		# Done
 		self._end_communication_with_board()
-		return True
 
 
 	# Inspect the given binary and find one that matches that's already programmed,
@@ -335,9 +317,7 @@ class TockLoader:
 	# for apps.
 	def replace_binary (self, binary, address):
 		# Enter bootloader mode to get things started
-		entered = self._start_communication_with_board();
-		if not entered:
-			return False
+		self._start_communication_with_board();
 
 		# Get the application name and properties to match it with
 		tbfh = self._parse_tbf_header(binary)
@@ -359,9 +339,7 @@ class TockLoader:
 					# Great we can just overwrite it!
 					print('Found matching binary at address {:#010x}'.format(app['address']))
 					print('Replacing the binary...')
-					flashed = self._flash_binary(app['address'], binary)
-					if not flashed:
-						return False
+					self._flash_binary(app['address'], binary)
 
 				else:
 					# Need to expand this app's slot and possibly reshuffle apps
@@ -370,9 +348,7 @@ class TockLoader:
 					app['address'] = None
 					app['binary'] = binary
 					app['header'] = tbfh
-					shuffled = self._reshuffle_apps(address, apps)
-					if not shuffled:
-						return False
+					self._reshuffle_apps(address, apps)
 
 				break
 
@@ -385,13 +361,10 @@ class TockLoader:
 					'binary': binary,
 					'header': tbfh
 				})
-				shuffled = self._reshuffle_apps(address, apps)
-				if not shuffled:
-					return False
+				self._reshuffle_apps(address, apps)
 			else:
 				print('No app named "{}" found on the board.'.format(new_name))
-				print('Cannot replace.')
-				return False
+				raise Exception('Cannot replace.')
 
 		# How long did it take?
 		now = time.time()
@@ -399,15 +372,12 @@ class TockLoader:
 
 		# Done
 		self._end_communication_with_board()
-		return True
 
 
 	# Add the app to the list of the currently flashed apps
 	def add_binary (self, binary, address):
 		# Enter bootloader mode to get things started
-		entered = self._start_communication_with_board();
-		if not entered:
-			return False
+		self._start_communication_with_board();
 
 		# Time the programming operation
 		then = time.time()
@@ -419,9 +389,7 @@ class TockLoader:
 
 		# Now that we have an array of all the apps that are supposed to be
 		# on the board, write them in the correct order.
-		shuffled = self._reshuffle_apps(address, apps)
-		if not shuffled:
-			return False
+		self._reshuffle_apps(address, apps)
 
 		# How long did it take?
 		now = time.time()
@@ -429,15 +397,12 @@ class TockLoader:
 
 		# Done
 		self._end_communication_with_board()
-		return True
 
 
 	# Add the app to the list of the currently flashed apps
 	def remove_app (self, app_name, address):
 		# Enter bootloader mode to get things started
-		entered = self._start_communication_with_board();
-		if not entered:
-			return False
+		self._start_communication_with_board();
 
 		# Time the programming operation
 		then = time.time()
@@ -457,9 +422,7 @@ class TockLoader:
 
 			# Now take the remaining apps and make sure they are on the board
 			# properly.
-			shuffled = self._reshuffle_apps(address, apps)
-			if not shuffled:
-				return False
+			self._reshuffle_apps(address, apps)
 
 		else:
 			print('Could not find the app on the board.')
@@ -470,38 +433,29 @@ class TockLoader:
 
 		# Done
 		self._end_communication_with_board()
-		return True
 
 
 	# Erase flash where apps go
 	def erase_apps (self, address):
 		# Enter bootloader mode to get things started
-		entered = self._start_communication_with_board();
-		if not entered:
-			return False
+		self._start_communication_with_board();
 
 		# Then erase the next page. This ensures that flash is clean at the
 		# end of the installed apps and makes things nicer for future uses of
 		# this script.
-		erased = self._erase_page(address)
-		if not erased:
-			return False
+		self._erase_page(address)
 
 		# Done
 		self._end_communication_with_board()
-		return True
 
 
 	# Download all attributes stored on the board
 	def list_attributes (self):
 		# Enter bootloader mode to get things started
-		entered = self._start_communication_with_board();
-		if not entered:
-			return False
+		self._start_communication_with_board();
 
 		if not self._bootloader_is_present():
-			print('No bootloader found! That means there is nowhere for attributes to go.')
-			return False
+			raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
 
 		for index, attribute in enumerate(self._get_all_attributes()):
 			if attribute:
@@ -511,27 +465,21 @@ class TockLoader:
 
 		# Done
 		self._end_communication_with_board()
-		return True
 
 
 	# Download all attributes stored on the board
 	def set_attribute (self, key, value):
 		# Do some checking
 		if len(key.encode('utf-8')) > 8:
-			print('Key is too long. Must be 8 bytes or fewer.')
-			return False
+			raise Exception('Key is too long. Must be 8 bytes or fewer.')
 		if len(value.encode('utf-8')) > 55:
-			print('Value is too long. Must be 55 bytes or fewer.')
-			return False
+			raise Exception('Value is too long. Must be 55 bytes or fewer.')
 
 		# Enter bootloader mode to get things started
-		entered = self._start_communication_with_board();
-		if not entered:
-			return False
+		self._start_communication_with_board();
 
 		if not self._bootloader_is_present():
-			print('No bootloader found! That means there is nowhere for attributes to go.')
-			return False
+			raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
 
 		# Create the buffer to write as the attribute
 		out = bytes([])
@@ -558,15 +506,13 @@ class TockLoader:
 					open_index = index
 		else:
 			if open_index == -1:
-				print('Error: No open space to save this attribute.')
-				return False
+				raise Exception('Error: No open space to save this attribute.')
 			else:
 				print('Key not found. Writing new attribute to slot {}'.format(open_index))
 				self._set_attribute(open_index, out)
 
 		# Done
 		self._end_communication_with_board()
-		return True
 
 
 	############################################################################
@@ -576,9 +522,9 @@ class TockLoader:
 	# Setup a channel to the board based on how it is connected.
 	def _open_link_to_board (self, args):
 		if self.args.jtag:
-			return self._discover_jtag_device()
+			self._discover_jtag_device()
 		else:
-			return self._open_link_to_board_bootloader(args)
+			self._open_link_to_board_bootloader(args)
 
 	# Based on the transport method used, there may be some setup required
 	# to connect to the board. This function runs the setup needed to connect
@@ -588,35 +534,31 @@ class TockLoader:
 	# bootloader mode.
 	# For JTAG, this is unnecessary.
 	def _start_communication_with_board (self):
-		if self.args.jtag:
-			return True
-		else:
-			return self._enter_bootloader_mode()
+		if not self.args.jtag:
+			self._enter_bootloader_mode()
 
 	# Opposite of start comms with the board.
 	#
 	# For the bootloader, this resets the board so that the main code runs
 	# instead of the bootloader.
 	def _end_communication_with_board (self):
-		if self.args.jtag:
-			return True
-		else:
-			return self._exit_bootloader_mode()
+		if not self.args.jtag:
+			self._exit_bootloader_mode()
 
 	# Flash a binary blob to the board at the given address.
 	def _flash_binary (self, address, binary):
-		return self._choose_correct_function('flash_binary', address, binary)
+		self._choose_correct_function('flash_binary', address, binary)
 
 	# Erase a single page of the flash at the given address.
 	def _erase_page (self, address):
-		return self._choose_correct_function('erase_page', address)
+		self._choose_correct_function('erase_page', address)
 
 	# Read a given number of bytes from flash at a certain address.
 	def _read_range (self, address, length):
 		if self.debug:
 			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
 
-		return self._choose_correct_function('read_range', address, length)
+		self._choose_correct_function('read_range', address, length)
 
 	def _decode_attribute (self, raw):
 		try:
@@ -652,7 +594,7 @@ class TockLoader:
 		return self._decode_attribute(raw)
 
 	def _set_attribute (self, index, raw):
-		return self._choose_correct_function('set_attribute', index, raw)
+		self._choose_correct_function('set_attribute', index, raw)
 
 	def _bootloader_is_present (self):
 		# Constants for the bootloader flag
@@ -702,8 +644,7 @@ class TockLoader:
 			if must_match:
 				# We want to find a very specific board. If this does not
 				# exist, we want to fail.
-				print('Could not find a board matching "{}"'.format(device_name))
-				return False
+				raise Exception('Could not find a board matching "{}"'.format(device_name))
 
 			# Just find any port and use the first one
 			ports = list(serial.tools.list_ports.comports())
@@ -711,8 +652,7 @@ class TockLoader:
 			# almost certainly never what you want, so drop these
 			ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
 			if len(ports) == 0:
-				print('No serial ports found. Is the board connected?')
-				return False
+				raise Exception('No serial ports found. Is the board connected?')
 
 			print('No serial port with device name "{}" found'.format(device_name))
 			print('Found {} serial port(s).'.format(len(ports)))
@@ -739,8 +679,6 @@ class TockLoader:
 		self.sp.dtr = 0
 		self.sp.rts = 0
 		self.sp.open()
-
-		return True
 
 	# Reset the chip and assert the bootloader select pin to enter bootloader
 	# mode.
@@ -780,13 +718,12 @@ class TockLoader:
 			print('  - The serial port being used is incorrect')
 			print('  - The bootloader API has changed')
 			print('  - There is a bug in this script')
-			return False
-		return True
+			raise Exception('Could not attach to the bootloader')
 
 	# Reset the chip to exit bootloader mode
 	def _exit_bootloader_mode (self):
 		if self.args.jtag:
-			return True
+			return
 
 		# Reset the SAM4L
 		self.sp.dtr = 1
@@ -797,7 +734,7 @@ class TockLoader:
 		# Let the SAM4L startup
 		self.sp.dtr = 0
 
-	# Returns True if the device is there and responding, False otherwise
+	# Throws an exception if the device does not respond with a PONG
 	def _ping_bootloader_and_wait_for_response (self):
 		for i in range(30):
 			# Try to ping the SAM4L to ensure it is in bootloader mode
@@ -807,8 +744,8 @@ class TockLoader:
 			ret = self.sp.read(2)
 
 			if len(ret) == 2 and ret[1] == RESPONSE_PONG:
-				return True
-		return False
+				return
+		raise Exception('No PONG received')
 
 	# Setup a command to send to the bootloader and handle the response.
 	def _issue_command (self, command, message, sync, response_len, response_code):
@@ -870,21 +807,16 @@ class TockLoader:
 			if not success:
 				print('Error: Error when flashing page')
 				if ret[1] == RESPONSE_BADADDR:
-					print('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*512)))
+					raise Exception('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*512)))
 				elif ret[1] == RESPONSE_INTERROR:
-					print('Error: RESPONSE_INTERROR: Internal error when writing flash')
+					raise Exception('Error: RESPONSE_INTERROR: Internal error when writing flash')
 				elif ret[1] == RESPONSE_BADARGS:
-					print('Error: RESPONSE_BADARGS: Invalid length for flash page write')
+					raise Exception('Error: RESPONSE_BADARGS: Invalid length for flash page write')
 				else:
-					print('Error: 0x{:X}'.format(ret[1]))
-				return False
+					raise Exception('Error: 0x{:X}'.format(ret[1]))
 
 		# And check the CRC
-		crc_passed = self._check_crc(address, binary)
-		if not crc_passed:
-			return False
-
-		return True
+		self._check_crc(address, binary)
 
 	# Read a specific range of flash.
 	def _read_range_bootloader (self, address, length):
@@ -905,7 +837,7 @@ class TockLoader:
 			success, flash = self._issue_command(COMMAND_READ_RANGE, message, True, this_length, RESPONSE_READ_RANGE)
 
 			if not success:
-				print('Error: Could not read flash')
+				raise Exception('Error: Could not read flash')
 			else:
 				read += flash
 
@@ -920,14 +852,13 @@ class TockLoader:
 
 		if not success:
 			if ret[1] == RESPONSE_BADADDR:
-				print('Error: Page erase address was not on a page boundary.')
+				raise Exception('Error: Page erase address was not on a page boundary.')
 			elif ret[1] == RESPONSE_BADARGS:
-				print('Error: Need to supply erase page with correct 4 byte address.')
+				raise Exception('Error: Need to supply erase page with correct 4 byte address.')
 			elif ret[1] == RESPONSE_INTERROR:
-				print('Error: Internal error when erasing flash page.')
+				raise Exception('Error: Internal error when erasing flash page.')
 			else:
-				print('Error: 0x{:X}'.format(ret[1]))
-		return success
+				raise Exception('Error: 0x{:X}'.format(ret[1]))
 
 	# Get the bootloader to compute a CRC
 	def _get_crc_internal_flash (self, address, length):
@@ -941,12 +872,11 @@ class TockLoader:
 
 		if not success:
 			if crc[1] == RESPONSE_BADADDR:
-				print('Error: RESPONSE_BADADDR: Invalid address for CRC (address: 0x{:X})'.format(address))
+				raise Exception('Error: RESPONSE_BADADDR: Invalid address for CRC (address: 0x{:X})'.format(address))
 			elif crc[1] == RESPONSE_BADARGS:
-				print('Error: RESPONSE_BADARGS: Invalid length for CRC check')
+				raise Exception('Error: RESPONSE_BADARGS: Invalid length for CRC check')
 			else:
-				print('Error: 0x{:X}'.format(crc[1]))
-			return bytes()
+				raise Exception('Error: 0x{:X}'.format(crc[1]))
 
 		return crc
 
@@ -963,11 +893,9 @@ class TockLoader:
 		crc_loader = crc_function(binary, 0)
 
 		if crc_bootloader != crc_loader:
-			print('Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}'.format(crc_loader, crc_bootloader))
-			return False
+			raise Exception('Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}'.format(crc_loader, crc_bootloader))
 		else:
 			print('CRC check passed. Binaries successfully loaded.')
-			return True
 
 	# Get a single attribute.
 	def _get_attribute_bootloader (self, index):
@@ -976,11 +904,11 @@ class TockLoader:
 
 		if not success:
 			if ret[1] == RESPONSE_BADADDR:
-				print('Error: Attribute number is invalid.')
+				raise Exception('Error: Attribute number is invalid.')
 			elif ret[1] == RESPONSE_BADARGS:
-				print('Error: Need to supply a correct attribute index.')
+				raise Exception('Error: Need to supply a correct attribute index.')
 			else:
-				print('Error: 0x{:X}'.format(ret[1]))
+				raise Exception('Error: 0x{:X}'.format(ret[1]))
 		return ret
 
 	# Set a single attribute.
@@ -990,14 +918,13 @@ class TockLoader:
 
 		if not success:
 			if ret[1] == RESPONSE_BADADDR:
-				print('Error: Attribute number is invalid.')
+				raise Exception('Error: Attribute number is invalid.')
 			elif ret[1] == RESPONSE_BADARGS:
-				print('Error: Wrong length of attribute set packet.')
+				raise Exception('Error: Wrong length of attribute set packet.')
 			elif ret[1] == RESPONSE_INTERROR:
-				print('Error: Internal error when setting attribute.')
+				raise Exception('Error: Internal error when setting attribute.')
 			else:
-				print('Error: 0x{:X}'.format(ret[1]))
-		return ret
+				raise Exception('Error: 0x{:X}'.format(ret[1]))
 
 	############################################################################
 	## JTAG Specific Functions
@@ -1010,17 +937,17 @@ class TockLoader:
 		# Bail out early if the user specified a JLinkExe device for us.
 		if self.args.jtag_device:
 			self.jtag['device'] = self.args.jtag_device
-			return True
+			return
 
 		# User can also specify the board directly
 		if self.args.board:
 			if self.args.board in self.jtag['known_boards']:
 				self.jtag['device'] = self.jtag['known_boards'][self.args.board]['device']
-				return True
+				return
 			else:
 				print('Error: Board specified ("{}") is unknown.'.format(self.args.boards))
 				print('Known boards are: {}'.format(', '.join(list(self.jtag['known_boards'].keys()))))
-				return False
+				raise Exception('Unknown board')
 
 		# Otherwise, see if the board can give us a hint.
 		is_bootloader = self._bootloader_is_present()
@@ -1028,7 +955,7 @@ class TockLoader:
 		# continue, since without a bootloader there are no attributes.
 		# It's possible things will just work as a "cortex-m0" device.
 		if not is_bootloader:
-			return True
+			return
 
 		# Check the attributes for a board attribute, and use that to set the
 		# JLinkExe device.
@@ -1039,15 +966,12 @@ class TockLoader:
 				if board in self.jtag['known_boards']:
 					self.jtag['device'] = self.jtag['known_boards'][board]['device']
 				else:
-					print('Error: Board identified as "{}", but there is no JLinkExe device for that board.'.format(board))
-					return False
+					raise Exception('Error: Board identified as "{}", but there is no JLinkExe device for that board.'.format(board))
 				break
 		else:
 			print('Error: Could not find a "board" attribute. Unable to set the JLinkExe device.')
 			print('Maybe you want to specify a JLinkExe device explicitly with --jtag-device?')
-			return False
-
-		return True
+			raise Exception('No board attribute found')
 
 	# commands: List of JLinkExe commands. Use {binary} for where the name of
 	#           the binary file should be substituted.
@@ -1091,25 +1015,21 @@ class TockLoader:
 			if p.returncode != 0:
 				print('ERROR: JTAG returned with error code ' + str(p.returncode))
 				print_output(p)
-				return False
+				raise Exception('JTAG error')
 			elif self.debug:
 				print_output(p)
 
 			# check that there was a JTAG programmer and that it found a device
 			stdout = p.stdout.decode('utf-8')
 			if 'USB...FAILED' in stdout:
-				print('ERROR: Cannot find JLink hardware. Is USB attached?')
-				return False
+				raise Exception('ERROR: Cannot find JLink hardware. Is USB attached?')
 			if 'Can not connect to target.' in stdout:
-				print('ERROR: Cannot find device. Is JTAG connected?')
-				return False
+				raise Exception('ERROR: Cannot find device. Is JTAG connected?')
 
 			if write == False:
 				# Wanted to read binary, so lets pull that
 				temp_bin.seek(0, 0)
 				return temp_bin.read()
-
-			return True
 
 	# Write using JTAG
 	def _flash_binary_jtag (self, address, binary):
@@ -1120,7 +1040,7 @@ class TockLoader:
 			'r\ng\nq'
 		]
 
-		return self._run_jtag_commands(commands, binary)
+		self._run_jtag_commands(commands, binary)
 
 	# Read a specific range of flash.
 	def _read_range_jtag (self, address, length):
@@ -1152,7 +1072,7 @@ class TockLoader:
 			'r\ng\nq'
 		]
 
-		return self._run_jtag_commands(commands, binary)
+		self._run_jtag_commands(commands, binary)
 
 	# Get a single attribute.
 	def _get_attribute_jtag (self, index):
@@ -1163,7 +1083,7 @@ class TockLoader:
 	# Set a single attribute.
 	def _set_attribute_jtag (self, index, raw):
 		address = 0xfc00 + (64 * index)
-		return self._flash_binary_jtag(address, raw)
+		self._flash_binary_jtag(address, raw)
 
 	############################################################################
 	## Helper Functions for Manipulating Binaries and TBF
@@ -1198,18 +1118,13 @@ class TockLoader:
 		end = address
 		for app in apps:
 			if 'binary' in app:
-				flashed = self._flash_binary(app['address'], app['binary'])
-				if not flashed:
-					return False
+				self._flash_binary(app['address'], app['binary'])
 				end = app['address'] + len(app['binary'])
 
 		# Then erase the next page. This ensures that flash is clean at the
 		# end of the installed apps and makes things nicer for future uses of
 		# this script.
-		erased = self._erase_page(end)
-		if not erased:
-			return False
-		return True
+		self._erase_page(end)
 
 	# Iterate through the flash on the board or a local binary for
 	# the header information about each app.
@@ -1443,15 +1358,9 @@ def command_flash (args):
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
 	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
 
 	print('Flashing binar(y|ies) to board...')
 	success = tock_loader.flash_binary(binary, args.address)
-	if not success:
-		print('Could not flash the binaries.')
-		sys.exit(1)
 
 
 def command_install (args):
@@ -1462,33 +1371,21 @@ def command_install (args):
 
 	# Install the apps on the board
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
+	tock_loader.open(args)
 
 	print('Installing apps on the board...')
-	success = tock_loader.install(binary, args.address)
-	if not success:
-		print('Could not add the binaries.')
-		sys.exit(1)
+	tock_loader.install(binary, args.address)
 
 
 def command_listen (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
+	tock_loader.open(args)
 	tock_loader.run_terminal()
 
 
 def command_list (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
+	tock_loader.open(args)
 	tock_loader.list_apps(args.address, args.verbose, args.quiet)
 
 
@@ -1500,16 +1397,10 @@ def command_replace (args):
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
+	tock_loader.open(args)
 
 	print('Replacing binary on the board...')
-	success = tock_loader.replace_binary(binary, args.address)
-	if not success:
-		print('Could not replace the binary.')
-		sys.exit(1)
+	tock_loader.replace_binary(binary, args.address)
 
 
 def command_add (args):
@@ -1520,72 +1411,43 @@ def command_add (args):
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
+	tock_loader.open(args)
 
 	print('Adding binar(y|ies) to board...')
-	success = tock_loader.add_binary(binary, args.address)
-	if not success:
-		print('Could not add the binaries.')
-		sys.exit(1)
+	tock_loader.add_binary(binary, args.address)
 
 
 def command_remove (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
+	tock_loader.open(args)
 
 	print('Removing app "{}" from board...'.format(args.name[0]))
-	success = tock_loader.remove_app(args.name[0], args.address)
-	if not success:
-		print('Could not remove the app.')
-		sys.exit(1)
+	tock_loader.remove_app(args.name[0], args.address)
 
 
 def command_erase_apps (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
+	tock_loader.open(args)
 
 	print('Removing apps...')
-	success = tock_loader.erase_apps(args.address)
-	if not success:
-		print('Could not erase the apps.')
-		sys.exit(1)
+	tock_loader.erase_apps(args.address)
 
 
 def command_list_attributes (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
+	tock_loader.open(args)
 
 	print('Listing attributes...')
-	success = tock_loader.list_attributes()
-	if not success:
-		print('Could not retrieve the attributes.')
-		sys.exit(1)
+	tock_loader.list_attributes()
 
 
 def command_set_attribute (args):
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
-	if not success:
-		print('Could not open the serial port. Make sure the board is plugged in.')
-		sys.exit(1)
+	tock_loader.open(args)
 
 	print('Setting attribute...')
-	success = tock_loader.set_attribute(args.key, args.value)
-	if not success:
-		print('Could not set the attribute.')
-		sys.exit(1)
+	tock_loader.set_attribute(args.key, args.value)
+
 
 ################################################################################
 ## Setup and parse command line arguments
@@ -1732,7 +1594,11 @@ def main ():
 			setattr(args, key, value)
 
 	if hasattr(args, 'func'):
-		args.func(args)
+		try:
+			args.func(args)
+		except Exception as e:
+			print(e)
+			sys.exit(1)
 	else:
 		print('Missing Command.\n')
 		parser.print_help()

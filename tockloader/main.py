@@ -1357,10 +1357,10 @@ def command_flash (args):
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
-	success = tock_loader.open(args)
+	tock_loader.open(args)
 
 	print('Flashing binar(y|ies) to board...')
-	success = tock_loader.flash_binary(binary, args.address)
+	tock_loader.flash_binary(binary, args.address)
 
 
 def command_install (args):

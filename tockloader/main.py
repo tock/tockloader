@@ -558,7 +558,7 @@ class TockLoader:
 		if self.debug:
 			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
 
-		self._choose_correct_function('read_range', address, length)
+		return self._choose_correct_function('read_range', address, length)
 
 	def _decode_attribute (self, raw):
 		try:
@@ -702,23 +702,23 @@ class TockLoader:
 		self._toggle_bootloader_entry()
 
 		# Make sure the bootloader is actually active and we can talk to it.
-		alive = self._ping_bootloader_and_wait_for_response()
-
-		if not alive:
-			# Give it another go
-			time.sleep(1)
-			self._toggle_bootloader_entry()
-			alive = self._ping_bootloader_and_wait_for_response()
-
-		if not alive:
-			print('Error connecting to bootloader. No "pong" received.')
-			print('Things that could be wrong:')
-			print('  - The bootloader is not flashed on the chip')
-			print('  - The DTR/RTS lines are not working')
-			print('  - The serial port being used is incorrect')
-			print('  - The bootloader API has changed')
-			print('  - There is a bug in this script')
-			raise Exception('Could not attach to the bootloader')
+		try:
+			self._ping_bootloader_and_wait_for_response()
+		except:
+			try:
+				# Give it another go
+				time.sleep(1)
+				self._toggle_bootloader_entry()
+				self._ping_bootloader_and_wait_for_response()
+			except:
+				print('Error connecting to bootloader. No "pong" received.')
+				print('Things that could be wrong:')
+				print('  - The bootloader is not flashed on the chip')
+				print('  - The DTR/RTS lines are not working')
+				print('  - The serial port being used is incorrect')
+				print('  - The bootloader API has changed')
+				print('  - There is a bug in this script')
+				raise Exception('Could not attach to the bootloader')
 
 	# Reset the chip to exit bootloader mode
 	def _exit_bootloader_mode (self):

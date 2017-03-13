@@ -1025,6 +1025,8 @@ class TockLoader:
 				raise Exception('ERROR: Cannot find JLink hardware. Is USB attached?')
 			if 'Can not connect to target.' in stdout:
 				raise Exception('ERROR: Cannot find device. Is JTAG connected?')
+			if 'Error while programming flash' in stdout:
+				raise Exception('ERROR: Problem flashing.')
 
 			if write == False:
 				# Wanted to read binary, so lets pull that

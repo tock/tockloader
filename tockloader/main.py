@@ -540,7 +540,7 @@ class TockLoader:
 		try:
 			key = raw[0:8].decode('utf-8').strip(bytes([0]).decode('utf-8'))
 			vlen = raw[8]
-			if vlen > 55:
+			if vlen > 55 or vlen == 0:
 				return None
 			value = raw[9:9+vlen].decode('utf-8')
 			return {

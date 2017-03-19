@@ -553,6 +553,8 @@ class TockLoader:
 		length = 14
 		flag = self._choose_correct_function('read_range', address, length)
 		flag_str = flag.decode('utf-8')
+		if self.args.debug:
+			print('Read from flags location: {}'.format(flag_str))
 		return flag_str == 'TOCKBOOTLOADER'
 
 	def _choose_correct_function (self, function, *args):

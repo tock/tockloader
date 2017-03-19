@@ -196,9 +196,6 @@ class TockLoader:
 				remaining = 512 - (len(binary) % 512)
 				binary += bytes([0xFF]*remaining)
 
-			# Time the programming operation
-			then = time.time()
-
 			self._flash_binary(address, binary)
 
 			# Then erase the next page. This ensures that flash is clean at the
@@ -206,18 +203,11 @@ class TockLoader:
 			# this script.
 			self._erase_page(address + len(binary))
 
-			# How long did that take
-			now = time.time()
-			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
-
 
 	# Remove any existing applications and program these.
 	def install (self, binary, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
-
-			# Time the programming operation
-			then = time.time()
 
 			# Create a list of apps
 			apps = self._extract_all_app_headers(binary)
@@ -225,10 +215,6 @@ class TockLoader:
 			# Now that we have an array of all the apps that are supposed to be
 			# on the board, write them in the correct order.
 			self._reshuffle_apps(address, apps)
-
-			# How long did it take?
-			now = time.time()
-			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 
 	# Run miniterm for receiving data from the board.
@@ -317,9 +303,6 @@ class TockLoader:
 			name_binary = binary[tbfh['package_name_offset']:tbfh['package_name_offset']+tbfh['package_name_size']];
 			new_name = name_binary.decode('utf-8')
 
-			# Time the programming operation
-			then = time.time()
-
 			# Get a list of installed apps
 			apps = self._extract_all_app_headers(address)
 
@@ -357,18 +340,11 @@ class TockLoader:
 					print('No app named "{}" found on the board.'.format(new_name))
 					raise Exception('Cannot replace.')
 
-			# How long did it take?
-			now = time.time()
-			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
-
 
 	# Add the app to the list of the currently flashed apps
 	def add_binary (self, binary, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
-
-			# Time the programming operation
-			then = time.time()
 
 			# Get a list of installed apps
 			apps = self._extract_all_app_headers(address)
@@ -379,18 +355,11 @@ class TockLoader:
 			# on the board, write them in the correct order.
 			self._reshuffle_apps(address, apps)
 
-			# How long did it take?
-			now = time.time()
-			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
-
 
 	# If an app by this name exists, remove it from the chip
 	def remove_app (self, app_name, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
-
-			# Time the programming operation
-			then = time.time()
 
 			# Get a list of installed apps
 			apps = self._extract_all_app_headers(address)
@@ -411,10 +380,6 @@ class TockLoader:
 
 			else:
 				raise Exception('Could not find the app on the board.')
-
-			# How long did it take?
-			now = time.time()
-			print('Removed app in {:0.3f} seconds'.format(now-then))
 
 
 	# Erase flash where apps go
@@ -501,23 +466,27 @@ class TockLoader:
 
 	# Based on the transport method used, there may be some setup required
 	# to connect to the board. This function runs the setup needed to connect
-	# to the board.
+	# to the board. It also times the operation.
 	#
 	# For the bootloader, the board needs to be reset and told to enter the
 	# bootloader mode.
 	# For JTAG, this is unnecessary.
 	@contextlib.contextmanager
 	def _start_communication_with_board (self):
-		if not self.args.jtag:
-			try:
+		# Time the operation
+		then = time.time()
+		try:
+			if not self.args.jtag:
 				self._enter_bootloader_mode()
-				yield
-			except Exception as e:
-				raise(e)
-			finally:
-				self._exit_bootloader_mode()
-		else:
 			yield
+		except Exception as e:
+			raise(e)
+		finally:
+			if not self.args.jtag:
+				self._exit_bootloader_mode()
+			now = time.time()
+			print('Finished in {:0.3f} seconds'.format(now-then))
+
 
 	# Opposite of start comms with the board.
 	#

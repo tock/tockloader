@@ -104,7 +104,6 @@ def set_terminal_title_from_port(port):
 # Cleanup any title the program may set
 atexit.register(set_terminal_title, '')
 
-
 def menu(options, *,
 		return_type,
 		default_index=0,
@@ -212,7 +211,7 @@ class TockLoader:
 			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 
-	# Add the app to the list of the currently flashed apps
+	# Remove any existing applications and program these.
 	def install (self, binary, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
@@ -385,7 +384,7 @@ class TockLoader:
 			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 
-	# Add the app to the list of the currently flashed apps
+	# If an app by this name exists, remove it from the chip
 	def remove_app (self, app_name, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
@@ -411,7 +410,7 @@ class TockLoader:
 				self._reshuffle_apps(address, apps)
 
 			else:
-				print('Could not find the app on the board.')
+				raise Exception('Could not find the app on the board.')
 
 			# How long did it take?
 			now = time.time()

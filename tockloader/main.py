@@ -453,6 +453,31 @@ class TockLoader:
 					self._set_attribute(open_index, out)
 
 
+	# Remove an existing attribute already stored on the board
+	def remove_attribute (self, key):
+		# Do some checking
+		if len(key.encode('utf-8')) > 8:
+			raise Exception('Key is too long. Must be 8 bytes or fewer.')
+
+		# Enter bootloader mode to get things started
+		with self._start_communication_with_board():
+
+			if not self._bootloader_is_present():
+				raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
+
+			# Create a null buffer to overwrite with
+			out = bytes([0]*9)
+
+			# Find if this attribute key already exists
+			for index, attribute in enumerate(self._get_all_attributes()):
+				if attribute and attribute['key'] == key:
+					print('Found existing key at slot {}. Removing.'.format(index))
+					self._set_attribute(index, out)
+					break
+			else:
+				raise Exception('Error: Attribute does not exist.')
+
+
 	############################################################################
 	## Internal Helper Functions for Communicating with Boards
 	############################################################################
@@ -1404,6 +1429,14 @@ def command_set_attribute (args):
 	tock_loader.set_attribute(args.key, args.value)
 
 
+def command_remove_attribute (args):
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	print('Removing attribute...')
+	tock_loader.remove_attribute(args.key)
+
+
 ################################################################################
 ## Setup and parse command line arguments
 ################################################################################
@@ -1531,12 +1564,19 @@ def main ():
 
 	setattribute = subparser.add_parser('set-attribute',
 		parents=[parent, parent_jtag],
-		help='Stored attribute on the board')
+		help='Store attribute on the board')
 	setattribute.set_defaults(func=command_set_attribute)
 	setattribute.add_argument('key',
 		help='Attribute key')
 	setattribute.add_argument('value',
 		help='Attribute value')
+
+	removeattribute = subparser.add_parser('remove-attribute',
+		parents=[parent, parent_jtag],
+		help='Remove attribute from the board')
+	removeattribute.set_defaults(func=command_remove_attribute)
+	removeattribute.add_argument('key',
+		help='Attribute key')
 
 	args = parser.parse_args()
 

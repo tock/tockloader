@@ -55,6 +55,10 @@ Show all of the attributes that are stored on the board.
 Set a particular attribute key to the specified value. This will overwrite
 an existing attribute if the key matches.
 
+### `tockloader remove-attribute [attribute key]`
+
+Remove a particular attribute from the board.
+
 
 Features
 --------
@@ -62,7 +66,7 @@ Features
 - Supported communication protocols
   - Serial over USB
   - Segger JLinkExe JTAG support
- 
+
 
 Upload to PyPI
 --------------

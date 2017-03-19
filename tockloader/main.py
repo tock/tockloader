@@ -3,6 +3,7 @@
 import argparse
 import atexit
 import binascii
+import contextlib
 import glob
 import os
 import struct
@@ -189,52 +190,46 @@ class TockLoader:
 	# a certain length.
 	def flash_binary (self, binary, address):
 		# Enter bootloader mode to get things started
-		self._start_communication_with_board();
+		with self._start_communication_with_board():
 
-		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
-		if len(binary) % 512 != 0:
-			remaining = 512 - (len(binary) % 512)
-			binary += bytes([0xFF]*remaining)
+			# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
+			if len(binary) % 512 != 0:
+				remaining = 512 - (len(binary) % 512)
+				binary += bytes([0xFF]*remaining)
 
-		# Time the programming operation
-		then = time.time()
+			# Time the programming operation
+			then = time.time()
 
-		self._flash_binary(address, binary)
+			self._flash_binary(address, binary)
 
-		# Then erase the next page. This ensures that flash is clean at the
-		# end of the installed apps and makes things nicer for future uses of
-		# this script.
-		self._erase_page(address + len(binary))
+			# Then erase the next page. This ensures that flash is clean at the
+			# end of the installed apps and makes things nicer for future uses of
+			# this script.
+			self._erase_page(address + len(binary))
 
-		# How long did that take
-		now = time.time()
-		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
-
-		# All done, now run the application
-		self._end_communication_with_board()
+			# How long did that take
+			now = time.time()
+			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 
 	# Add the app to the list of the currently flashed apps
 	def install (self, binary, address):
 		# Enter bootloader mode to get things started
-		self._start_communication_with_board();
+		with self._start_communication_with_board():
 
-		# Time the programming operation
-		then = time.time()
+			# Time the programming operation
+			then = time.time()
 
-		# Create a list of apps
-		apps = self._extract_all_app_headers(binary)
+			# Create a list of apps
+			apps = self._extract_all_app_headers(binary)
 
-		# Now that we have an array of all the apps that are supposed to be
-		# on the board, write them in the correct order.
-		self._reshuffle_apps(address, apps)
+			# Now that we have an array of all the apps that are supposed to be
+			# on the board, write them in the correct order.
+			self._reshuffle_apps(address, apps)
 
-		# How long did it take?
-		now = time.time()
-		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
-
-		# Done
-		self._end_communication_with_board()
+			# How long did it take?
+			now = time.time()
+			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 
 	# Run miniterm for receiving data from the board.
@@ -265,51 +260,48 @@ class TockLoader:
 	# Query the chip's flash to determine which apps are installed.
 	def list_apps (self, address, verbose, quiet):
 		# Enter bootloader mode to get things started
-		self._start_communication_with_board();
+		with self._start_communication_with_board():
 
-		# Get all apps based on their header
-		apps = self._extract_all_app_headers(address)
+			# Get all apps based on their header
+			apps = self._extract_all_app_headers(address)
 
-		if not quiet:
-			# Print info about each app
-			for i,app in enumerate(apps):
-				tbfh = app['header']
-				start_address = app['address']
+			if not quiet:
+				# Print info about each app
+				for i,app in enumerate(apps):
+					tbfh = app['header']
+					start_address = app['address']
 
-				print('[App {}]'.format(i))
-				print('  Name:                  {}'.format(app['name']))
-				print('  Total Size in Flash:   {} bytes'.format(tbfh['total_size']))
+					print('[App {}]'.format(i))
+					print('  Name:                  {}'.format(app['name']))
+					print('  Total Size in Flash:   {} bytes'.format(tbfh['total_size']))
 
-				# Check if this app is OK with the MPU region requirements.
-				if not self._app_is_aligned_correctly(start_address, tbfh['total_size']):
-					print('  [WARNING] App is misaligned for the MPU')
+					# Check if this app is OK with the MPU region requirements.
+					if not self._app_is_aligned_correctly(start_address, tbfh['total_size']):
+						print('  [WARNING] App is misaligned for the MPU')
 
-				if verbose:
-					print('  Flash Start Address:   {:#010x}'.format(start_address))
-					print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
-					print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
-					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
-					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
-					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
-					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
-					print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
-					print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
-					print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
-					print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
-				print('')
+					if verbose:
+						print('  Flash Start Address:   {:#010x}'.format(start_address))
+						print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
+						print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
+						print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
+						print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
+						print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
+						print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
+						print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
+						print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
+						print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
+						print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
+					print('')
 
-			if len(apps) == 0:
-				print('No found apps.')
+				if len(apps) == 0:
+					print('No found apps.')
 
-		else:
-			# In quiet mode just show the names.
-			app_names = []
-			for app in apps:
-				app_names.append(app['name'])
-			print(' '.join(app_names))
-
-		# Done
-		self._end_communication_with_board()
+			else:
+				# In quiet mode just show the names.
+				app_names = []
+				for app in apps:
+					app_names.append(app['name'])
+				print(' '.join(app_names))
 
 
 	# Inspect the given binary and find one that matches that's already programmed,
@@ -317,154 +309,139 @@ class TockLoader:
 	# for apps.
 	def replace_binary (self, binary, address):
 		# Enter bootloader mode to get things started
-		self._start_communication_with_board();
+		with self._start_communication_with_board():
 
-		# Get the application name and properties to match it with
-		tbfh = self._parse_tbf_header(binary)
+			# Get the application name and properties to match it with
+			tbfh = self._parse_tbf_header(binary)
 
-		# Need its name to match to existing apps
-		name_binary = binary[tbfh['package_name_offset']:tbfh['package_name_offset']+tbfh['package_name_size']];
-		new_name = name_binary.decode('utf-8')
+			# Need its name to match to existing apps
+			name_binary = binary[tbfh['package_name_offset']:tbfh['package_name_offset']+tbfh['package_name_size']];
+			new_name = name_binary.decode('utf-8')
 
-		# Time the programming operation
-		then = time.time()
+			# Time the programming operation
+			then = time.time()
 
-		# Get a list of installed apps
-		apps = self._extract_all_app_headers(address)
+			# Get a list of installed apps
+			apps = self._extract_all_app_headers(address)
 
-		# Check to see if this app is in there
-		for app in apps:
-			if app['name'] == new_name:
-				if app['header']['total_size'] == tbfh['total_size']:
-					# Great we can just overwrite it!
-					print('Found matching binary at address {:#010x}'.format(app['address']))
-					print('Replacing the binary...')
-					self._flash_binary(app['address'], binary)
+			# Check to see if this app is in there
+			for app in apps:
+				if app['name'] == new_name:
+					if app['header']['total_size'] == tbfh['total_size']:
+						# Great we can just overwrite it!
+						print('Found matching binary at address {:#010x}'.format(app['address']))
+						print('Replacing the binary...')
+						self._flash_binary(app['address'], binary)
 
-				else:
-					# Need to expand this app's slot and possibly reshuffle apps
-					print('Found matching binary, but the size has changed.')
+					else:
+						# Need to expand this app's slot and possibly reshuffle apps
+						print('Found matching binary, but the size has changed.')
 
-					app['address'] = None
-					app['binary'] = binary
-					app['header'] = tbfh
-					self._reshuffle_apps(address, apps)
+						app['address'] = None
+						app['binary'] = binary
+						app['header'] = tbfh
+						self._reshuffle_apps(address, apps)
 
-				break
+					break
 
-		else:
-			if self.args.add == True:
-				# Just add this app. This is useful for `make program`.
-				print('App "{}" not found, but adding anyway.'.format(new_name))
-				apps.append({
-					'address': None,
-					'binary': binary,
-					'header': tbfh
-				})
-				self._reshuffle_apps(address, apps)
 			else:
-				print('No app named "{}" found on the board.'.format(new_name))
-				raise Exception('Cannot replace.')
+				if self.args.add == True:
+					# Just add this app. This is useful for `make program`.
+					print('App "{}" not found, but adding anyway.'.format(new_name))
+					apps.append({
+						'address': None,
+						'binary': binary,
+						'header': tbfh
+					})
+					self._reshuffle_apps(address, apps)
+				else:
+					print('No app named "{}" found on the board.'.format(new_name))
+					raise Exception('Cannot replace.')
 
-		# How long did it take?
-		now = time.time()
-		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
-
-		# Done
-		self._end_communication_with_board()
+			# How long did it take?
+			now = time.time()
+			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 
 	# Add the app to the list of the currently flashed apps
 	def add_binary (self, binary, address):
 		# Enter bootloader mode to get things started
-		self._start_communication_with_board();
+		with self._start_communication_with_board():
 
-		# Time the programming operation
-		then = time.time()
+			# Time the programming operation
+			then = time.time()
 
-		# Get a list of installed apps
-		apps = self._extract_all_app_headers(address)
-		# Add the new apps
-		apps += self._extract_all_app_headers(binary)
+			# Get a list of installed apps
+			apps = self._extract_all_app_headers(address)
+			# Add the new apps
+			apps += self._extract_all_app_headers(binary)
 
-		# Now that we have an array of all the apps that are supposed to be
-		# on the board, write them in the correct order.
-		self._reshuffle_apps(address, apps)
+			# Now that we have an array of all the apps that are supposed to be
+			# on the board, write them in the correct order.
+			self._reshuffle_apps(address, apps)
 
-		# How long did it take?
-		now = time.time()
-		print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
-
-		# Done
-		self._end_communication_with_board()
+			# How long did it take?
+			now = time.time()
+			print('Wrote {} bytes in {:0.3f} seconds'.format(len(binary), now-then))
 
 
 	# Add the app to the list of the currently flashed apps
 	def remove_app (self, app_name, address):
 		# Enter bootloader mode to get things started
-		self._start_communication_with_board();
+		with self._start_communication_with_board():
 
-		# Time the programming operation
-		then = time.time()
+			# Time the programming operation
+			then = time.time()
 
-		# Get a list of installed apps
-		apps = self._extract_all_app_headers(address)
+			# Get a list of installed apps
+			apps = self._extract_all_app_headers(address)
 
-		# Remove the on if its there
-		app_index = -1
-		for i,app in enumerate(apps):
-			if app['name'] == app_name:
-				app_index = i
-				break
+			# Remove the on if its there
+			app_index = -1
+			for i,app in enumerate(apps):
+				if app['name'] == app_name:
+					app_index = i
+					break
 
-		if app_index >= 0:
-			apps.pop(app_index)
+			if app_index >= 0:
+				apps.pop(app_index)
 
-			# Now take the remaining apps and make sure they are on the board
-			# properly.
-			self._reshuffle_apps(address, apps)
+				# Now take the remaining apps and make sure they are on the board
+				# properly.
+				self._reshuffle_apps(address, apps)
 
-		else:
-			print('Could not find the app on the board.')
+			else:
+				print('Could not find the app on the board.')
 
-		# How long did it take?
-		now = time.time()
-		print('Removed app in {:0.3f} seconds'.format(now-then))
-
-		# Done
-		self._end_communication_with_board()
+			# How long did it take?
+			now = time.time()
+			print('Removed app in {:0.3f} seconds'.format(now-then))
 
 
 	# Erase flash where apps go
 	def erase_apps (self, address):
 		# Enter bootloader mode to get things started
-		self._start_communication_with_board();
+		with self._start_communication_with_board():
 
-		# Then erase the next page. This ensures that flash is clean at the
-		# end of the installed apps and makes things nicer for future uses of
-		# this script.
-		self._erase_page(address)
-
-		# Done
-		self._end_communication_with_board()
+			# Then erase the next page. This ensures that flash is clean at the
+			# end of the installed apps and makes things nicer for future uses of
+			# this script.
+			self._erase_page(address)
 
 
 	# Download all attributes stored on the board
 	def list_attributes (self):
 		# Enter bootloader mode to get things started
-		self._start_communication_with_board();
+		with self._start_communication_with_board():
 
-		if not self._bootloader_is_present():
-			raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
+			if not self._bootloader_is_present():
+				raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
 
-		for index, attribute in enumerate(self._get_all_attributes()):
-			if attribute:
-				print('{:02d}: {:>8} = {}'.format(index, attribute['key'], attribute['value']))
-			else:
-				print('{:02d}:'.format(index))
-
-		# Done
-		self._end_communication_with_board()
+			for index, attribute in enumerate(self._get_all_attributes()):
+				if attribute:
+					print('{:02d}: {:>8} = {}'.format(index, attribute['key'], attribute['value']))
+				else:
+					print('{:02d}:'.format(index))
 
 
 	# Download all attributes stored on the board
@@ -476,43 +453,40 @@ class TockLoader:
 			raise Exception('Value is too long. Must be 55 bytes or fewer.')
 
 		# Enter bootloader mode to get things started
-		self._start_communication_with_board();
+		with self._start_communication_with_board():
 
-		if not self._bootloader_is_present():
-			raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
+			if not self._bootloader_is_present():
+				raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
 
-		# Create the buffer to write as the attribute
-		out = bytes([])
-		# Add key
-		out += key.encode('utf-8')
-		out += bytes([0] * (8-len(out)))
-		# Add length
-		out += bytes([len(value.encode('utf-8'))])
-		# Add value
-		out += value.encode('utf-8')
+			# Create the buffer to write as the attribute
+			out = bytes([])
+			# Add key
+			out += key.encode('utf-8')
+			out += bytes([0] * (8-len(out)))
+			# Add length
+			out += bytes([len(value.encode('utf-8'))])
+			# Add value
+			out += value.encode('utf-8')
 
-		# Find if this attribute key already exists
-		open_index = -1
-		for index, attribute in enumerate(self._get_all_attributes()):
-			if attribute:
-				if attribute['key'] == key:
-					print('Found existing key at slot {}. Overwriting.'.format(index))
-					self._set_attribute(index, out)
-					break
+			# Find if this attribute key already exists
+			open_index = -1
+			for index, attribute in enumerate(self._get_all_attributes()):
+				if attribute:
+					if attribute['key'] == key:
+						print('Found existing key at slot {}. Overwriting.'.format(index))
+						self._set_attribute(index, out)
+						break
+				else:
+					# Save where we should put this attribute if it does not
+					# already exist.
+					if open_index == -1:
+						open_index = index
 			else:
-				# Save where we should put this attribute if it does not
-				# already exist.
 				if open_index == -1:
-					open_index = index
-		else:
-			if open_index == -1:
-				raise Exception('Error: No open space to save this attribute.')
-			else:
-				print('Key not found. Writing new attribute to slot {}'.format(open_index))
-				self._set_attribute(open_index, out)
-
-		# Done
-		self._end_communication_with_board()
+					raise Exception('Error: No open space to save this attribute.')
+				else:
+					print('Key not found. Writing new attribute to slot {}'.format(open_index))
+					self._set_attribute(open_index, out)
 
 
 	############################################################################
@@ -533,9 +507,18 @@ class TockLoader:
 	# For the bootloader, the board needs to be reset and told to enter the
 	# bootloader mode.
 	# For JTAG, this is unnecessary.
+	@contextlib.contextmanager
 	def _start_communication_with_board (self):
 		if not self.args.jtag:
-			self._enter_bootloader_mode()
+			try:
+				self._enter_bootloader_mode()
+				yield
+			except Exception as e:
+				raise(e)
+			finally:
+				self._exit_bootloader_mode()
+		else:
+			yield
 
 	# Opposite of start comms with the board.
 	#

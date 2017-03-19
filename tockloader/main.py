@@ -365,19 +365,14 @@ class TockLoader:
 			apps = self._extract_all_app_headers(address)
 
 			# Remove the on if its there
-			app_index = -1
 			for i,app in enumerate(apps):
 				if app['name'] == app_name:
-					app_index = i
+					apps.pop(i)
+
+					# Now take the remaining apps and make sure they
+					# are on the board properly.
+					self._reshuffle_apps(address, apps)
 					break
-
-			if app_index >= 0:
-				apps.pop(app_index)
-
-				# Now take the remaining apps and make sure they are on the board
-				# properly.
-				self._reshuffle_apps(address, apps)
-
 			else:
 				raise Exception('Could not find the app on the board.')
 

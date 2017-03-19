@@ -1094,7 +1094,7 @@ class TockLoader:
 		for app in apps:
 			if 'binary' in app:
 				self._flash_binary(app['address'], app['binary'])
-				end = app['address'] + len(app['binary'])
+			end = app['address'] + app['header']['total_size']
 
 		# Then erase the next page. This ensures that flash is clean at the
 		# end of the installed apps and makes things nicer for future uses of

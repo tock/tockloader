@@ -569,7 +569,7 @@ class TockLoader:
 
 	def _bootloader_is_present (self):
 		# Constants for the bootloader flag
-		address = 0xfa00
+		address = 0x400
 		length = 14
 		flag = self._choose_correct_function('read_range', address, length)
 		flag_str = flag.decode('utf-8')
@@ -1051,13 +1051,13 @@ class TockLoader:
 
 	# Get a single attribute.
 	def _get_attribute_jtag (self, index):
-		address = 0xfc00 + (64 * index)
+		address = 0x600 + (64 * index)
 		attribute_raw = self._read_range_jtag(address, 64)
 		return attribute_raw
 
 	# Set a single attribute.
 	def _set_attribute_jtag (self, index, raw):
-		address = 0xfc00 + (64 * index)
+		address = 0x600 + (64 * index)
 		self._flash_binary_jtag(address, raw)
 
 	############################################################################

@@ -34,7 +34,7 @@ binary.
 
 ### `tockloader add`
 
-Add an application binary (or binaries) to the list of installed apps.
+Add an application (or applications) to the list of installed apps.
 
 ### `tockloader remove [application name]`
 

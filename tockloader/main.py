@@ -9,6 +9,7 @@ import os
 import struct
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 
@@ -153,6 +154,18 @@ def menu(options, *,
 ################################################################################
 
 class TockLoader:
+	# Predefined state based on the boards that tockloader supports
+	boards = {
+		'hail': {
+			'device': 'ATSAM4LC8C',
+			'arch':   'cortex-m4',
+		},
+		'imix': {
+			'device': 'ATSAM4LC8C',
+			'arch':   'cortex-m4',
+		},
+	}
+
 	def __init__ (self, args):
 		self.debug = args.debug
 		self.args = args
@@ -160,17 +173,15 @@ class TockLoader:
 		if not hasattr(self.args, 'jtag'):
 			self.args.jtag = False
 
+		# This will get updated with the board we are connected to if it is
+		# not already specified.
+		self.board = None
+		if hasattr(self.args, 'board'):
+			self.board = self.args.board
+
 		# Initialize a place to put JTAG specific state
 		self.jtag = {
 			'device': 'cortex-m0', # Choose a basic device at first
-			'known_boards': {
-				'hail': {
-					'device': 'ATSAM4LC8C',
-				},
-				'imix': {
-					'device': 'ATSAM4LC8C',
-				},
-			}
 		}
 
 
@@ -198,19 +209,14 @@ class TockLoader:
 
 			self._flash_binary(address, binary)
 
-			# Then erase the next page. This ensures that flash is clean at the
-			# end of the installed apps and makes things nicer for future uses of
-			# this script.
-			self._erase_page(address + len(binary))
-
 
 	# Remove any existing applications and program these.
-	def install (self, binary, address):
+	def install (self, tabs, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
 			# Create a list of apps
-			apps = self._extract_all_app_headers(binary)
+			apps = self._extract_apps_from_tabs(tabs)
 
 			# Now that we have an array of all the apps that are supposed to be
 			# on the board, write them in the correct order.
@@ -289,67 +295,68 @@ class TockLoader:
 				print(' '.join(app_names))
 
 
-	# Inspect the given binary and find one that matches that's already programmed,
-	# then replace it on the chip. address is the starting address to search
+	# Try to see if any of the TABs passed are already on the board, and if
+	# so, replace them. address is the starting address to search
 	# for apps.
-	def replace_binary (self, binary, address):
+	def replace_app (self, tabs, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
-			# Get the application name and properties to match it with
-			tbfh = self._parse_tbf_header(binary)
-
-			# Need its name to match to existing apps
-			name_binary = binary[tbfh['package_name_offset']:tbfh['package_name_offset']+tbfh['package_name_size']];
-			new_name = name_binary.decode('utf-8')
+			# Start with the apps we are searching for.
+			replacement_apps = self._extract_apps_from_tabs(tabs)
 
 			# Get a list of installed apps
-			apps = self._extract_all_app_headers(address)
+			existing_apps = self._extract_all_app_headers(address)
+
+			# What apps we want after this command completes
+			resulting_apps = []
+
+			# Whether we actually made a change or not
+			changed = False
 
 			# Check to see if this app is in there
-			for app in apps:
-				if app['name'] == new_name:
-					if app['header']['total_size'] == tbfh['total_size']:
-						# Great we can just overwrite it!
-						print('Found matching binary at address {:#010x}'.format(app['address']))
-						print('Replacing the binary...')
-						self._flash_binary(app['address'], binary)
-
-					else:
-						# Need to expand this app's slot and possibly reshuffle apps
-						print('Found matching binary, but the size has changed.')
-
-						app['address'] = None
-						app['binary'] = binary
-						app['header'] = tbfh
-						self._reshuffle_apps(address, apps)
-
-					break
-
-			else:
-				if self.args.add == True:
-					# Just add this app. This is useful for `make program`.
-					print('App "{}" not found, but adding anyway.'.format(new_name))
-					apps.append({
-						'address': None,
-						'binary': binary,
-						'header': tbfh
-					})
-					self._reshuffle_apps(address, apps)
+			for existing_app in existing_apps:
+				for replacement_app in replacement_apps:
+					if existing_app['name'] == replacement_app['name']:
+						resulting_apps.append(replacement_app)
+						changed = True
+						break
 				else:
-					print('No app named "{}" found on the board.'.format(new_name))
-					raise Exception('Cannot replace.')
+					# We did not find a replacement app. That means we want
+					# to keep the original.
+					resulting_apps.append(existing_app)
+
+			# Now, if we specified --add, make sure we add all apps that did
+			# not find a replacement on the board.
+			if self.args.add == True:
+				for replacement_app in replacement_apps:
+					for resulting_app in resulting_apps:
+						if replacement_app['name'] == resulting_app['name']:
+							break
+					else:
+						# We did not find the name in the resulting apps.
+						# Add it.
+						print('App "{}" not found, but adding anyway.'.format(replacement_app['name']))
+						resulting_apps.append(replacement_app)
+						changed = True
+
+			if changed:
+				# Since something is now different, update all of the apps
+				self._reshuffle_apps(address, apps)
+			else:
+				# Nothing changed, so we can raise an error
+				raise Exception('Nothing found to replace')
 
 
 	# Add the app to the list of the currently flashed apps
-	def add_binary (self, binary, address):
+	def add_app (self, tabs, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
 			# Get a list of installed apps
 			apps = self._extract_all_app_headers(address)
 			# Add the new apps
-			apps += self._extract_all_app_headers(binary)
+			apps += self._extract_apps_from_tabs(tabs)
 
 			# Now that we have an array of all the apps that are supposed to be
 			# on the board, write them in the correct order.
@@ -498,6 +505,12 @@ class TockLoader:
 		try:
 			if not self.args.jtag:
 				self._enter_bootloader_mode()
+
+			# Now that we have connected to the board and the bootloader
+			# if necessary, make sure we know what kind of board we are
+			# talking to.
+			self._determine_current_board()
+
 			yield
 		except Exception as e:
 			raise(e)
@@ -506,7 +519,6 @@ class TockLoader:
 				self._exit_bootloader_mode()
 			now = time.time()
 			print('Finished in {:0.3f} seconds'.format(now-then))
-
 
 	# Opposite of start comms with the board.
 	#
@@ -576,6 +588,20 @@ class TockLoader:
 		if self.args.debug:
 			print('Read from flags location: {}'.format(flag_str))
 		return flag_str == 'TOCKBOOTLOADER'
+
+	def _determine_current_board (self):
+		if self.board:
+			# This is already set! Yay we are done.
+			return
+
+		# The primary (only?) way to do this is to look at attributes
+		attributes = self._get_all_attributes()
+		for attribute in attributes:
+			if attribute and attribute['key'] == 'board':
+				self.board = attribute['value']
+				break
+		else:
+			raise Exception('Could not determine the current board')
 
 	def _choose_correct_function (self, function, *args):
 		protocol = 'bootloader'
@@ -913,13 +939,13 @@ class TockLoader:
 			return
 
 		# User can also specify the board directly
-		if self.args.board:
-			if self.args.board in self.jtag['known_boards']:
-				self.jtag['device'] = self.jtag['known_boards'][self.args.board]['device']
+		if self.board:
+			if self.board in self.boards:
+				self.jtag['device'] = self.boards[self.board]['device']
 				return
 			else:
-				print('Error: Board specified ("{}") is unknown.'.format(self.args.boards))
-				print('Known boards are: {}'.format(', '.join(list(self.jtag['known_boards'].keys()))))
+				print('Error: Board specified ("{}") is unknown.'.format(self.board))
+				print('Known boards are: {}'.format(', '.join(list(self.boards.keys()))))
 				raise Exception('Unknown board')
 
 		# Otherwise, see if the board can give us a hint.
@@ -935,9 +961,9 @@ class TockLoader:
 		attributes = self._get_all_attributes()
 		for attribute in attributes:
 			if attribute and attribute['key'] == 'board':
-				board = attribute['value']
-				if board in self.jtag['known_boards']:
-					self.jtag['device'] = self.jtag['known_boards'][board]['device']
+				self.board = attribute['value']
+				if self.board in self.boards:
+					self.jtag['device'] = self.boards[board]['device']
 				else:
 					raise Exception('Error: Board identified as "{}", but there is no JLinkExe device for that board.'.format(board))
 				break
@@ -1101,58 +1127,49 @@ class TockLoader:
 		# this script.
 		self._erase_page(end)
 
-	# Iterate through the flash on the board or a local binary for
+	# Iterate through the flash on the board for
 	# the header information about each app.
-	def _extract_all_app_headers (self, address_or_binary):
+	def _extract_all_app_headers (self, address):
 		apps = []
-
-		# Check which mode we are in
-		if type(address_or_binary) == type(bytes()):
-			onboard = False
-			address = 0
-		else:
-			onboard = True
-			address = address_or_binary
 
 		# Jump through the linked list of apps
 		while (True):
 			header_length = 76 # Version 1
-			if onboard:
-				flash = self._read_range(address, header_length)
-			else:
-				flash = address_or_binary[address:address+header_length]
+			flash = self._read_range(address, header_length)
 
 			# if there was an error, the binary array will be empty
 			if len(flash) < header_length:
 				break
 
 			# Get all the fields from the header
-			tbfh = self._parse_tbf_header(flash)
+			tbfh = parse_tbf_header(flash)
 
 			if tbfh['valid']:
 				# Get the name out of the app
-				if onboard:
-					name = self._get_app_name(address+tbfh['package_name_offset'], tbfh['package_name_size'])
-					app_address = address
-				else:
-					start = address+tbfh['package_name_offset']
-					name = address_or_binary[start:start+tbfh['package_name_size']].decode('utf-8')
-					app_address = None
+				name = self._get_app_name(address+tbfh['package_name_offset'], tbfh['package_name_size'])
 
 				apps.append({
-					'address': app_address,
+					'address': address,
 					'header': tbfh,
 					'name': name,
 				})
-
-				# If this is a local binary, also add the binary
-				if not onboard:
-					apps[-1]['binary'] = address_or_binary[address:address+tbfh['total_size']]
 
 				address += tbfh['total_size']
 
 			else:
 				break
+
+		return apps
+
+	# Iterate through the list of TABs and create the app dict for each.
+	def _extract_apps_from_tabs (self, tabs):
+		apps = []
+
+		# This is the architecture we need for the board
+		arch = self.boards[self.board]['arch']
+
+		for tab in tabs:
+			apps.append(tab.extract_app(arch))
 
 		return apps
 
@@ -1163,47 +1180,6 @@ class TockLoader:
 
 		name_memory = self._read_range(address, length)
 		return name_memory.decode('utf-8')
-
-	# Parses a buffer into the Tock Binary Format header fields
-	def _parse_tbf_header (self, buffer):
-		out = {'valid': False}
-
-		# Read first word to get the TBF version
-		out['version'] = struct.unpack('<I', buffer[0:4])[0]
-
-		if out['version'] == 1:
-			tbf_header = struct.unpack('<IIIIIIIIIIIIIIIIII', buffer[4:76])
-			out['total_size'] = tbf_header[0]
-			out['entry_offset'] = tbf_header[1]
-			out['rel_data_offset'] = tbf_header[2]
-			out['rel_data_size'] = tbf_header[3]
-			out['text_offset'] = tbf_header[4]
-			out['text_size'] = tbf_header[5]
-			out['got_offset'] = tbf_header[6]
-			out['got_size'] = tbf_header[7]
-			out['data_offset'] = tbf_header[8]
-			out['data_size'] = tbf_header[9]
-			out['bss_mem_offset'] = tbf_header[10]
-			out['bss_mem_size'] = tbf_header[11]
-			out['min_stack_len'] = tbf_header[12]
-			out['min_app_heap_len'] = tbf_header[13]
-			out['min_kernel_heap_len'] = tbf_header[14]
-			out['package_name_offset'] = tbf_header[15]
-			out['package_name_size'] = tbf_header[16]
-			out['checksum'] = tbf_header[17]
-
-			xor = out['version'] ^ out['total_size'] ^ out['entry_offset'] \
-			      ^ out['rel_data_offset'] ^ out['rel_data_size'] ^ out['text_offset'] \
-			      ^ out['text_size'] ^ out['got_offset'] ^ out['got_size'] \
-			      ^ out['data_offset'] ^ out['data_size'] ^ out['bss_mem_offset'] \
-			      ^ out['bss_mem_size'] ^ out['min_stack_len'] \
-			      ^ out['min_app_heap_len'] ^ out['min_kernel_heap_len'] \
-			      ^ out['package_name_offset'] ^ out['package_name_size']
-
-			if xor == out['checksum']:
-				out['valid'] = True
-
-		return out
 
 	# Check if putting an app at this address will be OK with the MPU.
 	def _app_is_aligned_correctly (self, address, size):
@@ -1224,6 +1200,82 @@ class TockLoader:
 
 
 ################################################################################
+## Tock Application Bundle Object
+################################################################################
+
+class TAB:
+	def __init__ (self, tab_name):
+		self.tab = tarfile.open(tab_name)
+
+	def extract_app (arch):
+		binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
+		binary = binary_tarinfo.tobuf()
+
+		# First get the TBF header from the correct binary in the TAB
+		tbfh = parse_tbf_header(binary)
+
+		if tbfh['valid']:
+			start = tbfh['package_name_offset']
+			end = start+tbfh['package_name_size']
+			name = binary[start:end].decode('utf-8')
+
+			return {
+				'address': None,
+				'header': tbfh,
+				'name': name,
+				'binary': binary,
+			}
+		else:
+			raise Exception('Invalid TBF found in app in TAB')
+
+
+################################################################################
+## General Purpose Helper Functions
+################################################################################
+
+# Parses a buffer into the Tock Binary Format header fields
+def parse_tbf_header (self, buffer):
+	out = {'valid': False}
+
+	# Read first word to get the TBF version
+	out['version'] = struct.unpack('<I', buffer[0:4])[0]
+
+	if out['version'] == 1:
+		tbf_header = struct.unpack('<IIIIIIIIIIIIIIIIII', buffer[4:76])
+		out['total_size'] = tbf_header[0]
+		out['entry_offset'] = tbf_header[1]
+		out['rel_data_offset'] = tbf_header[2]
+		out['rel_data_size'] = tbf_header[3]
+		out['text_offset'] = tbf_header[4]
+		out['text_size'] = tbf_header[5]
+		out['got_offset'] = tbf_header[6]
+		out['got_size'] = tbf_header[7]
+		out['data_offset'] = tbf_header[8]
+		out['data_size'] = tbf_header[9]
+		out['bss_mem_offset'] = tbf_header[10]
+		out['bss_mem_size'] = tbf_header[11]
+		out['min_stack_len'] = tbf_header[12]
+		out['min_app_heap_len'] = tbf_header[13]
+		out['min_kernel_heap_len'] = tbf_header[14]
+		out['package_name_offset'] = tbf_header[15]
+		out['package_name_size'] = tbf_header[16]
+		out['checksum'] = tbf_header[17]
+
+		xor = out['version'] ^ out['total_size'] ^ out['entry_offset'] \
+		      ^ out['rel_data_offset'] ^ out['rel_data_size'] ^ out['text_offset'] \
+		      ^ out['text_size'] ^ out['got_offset'] ^ out['got_size'] \
+		      ^ out['data_offset'] ^ out['data_size'] ^ out['bss_mem_offset'] \
+		      ^ out['bss_mem_size'] ^ out['min_stack_len'] \
+		      ^ out['min_app_heap_len'] ^ out['min_kernel_heap_len'] \
+		      ^ out['package_name_offset'] ^ out['package_name_size']
+
+		if xor == out['checksum']:
+			out['valid'] = True
+
+	return out
+
+
+################################################################################
 ## Command Functions
 ################################################################################
 
@@ -1238,14 +1290,15 @@ def check_and_run_make (args):
 				print('Error running make.')
 				sys.exit(1)
 
-def collect_binaries (args, single=False):
-	binaries = args.binary
-	binary = bytes()
+# Load in Tock Application Bundle (TAB) files. If none are specified, this
+# searches for them in subfolders.
+def collect_tabs (args):
+	tab_names = args.tab
 
-	# Check if array of binaries is empty. If so, find them based on where this
-	# tool is being run.
-	if len(binaries) == 0 or binaries[0] == '':
-		print('No binaries passed to tockloader. Searching for binaries in subdirectories.')
+	# Check if any tab files were specified. If not, find them based
+	# on where this tool is being run.
+	if len(tab_names) == 0 or tab_names[0] == '':
+		print('No TABs passed to tockloader. Searching for TABs in subdirectories.')
 
 		# First check to see if things could be built that haven't been
 		if os.path.isfile('./Makefile'):
@@ -1257,99 +1310,38 @@ def collect_binaries (args, single=False):
 				print('Warning! There are uncompiled changes!')
 				print('You may want to run `make` before loading the application.')
 
-		# Search for ".bin" files
-		binaries = glob.glob('./**/*.bin', recursive=True)
-		if single:
-			binaries = binaries[0:1]
-		if len(binaries) == 0:
-			print('No binaries found.')
-			sys.exit(1)
+		# Search for ".tab" files
+		tab_names = glob.glob('./**/*.tab', recursive=True)
+		if len(tab_names) == 0:
+			raise Exception('No TAB files found.')
 
-		# Opportunistically match the .elf files and validate they were built
-		# with all the flags that Tock applications require
-		tock_flags = ('-msingle-pic-base', '-mpic-register=r9', '-mno-pic-data-is-text-relative')
-		if not args.no_check_switches:
-			for binfile in binaries:
-				if binfile[-4:] == '.bin':
-					elffile = binfile[:-4] + '.elf'
-					if os.path.exists(elffile):
-						p = subprocess.Popen(['arm-none-eabi-readelf',
-								'-p', '.GCC.command.line', elffile],
-								stdout=subprocess.PIPE,
-								stderr=subprocess.PIPE)
-						out, err = p.communicate()
-						if 'does not exist' in err.decode('utf-8'):
-							print('Error: Missing section .GCC.command.line in ' + elffile)
-							print('')
-							print('Tock requires that applications are built with')
-							print('  -frecord-gcc-switches')
-							print('to validate that all required flags were used')
-							print('')
-							print('To skip this check, run tockloader with --no-check-switches')
-							sys.exit(-1)
-
-						out = out.decode('utf-8')
-						for flag in tock_flags:
-							if flag not in out:
-								bad_flag = flag
-								break
-							else:
-								bad_flag = None
-
-						if bad_flag:
-							print('Error: Application built without required flag: ' + bad_flag)
-							print('')
-							print('Tock requires that applications are built with')
-							print('  ' + '\n  '.join(tock_flags))
-							print('')
-							print('To skip this check, run tockloader with --no-check-switches')
-							sys.exit(-1)
-
-		print('Using: {}'.format(binaries))
+		print('Using: {}'.format(tab_names))
 		print('Waiting one second before continuing...')
 		time.sleep(1)
 
 	# Concatenate the binaries.
-	for binary_filename in binaries:
+	tabs = []
+	for tab_name in tab_names:
 		try:
-			with open(binary_filename, 'rb') as f:
-				binary += f.read()
+			tabs.append(TAB(tab_name))
 		except Exception as e:
-			print('Error opening and reading "{}"'.format(binary_filename))
-			sys.exit(1)
+			print('Error opening and reading "{}"'.format(tab_name))
 
-		if single:
-			break
-
-	return binary
-
-
-def command_flash (args):
-	check_and_run_make(args)
-
-	# Load in all binaries
-	binary = collect_binaries(args)
-
-	# Flash the binary to the chip
-	tock_loader = TockLoader(args)
-	tock_loader.open(args)
-
-	print('Flashing binar(y|ies) to board...')
-	tock_loader.flash_binary(binary, args.address)
+	return tabs
 
 
 def command_install (args):
 	check_and_run_make(args)
 
-	# Load in all binaries
-	binary = collect_binaries(args)
+	# Load in all TABs
+	tabs = collect_tabs(args)
 
 	# Install the apps on the board
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
 	print('Installing apps on the board...')
-	tock_loader.install(binary, args.address)
+	tock_loader.install(tabs, args.app_address)
 
 
 def command_listen (args):
@@ -1366,30 +1358,24 @@ def command_list (args):
 
 def command_replace (args):
 	check_and_run_make(args)
+	tabs = collect_tabs(args)
 
-	# Load in all binaries
-	binary = collect_binaries(args, True)
-
-	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Replacing binary on the board...')
-	tock_loader.replace_binary(binary, args.address)
+	print('Replacing application(s) on the board...')
+	tock_loader.replace_app(tabs, args.app_address)
 
 
 def command_add (args):
 	check_and_run_make(args)
+	tabs = collect_tabs(args)
 
-	# Load in all binaries
-	binary = collect_binaries(args)
-
-	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Adding binar(y|ies) to board...')
-	tock_loader.add_binary(binary, args.address)
+	print('Adding app(s) to the board...')
+	tock_loader.add_app(tabs, args.app_address)
 
 
 def command_remove (args):
@@ -1397,7 +1383,7 @@ def command_remove (args):
 	tock_loader.open(args)
 
 	print('Removing app "{}" from board...'.format(args.name[0]))
-	tock_loader.remove_app(args.name[0], args.address)
+	tock_loader.remove_app(args.name[0], args.app_address)
 
 
 def command_erase_apps (args):
@@ -1405,7 +1391,24 @@ def command_erase_apps (args):
 	tock_loader.open(args)
 
 	print('Removing apps...')
-	tock_loader.erase_apps(args.address)
+	tock_loader.erase_apps(args.app_address)
+
+
+def command_flash (args):
+	check_and_run_make(args)
+
+	# Load in all binaries
+	binary = bytes()
+	for binary_name in args.binary:
+		with open(binary_name, 'rb') as f:
+			binary += f.read()
+
+	# Flash the binary to the chip
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	print('Flashing binar(y|ies) to board...')
+	tock_loader.flash_binary(binary, args.address)
 
 
 def command_list_attributes (args):
@@ -1457,20 +1460,16 @@ def main ():
 		version=__version__,
 		help='Print Tockloader version and exit')
 
-	parent.add_argument('--no-check-switches',
-		action='store_true',
-		help='Do not validate the flags used when binaries were built')
-
 	# Get the list of arguments before any command
 	before_command_args = parent.parse_known_args()
 
 	# The top-level parser object
 	parser = argparse.ArgumentParser(parents=[parent])
 
-	# Parser for all flashing commands
-	parent_flashing = argparse.ArgumentParser(add_help=False)
-	parent_flashing.add_argument('--address', '-a',
-		help='Address to flash the binary at',
+	# Parser for all app related commands
+	parent_apps = argparse.ArgumentParser(add_help=False)
+	parent_apps.add_argument('--app-address', '-a',
+		help='Address where apps are located',
 		type=lambda x: int(x, 0),
 		default=0x30000)
 
@@ -1494,7 +1493,7 @@ def main ():
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',
-		parents=[parent, parent_flashing, parent_jtag],
+		parents=[parent, parent_apps, parent_jtag],
 		help='List the apps installed on the board')
 	listcmd.set_defaults(func=command_list)
 	listcmd.add_argument('--verbose', '-v',
@@ -1505,52 +1504,56 @@ def main ():
 		action='store_true')
 
 	install = subparser.add_parser('install',
-		parents=[parent, parent_flashing, parent_jtag],
+		parents=[parent, parent_apps, parent_jtag],
 		help='Install apps on the board')
 	install.set_defaults(func=command_install)
-	install.add_argument('binary',
-		help='The binary file or files to install',
+	install.add_argument('tab',
+		help='The TAB or TABs to install',
 		nargs='*')
 
 	add = subparser.add_parser('add',
-		parents=[parent, parent_flashing, parent_jtag],
+		parents=[parent, parent_apps, parent_jtag],
 		help='Add an app to the already flashed apps')
 	add.set_defaults(func=command_add)
-	add.add_argument('binary',
-		help='The binary file to add to the end',
+	add.add_argument('tab',
+		help='The TAB or TABs to add to the list of installed apps',
 		nargs='*')
 
 	replace = subparser.add_parser('replace',
-		parents=[parent, parent_flashing, parent_jtag],
-		help='Replace an already flashed app with this binary')
+		parents=[parent, parent_apps, parent_jtag],
+		help='Replace an already flashed app with this version')
 	replace.set_defaults(func=command_replace)
-	replace.add_argument('binary',
-		help='The binary file to use as the replacement',
+	replace.add_argument('tab',
+		help='The TAB or TABs to replace',
 		nargs='*')
 	replace.add_argument('--add',
 		help='Add the app if it is not already on the board',
 		action='store_true')
 
 	remove = subparser.add_parser('remove',
-		parents=[parent, parent_flashing, parent_jtag],
+		parents=[parent, parent_apps, parent_jtag],
 		help='Remove an already flashed app')
 	remove.set_defaults(func=command_remove)
 	remove.add_argument('name',
-		help='The name of the app to remove',
-		nargs=1)
+		help='The name of the app(s) to remove',
+		nargs='*')
 
 	eraseapps = subparser.add_parser('erase-apps',
-		parents=[parent, parent_flashing, parent_jtag],
+		parents=[parent, parent_apps, parent_jtag],
 		help='Delete apps from the board')
 	eraseapps.set_defaults(func=command_erase_apps)
 
 	flash = subparser.add_parser('flash',
-		parents=[parent, parent_flashing, parent_jtag],
+		parents=[parent, parent_jtag],
 		help='Flash binaries to the chip')
 	flash.set_defaults(func=command_flash)
 	flash.add_argument('binary',
 		help='The binary file or files to flash to the chip',
-		nargs='*')
+		nargs='+')
+	flash.add_argument('--address', '-a',
+		help='Address to flash the binary at',
+		type=lambda x: int(x, 0),
+		default=0x30000)
 
 	listattributes = subparser.add_parser('list-attributes',
 		parents=[parent, parent_jtag],

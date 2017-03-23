@@ -342,7 +342,7 @@ class TockLoader:
 
 			if changed:
 				# Since something is now different, update all of the apps
-				self._reshuffle_apps(address, apps)
+				self._reshuffle_apps(address, resulting_apps)
 			else:
 				# Nothing changed, so we can raise an error
 				raise Exception('Nothing found to replace')
@@ -1207,9 +1207,9 @@ class TAB:
 	def __init__ (self, tab_name):
 		self.tab = tarfile.open(tab_name)
 
-	def extract_app (arch):
+	def extract_app (self, arch):
 		binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
-		binary = binary_tarinfo.tobuf()
+		binary = self.tab.extractfile(binary_tarinfo).read()
 
 		# First get the TBF header from the correct binary in the TAB
 		tbfh = parse_tbf_header(binary)
@@ -1234,7 +1234,7 @@ class TAB:
 ################################################################################
 
 # Parses a buffer into the Tock Binary Format header fields
-def parse_tbf_header (self, buffer):
+def parse_tbf_header (buffer):
 	out = {'valid': False}
 
 	# Read first word to get the TBF version

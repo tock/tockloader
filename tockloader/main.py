@@ -15,6 +15,7 @@ import time
 
 import colorama
 import crcmod
+import pytoml
 import serial
 import serial.tools.list_ports
 import serial.tools.miniterm
@@ -1169,7 +1170,11 @@ class TockLoader:
 		arch = self.boards[self.board]['arch']
 
 		for tab in tabs:
-			apps.append(tab.extract_app(arch))
+			if self.args.force or tab.is_compatible_with_board(self.board):
+				apps.append(tab.extract_app(arch))
+
+		if len(apps) == 0:
+			raise Exception('No valid apps for this board were provided. Use --force to override.')
 
 		return apps
 
@@ -1227,6 +1232,18 @@ class TAB:
 			}
 		else:
 			raise Exception('Invalid TBF found in app in TAB')
+
+	def is_compatible_with_board (self, board):
+		metadata = self.parse_metadata()
+		if metadata['tab-version'] == 1:
+			return board in metadata['compatible-boards'] or metadata['compatible-boards'] == ''
+		else:
+			raise Exception('Unable to understand version {} of metadata'.format(metadata['tab-version']))
+
+	def parse_metadata (self):
+		metadata_tarinfo = self.tab.getmember('metadata.toml')
+		metadata_str = self.tab.extractfile(metadata_tarinfo).read().decode('utf-8')
+		return pytoml.loads(metadata_str)
 
 
 ################################################################################
@@ -1472,6 +1489,9 @@ def main ():
 		help='Address where apps are located',
 		type=lambda x: int(x, 0),
 		default=0x30000)
+	parent_apps.add_argument('--force',
+		help='Allow apps on boards that are not listed as compatible',
+		action='store_true')
 
 	# Parser for most commands
 	parent_jtag = argparse.ArgumentParser(add_help=False)

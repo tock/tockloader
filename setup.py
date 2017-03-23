@@ -31,5 +31,6 @@ setup(name='tockloader',
           "colorama >= 0.3.7",
           "crcmod >= 1.7",
           "pyserial >= 3.0.1",
+          "pytoml >= 0.1.11",
           ],
      )

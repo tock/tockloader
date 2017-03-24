@@ -1371,7 +1371,7 @@ def command_listen (args):
 def command_list (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
-	tock_loader.list_apps(args.address, args.verbose, args.quiet)
+	tock_loader.list_apps(args.app_address, args.verbose, args.quiet)
 
 
 def command_replace (args):

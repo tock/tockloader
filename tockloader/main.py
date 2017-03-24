@@ -513,13 +513,14 @@ class TockLoader:
 			self._determine_current_board()
 
 			yield
+
+			now = time.time()
+			print('Finished in {:0.3f} seconds'.format(now-then))
 		except Exception as e:
 			raise(e)
 		finally:
 			if not self.args.jtag:
 				self._exit_bootloader_mode()
-			now = time.time()
-			print('Finished in {:0.3f} seconds'.format(now-then))
 
 	# Opposite of start comms with the board.
 	#

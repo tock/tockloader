@@ -1237,7 +1237,9 @@ class TAB:
 	def is_compatible_with_board (self, board):
 		metadata = self.parse_metadata()
 		if metadata['tab-version'] == 1:
-			return board in metadata['compatible-boards'] or metadata['compatible-boards'] == ''
+			return 'only-for-boards' not in metadata or \
+			       board in metadata['only-for-boards'] or \
+			       metadata['only-for-boards'] == ''
 		else:
 			raise Exception('Unable to understand version {} of metadata'.format(metadata['tab-version']))
 

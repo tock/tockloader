@@ -36,7 +36,7 @@ binary.
 
 Add an application (or applications) to the list of installed apps.
 
-### `tockloader remove [application name]`
+### `tockloader remove [application name(s)]`
 
 Remove an application from flash by its name.
 

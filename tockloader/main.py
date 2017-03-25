@@ -110,7 +110,7 @@ class TockLoader:
 		self.args = args
 
 		# Get an object that allows talking to the board
-		if self.args.jtag:
+		if hasattr(self.args, 'jtag') and self.args.jtag:
 			self.channel = JLinkExe(args)
 		else:
 			self.channel = BootloaderSerial(args)
@@ -295,24 +295,28 @@ class TockLoader:
 
 
 	# If an app by this name exists, remove it from the chip
-	def remove_app (self, app_name, address):
+	def remove_app (self, app_names, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
 			# Get a list of installed apps
 			apps = self._extract_all_app_headers(address)
 
-			# Remove the on if its there
-			for i,app in enumerate(apps):
-				if app['name'] == app_name:
-					apps.pop(i)
+			# Remove the apps if they are there
+			removed = False
+			keep_apps = []
+			for app in apps:
+				if app['name'] not in app_names:
+					keep_apps.append(app)
+				else:
+					removed = True
 
-					# Now take the remaining apps and make sure they
-					# are on the board properly.
-					self._reshuffle_apps(address, apps)
-					break
-			else:
-				raise Exception('Could not find the app on the board.')
+			# Now take the remaining apps and make sure they
+			# are on the board properly.
+			self._reshuffle_apps(address, keep_apps)
+
+			if not removed:
+				raise Exception('Could not find any apps on the board to remove.')
 
 
 	# Erase flash where apps go
@@ -1435,8 +1439,8 @@ def command_remove (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Removing app "{}" from board...'.format(args.name[0]))
-	tock_loader.remove_app(args.name[0], args.app_address)
+	print('Removing app(s) "{}" from board...'.format(args.name))
+	tock_loader.remove_app(args.name, args.app_address)
 
 
 def command_erase_apps (args):

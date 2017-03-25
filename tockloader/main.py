@@ -24,57 +24,6 @@ from ._version import __version__
 
 
 ################################################################################
-## Global Bootloader Constants
-################################################################################
-
-# "This was chosen as it is infrequent in .bin files" - immesys
-ESCAPE_CHAR = 0xFC
-
-# Commands from this tool to the bootloader.
-# The "X" commands are for external flash.
-COMMAND_PING               = 0x01
-COMMAND_INFO               = 0x03
-COMMAND_ID                 = 0x04
-COMMAND_RESET              = 0x05
-COMMAND_ERASE_PAGE         = 0x06
-COMMAND_WRITE_PAGE         = 0x07
-COMMAND_XEBLOCK            = 0x08
-COMMAND_XWPAGE             = 0x09
-COMMAND_CRCRX              = 0x10
-COMMAND_READ_RANGE         = 0x11
-COMMAND_XRRANGE            = 0x12
-COMMAND_SET_ATTRIBUTE      = 0x13
-COMMAND_GET_ATTRIBUTE      = 0x14
-COMMAND_CRC_INTERNAL_FLASH = 0x15
-COMMAND_CRCEF              = 0x16
-COMMAND_XEPAGE             = 0x17
-COMMAND_XFINIT             = 0x18
-COMMAND_CLKOUT             = 0x19
-COMMAND_WUSER              = 0x20
-
-# Responses from the bootloader.
-RESPONSE_OVERFLOW           = 0x10
-RESPONSE_PONG               = 0x11
-RESPONSE_BADADDR            = 0x12
-RESPONSE_INTERROR           = 0x13
-RESPONSE_BADARGS            = 0x14
-RESPONSE_OK                 = 0x15
-RESPONSE_UNKNOWN            = 0x16
-RESPONSE_XFTIMEOUT          = 0x17
-RESPONSE_XFEPE              = 0x18
-RESPONSE_CRCRX              = 0x19
-RESPONSE_READ_RANGE         = 0x20
-RESPONSE_XRRANGE            = 0x21
-RESPONSE_GET_ATTRIBUTE      = 0x22
-RESPONSE_CRC_INTERNAL_FLASH = 0x23
-RESPONSE_CRCXF              = 0x24
-RESPONSE_INFO               = 0x25
-
-# Tell the bootloader to reset its buffer to handle a new command.
-SYNC_MESSAGE = bytes([0x00, ESCAPE_CHAR, COMMAND_RESET])
-
-
-################################################################################
 ## Niceties and Support
 ################################################################################
 
@@ -151,39 +100,20 @@ def menu(options, *,
 		raise NotImplementedError('Menu caller asked for bad return_type')
 
 ################################################################################
-## Main Bootloader Interface
+## Main TockLoader Interface
 ################################################################################
 
 class TockLoader:
-	# Predefined state based on the boards that tockloader supports
-	boards = {
-		'hail': {
-			'device': 'ATSAM4LC8C',
-			'arch':   'cortex-m4',
-		},
-		'imix': {
-			'device': 'ATSAM4LC8C',
-			'arch':   'cortex-m4',
-		},
-	}
 
 	def __init__ (self, args):
 		self.debug = args.debug
 		self.args = args
 
-		if not hasattr(self.args, 'jtag'):
-			self.args.jtag = False
-
-		# This will get updated with the board we are connected to if it is
-		# not already specified.
-		self.board = None
-		if hasattr(self.args, 'board'):
-			self.board = self.args.board
-
-		# Initialize a place to put JTAG specific state
-		self.jtag = {
-			'device': 'cortex-m0', # Choose a basic device at first
-		}
+		# Get an object that allows talking to the board
+		if self.args.jtag:
+			self.channel = JLinkExe(args)
+		else:
+			self.channel = BootloaderSerial(args)
 
 
 	# Open the correct channel to talk to the board.
@@ -191,7 +121,7 @@ class TockLoader:
 	# For the bootloader, this means opening a serial port.
 	# For JTAG, not much needs to be done.
 	def open (self, args):
-		self._open_link_to_board(args)
+		self.channel.open_link_to_board()
 
 
 	# Tell the bootloader to save the binary blob to an address in internal
@@ -208,7 +138,7 @@ class TockLoader:
 				remaining = 512 - (len(binary) % 512)
 				binary += bytes([0xFF]*remaining)
 
-			self._flash_binary(address, binary)
+			self.channel.flash_binary(address, binary)
 
 
 	# Remove any existing applications and program these.
@@ -230,7 +160,7 @@ class TockLoader:
 
 		# Use trusty miniterm
 		miniterm = serial.tools.miniterm.Miniterm(
-			self.sp,
+			self.channel.get_serial_port(),
 			echo=False,
 			eol='crlf',
 			filters=['default'])
@@ -393,7 +323,7 @@ class TockLoader:
 			# Then erase the next page. This ensures that flash is clean at the
 			# end of the installed apps and makes things nicer for future uses of
 			# this script.
-			self._erase_page(address)
+			self.channel.erase_page(address)
 
 
 	# Download all attributes stored on the board
@@ -441,7 +371,7 @@ class TockLoader:
 				if attribute:
 					if attribute['key'] == key:
 						print('Found existing key at slot {}. Overwriting.'.format(index))
-						self._set_attribute(index, out)
+						self.channel.set_attribute(index, out)
 						break
 				else:
 					# Save where we should put this attribute if it does not
@@ -453,7 +383,7 @@ class TockLoader:
 					raise Exception('Error: No open space to save this attribute.')
 				else:
 					print('Key not found. Writing new attribute to slot {}'.format(open_index))
-					self._set_attribute(open_index, out)
+					self.channel.set_attribute(open_index, out)
 
 
 	# Remove an existing attribute already stored on the board
@@ -475,7 +405,7 @@ class TockLoader:
 			for index, attribute in enumerate(self._get_all_attributes()):
 				if attribute and attribute['key'] == key:
 					print('Found existing key at slot {}. Removing.'.format(index))
-					self._set_attribute(index, out)
+					self.channel.set_attribute(index, out)
 					break
 			else:
 				raise Exception('Error: Attribute does not exist.')
@@ -484,13 +414,6 @@ class TockLoader:
 	############################################################################
 	## Internal Helper Functions for Communicating with Boards
 	############################################################################
-
-	# Setup a channel to the board based on how it is connected.
-	def _open_link_to_board (self, args):
-		if self.args.jtag:
-			self._discover_jtag_device()
-		else:
-			self._open_link_to_board_bootloader(args)
 
 	# Based on the transport method used, there may be some setup required
 	# to connect to the board. This function runs the setup needed to connect
@@ -504,13 +427,12 @@ class TockLoader:
 		# Time the operation
 		then = time.time()
 		try:
-			if not self.args.jtag:
-				self._enter_bootloader_mode()
+			self.channel.enter_bootloader_mode()
 
 			# Now that we have connected to the board and the bootloader
 			# if necessary, make sure we know what kind of board we are
 			# talking to.
-			self._determine_current_board()
+			self.channel.determine_current_board()
 
 			yield
 
@@ -519,31 +441,208 @@ class TockLoader:
 		except Exception as e:
 			raise(e)
 		finally:
-			if not self.args.jtag:
-				self._exit_bootloader_mode()
+			self.channel.exit_bootloader_mode()
 
-	# Opposite of start comms with the board.
-	#
-	# For the bootloader, this resets the board so that the main code runs
-	# instead of the bootloader.
-	def _end_communication_with_board (self):
-		if not self.args.jtag:
-			self._exit_bootloader_mode()
+	# Check if a bootloader exists on this board. It is specified by the
+	# string "TOCKBOOTLOADER" being at address 0x400.
+	def _bootloader_is_present (self):
+		# Constants for the bootloader flag
+		address = 0x400
+		length = 14
+		# flag = self._choose_correct_function('read_range', address, length)
+		flag = self.channel.read_range(address, length)
+		flag_str = flag.decode('utf-8')
+		if self.args.debug:
+			print('Read from flags location: {}'.format(flag_str))
+		return flag_str == 'TOCKBOOTLOADER'
 
-	# Flash a binary blob to the board at the given address.
-	def _flash_binary (self, address, binary):
-		self._choose_correct_function('flash_binary', address, binary)
 
-	# Erase a single page of the flash at the given address.
-	def _erase_page (self, address):
-		self._choose_correct_function('erase_page', address)
+	############################################################################
+	## Helper Functions for Manipulating Binaries and TBF
+	############################################################################
 
-	# Read a given number of bytes from flash at a certain address.
-	def _read_range (self, address, length):
-		if self.debug:
+	# Given an array of apps, some of which are new and some of which exist,
+	# sort them in flash so they are in descending size order.
+	def _reshuffle_apps(self, address, apps):
+		# We are given an array of apps. First we need to order them by size.
+		apps.sort(key=lambda x: x['header']['total_size'], reverse=True)
+
+		# Now iterate to see if the address has changed
+		start_address = address
+		for app in apps:
+			# If the address already matches, then we are good.
+			# On to the next app.
+			if app['address'] != start_address:
+				# If they don't, then we need to read the binary out of
+				# flash and save it to be moved, as well as update the address.
+				# However, we may have a new binary to use, so we don't need to
+				# fetch it.
+				if 'binary' not in app:
+					app['binary'] = self.channel.read_range(app['address'], app['header']['total_size'])
+
+				# Either way save the new address.
+				app['address'] = start_address
+
+			start_address += app['header']['total_size']
+
+		# Now flash all apps that have a binary field. The presence of the
+		# binary indicates that they are new or moved.
+		end = address
+		for app in apps:
+			if 'binary' in app:
+				self.channel.flash_binary(app['address'], app['binary'])
+			end = app['address'] + app['header']['total_size']
+
+		# Then erase the next page. This ensures that flash is clean at the
+		# end of the installed apps and makes things nicer for future uses of
+		# this script.
+		self.channel.erase_page(end)
+
+	# Iterate through the flash on the board for
+	# the header information about each app.
+	def _extract_all_app_headers (self, address):
+		apps = []
+
+		# Jump through the linked list of apps
+		while (True):
+			header_length = 76 # Version 1
+			flash = self.channel.read_range(address, header_length)
+
+			# if there was an error, the binary array will be empty
+			if len(flash) < header_length:
+				break
+
+			# Get all the fields from the header
+			tbfh = parse_tbf_header(flash)
+
+			if tbfh['valid']:
+				# Get the name out of the app
+				name = self._get_app_name(address+tbfh['package_name_offset'], tbfh['package_name_size'])
+
+				apps.append({
+					'address': address,
+					'header': tbfh,
+					'name': name,
+				})
+
+				address += tbfh['total_size']
+
+			else:
+				break
+
+		return apps
+
+	# Iterate through the list of TABs and create the app dict for each.
+	def _extract_apps_from_tabs (self, tabs):
+		apps = []
+
+		# This is the architecture we need for the board
+		arch = self.channel.get_board_arch()
+
+		for tab in tabs:
+			if self.args.force or tab.is_compatible_with_board(self.channel.get_board_name()):
+				apps.append(tab.extract_app(arch))
+
+		if len(apps) == 0:
+			raise Exception('No valid apps for this board were provided. Use --force to override.')
+
+		return apps
+
+	# Retrieve bytes from the board and interpret them as a string
+	def _get_app_name (self, address, length):
+		if length == 0:
+			return ''
+
+		name_memory = self.channel.read_range(address, length)
+		return name_memory.decode('utf-8')
+
+	# Check if putting an app at this address will be OK with the MPU.
+	def _app_is_aligned_correctly (self, address, size):
+		# The rule for the MPU is that the size of the protected region must be
+		# a power of two, and that the region is aligned on a multiple of that
+		# size.
+
+		# Check if not power of two
+		if (size & (size - 1)) != 0:
+			return False
+
+		# Check that address is a multiple of size
+		multiple = address // size
+		if multiple * size != address:
+			return False
+
+		return True
+
+
+################################################################################
+## Connection to the Board Classes
+################################################################################
+
+# Generic template class that allows actually talking to the board
+class BoardInterface:
+
+	# Predefined state based on the boards that tockloader supports
+	boards = {
+		'hail': {
+			'device': 'ATSAM4LC8C',
+			'arch':   'cortex-m4',
+		},
+		'imix': {
+			'device': 'ATSAM4LC8C',
+			'arch':   'cortex-m4',
+		},
+	}
+
+	def __init__ (self, args):
+		self.args = args
+
+		# This will get updated with the board we are connected to if it is
+		# not already specified.
+		self.board = None
+		if hasattr(self.args, 'board'):
+			self.board = self.args.board
+
+	# Open a connection to the board
+	def open_link_to_board (self):
+		return
+
+	# Get access to the underlying serial port (if it exists).
+	# This is used for running miniterm.
+	def get_serial_port (self):
+		return
+
+	# Get to a mode where we can read & write flash
+	def enter_bootloader_mode (self):
+		return
+
+	# Get out of bootloader mode and go back to running main code
+	def exit_bootloader_mode (self):
+		return
+
+	# Write a binary to the address given
+	def flash_binary (self, address, binary):
+		return
+
+	# Read a specific range of flash.
+	def read_range (self, address, length):
+		if self.args.debug:
 			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
 
-		return self._choose_correct_function('read_range', address, length)
+	# Erase a specific page.
+	def erase_page (self, address):
+		return
+
+	# Get a single attribute.
+	def get_attribute (self, index):
+		return
+
+	# Get all atributes on a board.
+	def get_all_attributes (self):
+		return
+
+	# Set a single attribute.
+	def set_attribute (self, index, raw):
+		return
 
 	def _decode_attribute (self, raw):
 		try:
@@ -559,45 +658,15 @@ class TockLoader:
 		except Exception as e:
 			return None
 
-	def _get_all_attributes (self):
-		if self.args.jtag:
-			# Read the entire block of attributes using JTAG.
-			# This is much faster.
-			def chunks(l, n):
-				for i in range(0, len(l), n):
-					yield l[i:i + n]
-			raw = self._read_range_jtag(0xfc00, 64*16)
-			attributes = [self._decode_attribute(r) for r in chunks(raw, 64)]
-		else:
-			attributes = []
-			for index in range(0, 16):
-				attributes.append(self._get_attribute(index))
-		return attributes
-
-	def _get_attribute (self, index):
-		raw = self._choose_correct_function('get_attribute', index)
-		return self._decode_attribute(raw)
-
-	def _set_attribute (self, index, raw):
-		self._choose_correct_function('set_attribute', index, raw)
-
-	def _bootloader_is_present (self):
-		# Constants for the bootloader flag
-		address = 0x400
-		length = 14
-		flag = self._choose_correct_function('read_range', address, length)
-		flag_str = flag.decode('utf-8')
-		if self.args.debug:
-			print('Read from flags location: {}'.format(flag_str))
-		return flag_str == 'TOCKBOOTLOADER'
-
-	def _determine_current_board (self):
+	# Figure out which board we are connected to. Most likely done by
+	# reading the attributes.
+	def determine_current_board (self):
 		if self.board:
 			# This is already set! Yay we are done.
 			return
 
 		# The primary (only?) way to do this is to look at attributes
-		attributes = self._get_all_attributes()
+		attributes = self.get_all_attributes()
 		for attribute in attributes:
 			if attribute and attribute['key'] == 'board':
 				self.board = attribute['value']
@@ -605,24 +674,72 @@ class TockLoader:
 		else:
 			raise Exception('Could not determine the current board')
 
-	def _choose_correct_function (self, function, *args):
-		protocol = 'bootloader'
-		if self.args.jtag:
-			protocol = 'jtag'
+	# Return the name of the board we are connected to.
+	def get_board_name (self):
+		return self.board
 
-		correct_function = getattr(self, '_{}_{}'.format(function, protocol))
-		return correct_function(*args)
+	# Return the architecture of the board we are connected to.
+	def get_board_arch (self):
+		return self.boards[self.board]['arch']
 
 
-	############################################################################
-	## Bootloader Specific Functions
-	############################################################################
+################################################################################
+## Bootloader Specific Functions
+################################################################################
+
+class BootloaderSerial(BoardInterface):
+
+	# "This was chosen as it is infrequent in .bin files" - immesys
+	ESCAPE_CHAR = 0xFC
+
+	# Commands from this tool to the bootloader.
+	# The "X" commands are for external flash.
+	COMMAND_PING               = 0x01
+	COMMAND_INFO               = 0x03
+	COMMAND_ID                 = 0x04
+	COMMAND_RESET              = 0x05
+	COMMAND_ERASE_PAGE         = 0x06
+	COMMAND_WRITE_PAGE         = 0x07
+	COMMAND_XEBLOCK            = 0x08
+	COMMAND_XWPAGE             = 0x09
+	COMMAND_CRCRX              = 0x10
+	COMMAND_READ_RANGE         = 0x11
+	COMMAND_XRRANGE            = 0x12
+	COMMAND_SET_ATTRIBUTE      = 0x13
+	COMMAND_GET_ATTRIBUTE      = 0x14
+	COMMAND_CRC_INTERNAL_FLASH = 0x15
+	COMMAND_CRCEF              = 0x16
+	COMMAND_XEPAGE             = 0x17
+	COMMAND_XFINIT             = 0x18
+	COMMAND_CLKOUT             = 0x19
+	COMMAND_WUSER              = 0x20
+
+	# Responses from the bootloader.
+	RESPONSE_OVERFLOW           = 0x10
+	RESPONSE_PONG               = 0x11
+	RESPONSE_BADADDR            = 0x12
+	RESPONSE_INTERROR           = 0x13
+	RESPONSE_BADARGS            = 0x14
+	RESPONSE_OK                 = 0x15
+	RESPONSE_UNKNOWN            = 0x16
+	RESPONSE_XFTIMEOUT          = 0x17
+	RESPONSE_XFEPE              = 0x18
+	RESPONSE_CRCRX              = 0x19
+	RESPONSE_READ_RANGE         = 0x20
+	RESPONSE_XRRANGE            = 0x21
+	RESPONSE_GET_ATTRIBUTE      = 0x22
+	RESPONSE_CRC_INTERNAL_FLASH = 0x23
+	RESPONSE_CRCXF              = 0x24
+	RESPONSE_INFO               = 0x25
+
+	# Tell the bootloader to reset its buffer to handle a new command.
+	SYNC_MESSAGE = bytes([0x00, 0xFC, 0x05])
 
 	# Open the serial port to the chip/bootloader
-	def _open_link_to_board_bootloader (self, args):
+	def open_link_to_board (self):
 		# Check to see if the serial port was specified or we should find
 		# one to use
-		if args.port == None:
+		if self.args.port == None:
 			# Nothing was specified, so we look for something marked as "Tock".
 			# If we can't find something, it is OK.
 			device_name = 'tock'
@@ -630,7 +747,7 @@ class TockLoader:
 			print('No device name specified. Using default "{}"'.format(device_name))
 		else:
 			# Since we specified, make sure we connect to that.
-			device_name = args.port
+			device_name = self.args.port
 			must_match = True
 
 		# Look for a matching port
@@ -681,6 +798,9 @@ class TockLoader:
 		self.sp.rts = 0
 		self.sp.open()
 
+	def get_serial_port (self):
+		return self.sp
+
 	# Reset the chip and assert the bootloader select pin to enter bootloader
 	# mode.
 	def _toggle_bootloader_entry (self):
@@ -699,7 +819,7 @@ class TockLoader:
 
 	# Reset the chip and assert the bootloader select pin to enter bootloader
 	# mode.
-	def _enter_bootloader_mode (self):
+	def enter_bootloader_mode (self):
 		self._toggle_bootloader_entry()
 
 		# Make sure the bootloader is actually active and we can talk to it.
@@ -722,7 +842,7 @@ class TockLoader:
 				raise Exception('Could not attach to the bootloader')
 
 	# Reset the chip to exit bootloader mode
-	def _exit_bootloader_mode (self):
+	def exit_bootloader_mode (self):
 		if self.args.jtag:
 			return
 
@@ -739,24 +859,24 @@ class TockLoader:
 	def _ping_bootloader_and_wait_for_response (self):
 		for i in range(30):
 			# Try to ping the SAM4L to ensure it is in bootloader mode
-			ping_pkt = bytes([ESCAPE_CHAR, COMMAND_PING])
+			ping_pkt = bytes([self.ESCAPE_CHAR, self.COMMAND_PING])
 			self.sp.write(ping_pkt)
 
 			ret = self.sp.read(2)
 
-			if len(ret) == 2 and ret[1] == RESPONSE_PONG:
+			if len(ret) == 2 and ret[1] == self.RESPONSE_PONG:
 				return
 		raise Exception('No PONG received')
 
 	# Setup a command to send to the bootloader and handle the response.
 	def _issue_command (self, command, message, sync, response_len, response_code):
 		if sync:
-			self.sp.write(SYNC_MESSAGE)
+			self.sp.write(self.SYNC_MESSAGE)
 			time.sleep(0.0001)
 
 		# Generate the message to send to the bootloader
-		escaped_message = message.replace(bytes([ESCAPE_CHAR]), bytes([ESCAPE_CHAR, ESCAPE_CHAR]))
-		pkt = escaped_message + bytes([ESCAPE_CHAR, command])
+		escaped_message = message.replace(bytes([self.ESCAPE_CHAR]), bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]))
+		pkt = escaped_message + bytes([self.ESCAPE_CHAR, command])
 		self.sp.write(pkt)
 
 		# Response has a two byte header, then response_len bytes
@@ -764,10 +884,10 @@ class TockLoader:
 
 		# Response is escaped, so we need to handle that
 		while True:
-			num_escaped = ret.count(bytes([ESCAPE_CHAR, ESCAPE_CHAR]))
+			num_escaped = ret.count(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]))
 			if num_escaped > 0:
 				# De-escape, and then read in the missing characters.
-				ret = ret.replace(bytes([ESCAPE_CHAR, ESCAPE_CHAR]), bytes([ESCAPE_CHAR]))
+				ret = ret.replace(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]), bytes([self.ESCAPE_CHAR]))
 				ret += self.sp.read(num_escaped)
 			else:
 				break
@@ -776,7 +896,7 @@ class TockLoader:
 			print('Error: No response after issuing command')
 			return (False, bytes())
 
-		if ret[0] != ESCAPE_CHAR:
+		if ret[0] != self.ESCAPE_CHAR:
 			print('Error: Invalid response from bootloader (no escape character)')
 			return (False, ret[0:2])
 		if ret[1] != response_code:
@@ -790,7 +910,7 @@ class TockLoader:
 
 	# Write pages until a binary has been flashed. binary must have a length that
 	# is a multiple of 512.
-	def _flash_binary_bootloader (self, address, binary):
+	def flash_binary (self, address, binary):
 		assert len(binary) % 512 == 0
 		# Loop through the binary 512 bytes at a time until it has been flashed
 		# to the chip.
@@ -803,15 +923,15 @@ class TockLoader:
 			pkt += binary[i*512: (i+1)*512]
 
 			# Write to bootloader
-			success, ret = self._issue_command(COMMAND_WRITE_PAGE, pkt, True, 0, RESPONSE_OK)
+			success, ret = self._issue_command(self.COMMAND_WRITE_PAGE, pkt, True, 0, self.RESPONSE_OK)
 
 			if not success:
 				print('Error: Error when flashing page')
-				if ret[1] == RESPONSE_BADADDR:
+				if ret[1] == self.RESPONSE_BADADDR:
 					raise Exception('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*512)))
-				elif ret[1] == RESPONSE_INTERROR:
+				elif ret[1] == self.RESPONSE_INTERROR:
 					raise Exception('Error: RESPONSE_INTERROR: Internal error when writing flash')
-				elif ret[1] == RESPONSE_BADARGS:
+				elif ret[1] == self.RESPONSE_BADARGS:
 					raise Exception('Error: RESPONSE_BADARGS: Invalid length for flash page write')
 				else:
 					raise Exception('Error: 0x{:X}'.format(ret[1]))
@@ -820,7 +940,7 @@ class TockLoader:
 		self._check_crc(address, binary)
 
 	# Read a specific range of flash.
-	def _read_range_bootloader (self, address, length):
+	def read_range (self, address, length):
 		# Can only read up to 4095 bytes at a time.
 		MAX_READ = 4095
 		read = bytes()
@@ -835,7 +955,7 @@ class TockLoader:
 				remaining = 0
 
 			message = struct.pack('<IH', address, this_length)
-			success, flash = self._issue_command(COMMAND_READ_RANGE, message, True, this_length, RESPONSE_READ_RANGE)
+			success, flash = self._issue_command(self.COMMAND_READ_RANGE, message, True, this_length, self.RESPONSE_READ_RANGE)
 
 			if not success:
 				raise Exception('Error: Could not read flash')
@@ -847,16 +967,16 @@ class TockLoader:
 		return read
 
 	# Erase a specific page.
-	def _erase_page_bootloader (self, address):
+	def erase_page (self, address):
 		message = struct.pack('<I', address)
-		success, ret = self._issue_command(COMMAND_ERASE_PAGE, message, True, 0, RESPONSE_OK)
+		success, ret = self._issue_command(self.COMMAND_ERASE_PAGE, message, True, 0, self.RESPONSE_OK)
 
 		if not success:
-			if ret[1] == RESPONSE_BADADDR:
+			if ret[1] == self.RESPONSE_BADADDR:
 				raise Exception('Error: Page erase address was not on a page boundary.')
-			elif ret[1] == RESPONSE_BADARGS:
+			elif ret[1] == self.RESPONSE_BADARGS:
 				raise Exception('Error: Need to supply erase page with correct 4 byte address.')
-			elif ret[1] == RESPONSE_INTERROR:
+			elif ret[1] == self.RESPONSE_INTERROR:
 				raise Exception('Error: Internal error when erasing flash page.')
 			else:
 				raise Exception('Error: 0x{:X}'.format(ret[1]))
@@ -864,7 +984,7 @@ class TockLoader:
 	# Get the bootloader to compute a CRC
 	def _get_crc_internal_flash (self, address, length):
 		message = struct.pack('<II', address, length)
-		success, crc = self._issue_command(COMMAND_CRC_INTERNAL_FLASH, message, True, 4, RESPONSE_CRC_INTERNAL_FLASH)
+		success, crc = self._issue_command(self.COMMAND_CRC_INTERNAL_FLASH, message, True, 4, self.RESPONSE_CRC_INTERNAL_FLASH)
 
 		# There is a bug in a version of the bootloader where the CRC returns 6
 		# bytes and not just 4. Need to read just in case to grab those extra
@@ -872,9 +992,9 @@ class TockLoader:
 		self.sp.read(2)
 
 		if not success:
-			if crc[1] == RESPONSE_BADADDR:
+			if crc[1] == self.RESPONSE_BADADDR:
 				raise Exception('Error: RESPONSE_BADADDR: Invalid address for CRC (address: 0x{:X})'.format(address))
-			elif crc[1] == RESPONSE_BADARGS:
+			elif crc[1] == self.RESPONSE_BADARGS:
 				raise Exception('Error: RESPONSE_BADARGS: Invalid length for CRC check')
 			else:
 				raise Exception('Error: 0x{:X}'.format(crc[1]))
@@ -899,37 +1019,54 @@ class TockLoader:
 			print('CRC check passed. Binaries successfully loaded.')
 
 	# Get a single attribute.
-	def _get_attribute_bootloader (self, index):
+	def get_attribute (self, index):
 		message = struct.pack('<B', index)
-		success, ret = self._issue_command(COMMAND_GET_ATTRIBUTE, message, True, 64, RESPONSE_GET_ATTRIBUTE)
+		success, ret = self._issue_command(self.COMMAND_GET_ATTRIBUTE, message, True, 64, self.RESPONSE_GET_ATTRIBUTE)
 
 		if not success:
-			if ret[1] == RESPONSE_BADADDR:
+			if ret[1] == self.RESPONSE_BADADDR:
 				raise Exception('Error: Attribute number is invalid.')
-			elif ret[1] == RESPONSE_BADARGS:
+			elif ret[1] == self.RESPONSE_BADARGS:
 				raise Exception('Error: Need to supply a correct attribute index.')
 			else:
 				raise Exception('Error: 0x{:X}'.format(ret[1]))
-		return ret
+		return self._decode_attribute(ret)
+
+	def get_all_attributes (self):
+		attributes = []
+		for index in range(0, 16):
+			attributes.append(self.get_attribute(index))
+		return attributes
 
 	# Set a single attribute.
-	def _set_attribute_bootloader (self, index, raw):
+	def set_attribute (self, index, raw):
 		message = struct.pack('<B', index) + raw
-		success, ret = self._issue_command(COMMAND_SET_ATTRIBUTE, message, True, 0, RESPONSE_OK)
+		success, ret = self._issue_command(self.COMMAND_SET_ATTRIBUTE, message, True, 0, self.RESPONSE_OK)
 
 		if not success:
-			if ret[1] == RESPONSE_BADADDR:
+			if ret[1] == self.RESPONSE_BADADDR:
 				raise Exception('Error: Attribute number is invalid.')
-			elif ret[1] == RESPONSE_BADARGS:
+			elif ret[1] == self.RESPONSE_BADARGS:
 				raise Exception('Error: Wrong length of attribute set packet.')
-			elif ret[1] == RESPONSE_INTERROR:
+			elif ret[1] == self.RESPONSE_INTERROR:
 				raise Exception('Error: Internal error when setting attribute.')
 			else:
 				raise Exception('Error: 0x{:X}'.format(ret[1]))
 
-	############################################################################
-	## JTAG Specific Functions
-	############################################################################
+
+############################################################################
+## JTAG Specific Functions
+############################################################################
+
+class JLinkExe(BoardInterface):
+
+	def __init__ (self, args):
+		super().__init__(args)
+
+		# Initialize a place to put JTAG specific state
+		self.jtag = {
+			'device': 'cortex-m0', # Choose a basic device at first
+		}
 
 	# Try to discover which JLinkExe device we should used based on
 	# which board is connected.
@@ -1035,7 +1172,7 @@ class TockLoader:
 				return temp_bin.read()
 
 	# Write using JTAG
-	def _flash_binary_jtag (self, address, binary):
+	def flash_binary (self, address, binary):
 		commands = [
 			'r',
 			'loadbin {{binary}}, {address:#x}'.format(address=address),
@@ -1046,7 +1183,7 @@ class TockLoader:
 		self._run_jtag_commands(commands, binary)
 
 	# Read a specific range of flash.
-	def _read_range_jtag (self, address, length):
+	def read_range (self, address, length):
 		commands = [
 			'r',
 			'savebin {{binary}}, {address:#x} {length}'.format(address=address, length=length),
@@ -1066,7 +1203,7 @@ class TockLoader:
 		return read
 
 	# Read a specific range of flash.
-	def _erase_page_jtag (self, address):
+	def erase_page (self, address):
 		binary = bytes([0xFF]*512)
 		commands = [
 			'r',
@@ -1078,131 +1215,27 @@ class TockLoader:
 		self._run_jtag_commands(commands, binary)
 
 	# Get a single attribute.
-	def _get_attribute_jtag (self, index):
+	def get_attribute (self, index):
 		address = 0x600 + (64 * index)
 		attribute_raw = self._read_range_jtag(address, 64)
-		return attribute_raw
+		return self._decode_attribute(attribute_raw)
+
+	def get_all_attributes (self):
+		# Read the entire block of attributes using JTAG.
+		# This is much faster.
+		def chunks(l, n):
+			for i in range(0, len(l), n):
+				yield l[i:i + n]
+		raw = self._read_range_jtag(0xfc00, 64*16)
+		return [self._decode_attribute(r) for r in chunks(raw, 64)]
 
 	# Set a single attribute.
-	def _set_attribute_jtag (self, index, raw):
+	def set_attribute (self, index, raw):
 		address = 0x600 + (64 * index)
 		self._flash_binary_jtag(address, raw)
 
-	############################################################################
-	## Helper Functions for Manipulating Binaries and TBF
-	############################################################################
-
-	# Given an array of apps, some of which are new and some of which exist,
-	# sort them in flash so they are in descending size order.
-	def _reshuffle_apps(self, address, apps):
-		# We are given an array of apps. First we need to order them by size.
-		apps.sort(key=lambda x: x['header']['total_size'], reverse=True)
-
-		# Now iterate to see if the address has changed
-		start_address = address
-		for app in apps:
-			# If the address already matches, then we are good.
-			# On to the next app.
-			if app['address'] != start_address:
-				# If they don't, then we need to read the binary out of
-				# flash and save it to be moved, as well as update the address.
-				# However, we may have a new binary to use, so we don't need to
-				# fetch it.
-				if 'binary' not in app:
-					app['binary'] = self._read_range(app['address'], app['header']['total_size'])
-
-				# Either way save the new address.
-				app['address'] = start_address
-
-			start_address += app['header']['total_size']
-
-		# Now flash all apps that have a binary field. The presence of the
-		# binary indicates that they are new or moved.
-		end = address
-		for app in apps:
-			if 'binary' in app:
-				self._flash_binary(app['address'], app['binary'])
-			end = app['address'] + app['header']['total_size']
-
-		# Then erase the next page. This ensures that flash is clean at the
-		# end of the installed apps and makes things nicer for future uses of
-		# this script.
-		self._erase_page(end)
-
-	# Iterate through the flash on the board for
-	# the header information about each app.
-	def _extract_all_app_headers (self, address):
-		apps = []
-
-		# Jump through the linked list of apps
-		while (True):
-			header_length = 76 # Version 1
-			flash = self._read_range(address, header_length)
-
-			# if there was an error, the binary array will be empty
-			if len(flash) < header_length:
-				break
-
-			# Get all the fields from the header
-			tbfh = parse_tbf_header(flash)
-
-			if tbfh['valid']:
-				# Get the name out of the app
-				name = self._get_app_name(address+tbfh['package_name_offset'], tbfh['package_name_size'])
-
-				apps.append({
-					'address': address,
-					'header': tbfh,
-					'name': name,
-				})
-
-				address += tbfh['total_size']
-
-			else:
-				break
-
-		return apps
-
-	# Iterate through the list of TABs and create the app dict for each.
-	def _extract_apps_from_tabs (self, tabs):
-		apps = []
-
-		# This is the architecture we need for the board
-		arch = self.boards[self.board]['arch']
-
-		for tab in tabs:
-			if self.args.force or tab.is_compatible_with_board(self.board):
-				apps.append(tab.extract_app(arch))
-
-		if len(apps) == 0:
-			raise Exception('No valid apps for this board were provided. Use --force to override.')
-
-		return apps
-
-	# Retrieve bytes from the board and interpret them as a string
-	def _get_app_name (self, address, length):
-		if length == 0:
-			return ''
-
-		name_memory = self._read_range(address, length)
-		return name_memory.decode('utf-8')
-
-	# Check if putting an app at this address will be OK with the MPU.
-	def _app_is_aligned_correctly (self, address, size):
-		# The rule for the MPU is that the size of the protected region must be
-		# a power of two, and that the region is aligned on a multiple of that
-		# size.
-
-		# Check if not power of two
-		if (size & (size - 1)) != 0:
-			return False
-
-		# Check that address is a multiple of size
-		multiple = address // size
-		if multiple * size != address:
-			return False
-
-		return True
+	def get_serial_port (self):
+		raise Exception('No serial port for JLinkExe comm channel')
 
 
 ################################################################################

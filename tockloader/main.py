@@ -866,7 +866,9 @@ class BootloaderSerial(BoardInterface):
 			ping_pkt = bytes([self.ESCAPE_CHAR, self.COMMAND_PING])
 			self.sp.write(ping_pkt)
 
-			ret = self.sp.read(2)
+			# Read much more than we need in case something got in the
+			# serial channel that we need to clear.
+			ret = self.sp.read(200)
 
 			if len(ret) == 2 and ret[1] == self.RESPONSE_PONG:
 				return

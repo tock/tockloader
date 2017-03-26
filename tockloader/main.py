@@ -1177,7 +1177,7 @@ class JLinkExe(BoardInterface):
 		def chunks(l, n):
 			for i in range(0, len(l), n):
 				yield l[i:i + n]
-		raw = self.read_range(0xfc00, 64*16)
+		raw = self.read_range(0x600, 64*16)
 		return [self._decode_attribute(r) for r in chunks(raw, 64)]
 
 	# Set a single attribute.

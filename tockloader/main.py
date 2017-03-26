@@ -453,7 +453,6 @@ class TockLoader:
 		# Constants for the bootloader flag
 		address = 0x400
 		length = 14
-		# flag = self._choose_correct_function('read_range', address, length)
 		flag = self.channel.read_range(address, length)
 		flag_str = flag.decode('utf-8')
 		if self.args.debug:
@@ -585,26 +584,16 @@ class TockLoader:
 # Generic template class that allows actually talking to the board
 class BoardInterface:
 
-	# Predefined state based on the boards that tockloader supports
-	boards = {
-		'hail': {
-			'device': 'ATSAM4LC8C',
-			'arch':   'cortex-m4',
-		},
-		'imix': {
-			'device': 'ATSAM4LC8C',
-			'arch':   'cortex-m4',
-		},
-	}
-
 	def __init__ (self, args):
 		self.args = args
 
-		# This will get updated with the board we are connected to if it is
-		# not already specified.
-		self.board = None
-		if hasattr(self.args, 'board'):
-			self.board = self.args.board
+		# These settings need to come from somewhere. Once place is the
+		# command line. Another is the attributes section on the board.
+		# There could be more in the future.
+		# Also, not all are required depending on the connection method used.
+		self.board = self.args.board
+		self.arch = self.args.arch
+		self.jtag_device = self.args.jtag_device
 
 	# Open a connection to the board
 	def open_link_to_board (self):
@@ -665,18 +654,7 @@ class BoardInterface:
 	# Figure out which board we are connected to. Most likely done by
 	# reading the attributes.
 	def determine_current_board (self):
-		if self.board:
-			# This is already set! Yay we are done.
-			return
-
-		# The primary (only?) way to do this is to look at attributes
-		attributes = self.get_all_attributes()
-		for attribute in attributes:
-			if attribute and attribute['key'] == 'board':
-				self.board = attribute['value']
-				break
-		else:
-			raise Exception('Could not determine the current board')
+		return
 
 	# Return the name of the board we are connected to.
 	def get_board_name (self):
@@ -684,7 +662,7 @@ class BoardInterface:
 
 	# Return the architecture of the board we are connected to.
 	def get_board_arch (self):
-		return self.boards[self.board]['arch']
+		return self.arch
 
 
 ################################################################################
@@ -1059,63 +1037,31 @@ class BootloaderSerial(BoardInterface):
 			else:
 				raise Exception('Error: 0x{:X}'.format(ret[1]))
 
+	# Figure out which board we are connected to. Most likely done by
+	# reading the attributes.
+	def determine_current_board (self):
+		if self.board and self.arch:
+			# These are already set! Yay we are done.
+			return
+
+		# The primary (only?) way to do this is to look at attributes
+		attributes = self.get_all_attributes()
+		for attribute in attributes:
+			if attribute and attribute['key'] == 'board' and self.board == None:
+				self.board = attribute['value']
+			if attribute and attribute['key'] == 'arch' and self.arch == None:
+				self.arch = attribute['value']
+
+		# Check that we learned what we needed to learn.
+		if self.board == None or self.arch == None:
+			raise Exception('Could not determine the current board or arch')
+
 
 ############################################################################
 ## JTAG Specific Functions
 ############################################################################
 
 class JLinkExe(BoardInterface):
-
-	def __init__ (self, args):
-		super().__init__(args)
-
-		# Initialize a place to put JTAG specific state
-		self.jtag = {
-			'device': 'cortex-m0', # Choose a basic device at first
-		}
-
-	# Try to discover which JLinkExe device we should used based on
-	# which board is connected.
-	# We do this by reading attributes using a generic "cortex-m0" device.
-	def _discover_jtag_device (self):
-		# Bail out early if the user specified a JLinkExe device for us.
-		if self.args.jtag_device:
-			self.jtag['device'] = self.args.jtag_device
-			return
-
-		# User can also specify the board directly
-		if self.board:
-			if self.board in self.boards:
-				self.jtag['device'] = self.boards[self.board]['device']
-				return
-			else:
-				print('Error: Board specified ("{}") is unknown.'.format(self.board))
-				print('Known boards are: {}'.format(', '.join(list(self.boards.keys()))))
-				raise Exception('Unknown board')
-
-		# Otherwise, see if the board can give us a hint.
-		is_bootloader = self._bootloader_is_present()
-		# So this is tricky. We don't want to fail here, but we can't really
-		# continue, since without a bootloader there are no attributes.
-		# It's possible things will just work as a "cortex-m0" device.
-		if not is_bootloader:
-			return
-
-		# Check the attributes for a board attribute, and use that to set the
-		# JLinkExe device.
-		attributes = self.get_all_attributes()
-		for attribute in attributes:
-			if attribute and attribute['key'] == 'board':
-				self.board = attribute['value']
-				if self.board in self.boards:
-					self.jtag['device'] = self.boards[board]['device']
-				else:
-					raise Exception('Error: Board identified as "{}", but there is no JLinkExe device for that board.'.format(board))
-				break
-		else:
-			print('Error: Could not find a "board" attribute. Unable to set the JLinkExe device.')
-			print('Maybe you want to specify a JLinkExe device explicitly with --jtag-device?')
-			raise Exception('No board attribute found')
 
 	# commands: List of JLinkExe commands. Use {binary} for where the name of
 	#           the binary file should be substituted.
@@ -1144,7 +1090,7 @@ class JLinkExe(BoardInterface):
 
 			jlink_file.flush()
 
-			jlink_command = 'JLinkExe -device {} -if swd -speed 1200 -AutoConnect 1 {}'.format(self.jtag['device'], jlink_file.name)
+			jlink_command = 'JLinkExe -device {} -if swd -speed 1200 -AutoConnect 1 {}'.format(self.jtag_device, jlink_file.name)
 
 			if self.debug:
 				print('Running "{}".'.format(jlink_command))
@@ -1223,7 +1169,7 @@ class JLinkExe(BoardInterface):
 	# Get a single attribute.
 	def get_attribute (self, index):
 		address = 0x600 + (64 * index)
-		attribute_raw = self._read_range_jtag(address, 64)
+		attribute_raw = self.read_range(address, 64)
 		return self._decode_attribute(attribute_raw)
 
 	def get_all_attributes (self):
@@ -1232,7 +1178,7 @@ class JLinkExe(BoardInterface):
 		def chunks(l, n):
 			for i in range(0, len(l), n):
 				yield l[i:i + n]
-		raw = self._read_range_jtag(0xfc00, 64*16)
+		raw = self.read_range(0xfc00, 64*16)
 		return [self._decode_attribute(r) for r in chunks(raw, 64)]
 
 	# Set a single attribute.
@@ -1242,6 +1188,27 @@ class JLinkExe(BoardInterface):
 
 	def get_serial_port (self):
 		raise Exception('No serial port for JLinkExe comm channel')
+
+	# Figure out which board we are connected to. Most likely done by
+	# reading the attributes.
+	def determine_current_board (self):
+		if self.board and self.arch and self.jtag_device:
+			# These are already set! Yay we are done.
+			return
+
+		# The primary (only?) way to do this is to look at attributes
+		attributes = self.get_all_attributes()
+		for attribute in attributes:
+			if attribute and attribute['key'] == 'board' and self.board == None:
+				self.board = attribute['value']
+			if attribute and attribute['key'] == 'arch' and self.arch == None:
+				self.arch = attribute['value']
+			if attribute and attribute['key'] == 'jldevice':
+				self.jtag_device = attribute['value']
+
+		# Check that we learned what we needed to learn.
+		if self.board == None or self.arch == None or self.jtag_device == 'cortex-m0':
+			raise Exception('Could not determine the current board or arch or jtag device name')
 
 
 ################################################################################
@@ -1541,9 +1508,14 @@ def main ():
 		action='store_true',
 		help='Use JTAG and JLinkExe to flash.')
 	parent_jtag.add_argument('--jtag-device',
+		default='cortex-m0',
 		help='The device type to pass to JLinkExe. Useful for initial commissioning.')
 	parent_jtag.add_argument('--board',
+		default=None,
 		help='Explicitly specify the board that is being targeted.')
+	parent_jtag.add_argument('--arch',
+		default=None,
+		help='Explicitly specify the architecture of the board that is being targeted.')
 
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(

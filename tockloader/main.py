@@ -338,7 +338,7 @@ class TockLoader:
 			if not self._bootloader_is_present():
 				raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
 
-			for index, attribute in enumerate(self._get_all_attributes()):
+			for index, attribute in enumerate(self.channel.get_all_attributes()):
 				if attribute:
 					print('{:02d}: {:>8} = {}'.format(index, attribute['key'], attribute['value']))
 				else:
@@ -371,7 +371,7 @@ class TockLoader:
 
 			# Find if this attribute key already exists
 			open_index = -1
-			for index, attribute in enumerate(self._get_all_attributes()):
+			for index, attribute in enumerate(self.channel.get_all_attributes()):
 				if attribute:
 					if attribute['key'] == key:
 						print('Found existing key at slot {}. Overwriting.'.format(index))
@@ -406,7 +406,7 @@ class TockLoader:
 			out = bytes([0]*9)
 
 			# Find if this attribute key already exists
-			for index, attribute in enumerate(self._get_all_attributes()):
+			for index, attribute in enumerate(self.channel.get_all_attributes()):
 				if attribute and attribute['key'] == key:
 					print('Found existing key at slot {}. Removing.'.format(index))
 					self.channel.set_attribute(index, out)
@@ -1103,7 +1103,7 @@ class JLinkExe(BoardInterface):
 
 		# Check the attributes for a board attribute, and use that to set the
 		# JLinkExe device.
-		attributes = self._get_all_attributes()
+		attributes = self.get_all_attributes()
 		for attribute in attributes:
 			if attribute and attribute['key'] == 'board':
 				self.board = attribute['value']

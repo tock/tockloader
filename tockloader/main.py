@@ -106,7 +106,6 @@ def menu(options, *,
 class TockLoader:
 
 	def __init__ (self, args):
-		self.debug = args.debug
 		self.args = args
 
 		# Get an object that allows talking to the board
@@ -1070,7 +1069,7 @@ class JLinkExe(BoardInterface):
 	#           Set to false if the command will read bits from the board.
 	def _run_jtag_commands (self, commands, binary, write=True):
 		delete = True
-		if self.debug:
+		if self.args.debug:
 			delete = False
 
 		if binary or not write:
@@ -1092,7 +1091,7 @@ class JLinkExe(BoardInterface):
 
 			jlink_command = 'JLinkExe -device {} -if swd -speed 1200 -AutoConnect 1 {}'.format(self.jtag_device, jlink_file.name)
 
-			if self.debug:
+			if self.args.debug:
 				print('Running "{}".'.format(jlink_command))
 
 			def print_output (subp):
@@ -1106,7 +1105,7 @@ class JLinkExe(BoardInterface):
 				print('ERROR: JTAG returned with error code ' + str(p.returncode))
 				print_output(p)
 				raise Exception('JTAG error')
-			elif self.debug:
+			elif self.args.debug:
 				print_output(p)
 
 			# check that there was a JTAG programmer and that it found a device
@@ -1184,7 +1183,7 @@ class JLinkExe(BoardInterface):
 	# Set a single attribute.
 	def set_attribute (self, index, raw):
 		address = 0x600 + (64 * index)
-		self._flash_binary_jtag(address, raw)
+		self.flash_binary(address, raw)
 
 	def get_serial_port (self):
 		raise Exception('No serial port for JLinkExe comm channel')

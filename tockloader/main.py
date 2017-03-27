@@ -5,6 +5,7 @@ import atexit
 import binascii
 import contextlib
 import glob
+import json
 import os
 import struct
 import subprocess
@@ -662,6 +663,10 @@ class BoardInterface:
 	def bootloader_is_present (self):
 		return None
 
+	# Return the version string of the bootloader.
+	def get_bootloader_version (self):
+		return
+
 	# Figure out which board we are connected to. Most likely done by
 	# reading the attributes.
 	def determine_current_board (self):
@@ -1053,6 +1058,22 @@ class BootloaderSerial(BoardInterface):
 	def bootloader_is_present (self):
 		return True
 
+	def get_bootloader_version (self):
+		success, ret = self._issue_command(self.COMMAND_INFO, bytes(), True, 193, self.RESPONSE_INFO)
+
+		if not success:
+			raise Exception('Error: 0x{:X}'.format(ret[1]))
+
+		length = ret[0]
+		json_data = ret[1:1+length].decode('utf-8')
+		try:
+			info = json.loads(json_data)
+			return info['version']
+		except:
+			# Could not get a valid version from the board.
+			# In this case we don't know what the version is.
+			return None
+
 	# Figure out which board we are connected to. Most likely done by
 	# reading the attributes.
 	def determine_current_board (self):
@@ -1201,6 +1222,14 @@ class JLinkExe(BoardInterface):
 	def set_attribute (self, index, raw):
 		address = 0x600 + (64 * index)
 		self.flash_binary(address, raw)
+
+	def get_bootloader_version (self):
+		address = 0x40E
+		version_raw = self.read_range(address, 8)
+		try:
+			return version_raw.decode('utf-8')
+		except:
+			return None
 
 	def get_serial_port (self):
 		raise Exception('No serial port for JLinkExe comm channel')

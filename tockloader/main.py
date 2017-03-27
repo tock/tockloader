@@ -590,9 +590,9 @@ class BoardInterface:
 		# command line. Another is the attributes section on the board.
 		# There could be more in the future.
 		# Also, not all are required depending on the connection method used.
-		self.board = self.args.board
-		self.arch = self.args.arch
-		self.jtag_device = self.args.jtag_device
+		self.board = getattr(self.args, 'board', None)
+		self.arch = getattr(self.args, 'arch', None)
+		self.jtag_device = getattr(self.args, 'jtag_device', None)
 
 	# Open a connection to the board
 	def open_link_to_board (self):

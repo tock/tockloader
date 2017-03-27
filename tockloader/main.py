@@ -449,6 +449,14 @@ class TockLoader:
 	# Check if a bootloader exists on this board. It is specified by the
 	# string "TOCKBOOTLOADER" being at address 0x400.
 	def _bootloader_is_present (self):
+		# Check to see if the channel already knows this. For example,
+		# if you are connected via a serial link to the bootloader,
+		# then obviously the bootloader is present.
+		if self.channel.bootloader_is_present() == True:
+			return True
+
+		# Otherwise check for the bootloader flag in the flash.
+
 		# Constants for the bootloader flag
 		address = 0x400
 		length = 14
@@ -649,6 +657,10 @@ class BoardInterface:
 			}
 		except Exception as e:
 			return None
+
+	# Default answer is to not answer.
+	def bootloader_is_present (self):
+		return None
 
 	# Figure out which board we are connected to. Most likely done by
 	# reading the attributes.
@@ -1035,6 +1047,11 @@ class BootloaderSerial(BoardInterface):
 				raise Exception('Error: Internal error when setting attribute.')
 			else:
 				raise Exception('Error: 0x{:X}'.format(ret[1]))
+
+	# For this communication protocol we can safely say the bootloader is
+	# present.
+	def bootloader_is_present (self):
+		return True
 
 	# Figure out which board we are connected to. Most likely done by
 	# reading the attributes.

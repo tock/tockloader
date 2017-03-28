@@ -132,12 +132,6 @@ class TockLoader:
 	def flash_binary (self, binary, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
-
-			# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
-			if len(binary) % 512 != 0:
-				remaining = 512 - (len(binary) % 512)
-				binary += bytes([0xFF]*remaining)
-
 			self.channel.flash_binary(address, binary)
 
 
@@ -911,7 +905,12 @@ class BootloaderSerial(BoardInterface):
 	# Write pages until a binary has been flashed. binary must have a length that
 	# is a multiple of 512.
 	def flash_binary (self, address, binary):
-		assert len(binary) % 512 == 0
+		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
+		if len(binary) % 512 != 0:
+			remaining = 512 - (len(binary) % 512)
+			binary += bytes([0xFF]*remaining)
+			print('NOTE: Padding binary with {} 0xFFs.'.format(remaining))
+
 		# Loop through the binary 512 bytes at a time until it has been flashed
 		# to the chip.
 		for i in range(len(binary) // 512):

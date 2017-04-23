@@ -24,19 +24,15 @@ Print information about the apps currently loaded onto the board.
 
 ### `tockloader install`
 
-Load Tock applications on to the board. This will replace any existing apps
-already flashed on the device.
+Load Tock applications on to the board. Use `--no-replace` to install
+multiple copies of the same app.
 
-### `tockloader replace`
+### `tockloader update`
 
-Replace an application that is already flashed to the board with a new
+Update an application that is already flashed to the board with a new
 binary.
 
-### `tockloader add`
-
-Add an application (or applications) to the list of installed apps.
-
-### `tockloader remove [application name(s)]`
+### `tockloader uninstall [application name(s)]`
 
 Remove an application from flash by its name.
 

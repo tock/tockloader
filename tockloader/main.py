@@ -135,19 +135,6 @@ class TockLoader:
 			self.channel.flash_binary(address, binary)
 
 
-	# Remove any existing applications and program these.
-	def install (self, tabs, address):
-		# Enter bootloader mode to get things started
-		with self._start_communication_with_board():
-
-			# Create a list of apps
-			apps = self._extract_apps_from_tabs(tabs)
-
-			# Now that we have an array of all the apps that are supposed to be
-			# on the board, write them in the correct order.
-			self._reshuffle_apps(address, apps)
-
-
 	# Run miniterm for receiving data from the board.
 	def run_terminal (self):
 		print('Listening for serial output.')
@@ -220,10 +207,10 @@ class TockLoader:
 				print(' '.join(app_names))
 
 
-	# Try to see if any of the TABs passed are already on the board, and if
-	# so, replace them. address is the starting address to search
-	# for apps.
-	def replace_app (self, tabs, address):
+	# Add or update TABs on the board.
+	#
+	# `replace` can be either "yes", "no", or "only"
+	def install (self, tabs, address, replace='yes'):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -240,56 +227,46 @@ class TockLoader:
 			changed = False
 
 			# Check to see if this app is in there
-			for existing_app in existing_apps:
-				for replacement_app in replacement_apps:
-					if existing_app['name'] == replacement_app['name']:
-						resulting_apps.append(replacement_app)
-						changed = True
-						break
-				else:
-					# We did not find a replacement app. That means we want
-					# to keep the original.
-					resulting_apps.append(existing_app)
-
-			# Now, if we specified --add, make sure we add all apps that did
-			# not find a replacement on the board.
-			if self.args.add == True:
-				for replacement_app in replacement_apps:
-					for resulting_app in resulting_apps:
-						if replacement_app['name'] == resulting_app['name']:
+			if replace == 'yes' or replace == 'only':
+				for existing_app in existing_apps:
+					for replacement_app in replacement_apps:
+						if existing_app['name'] == replacement_app['name']:
+							resulting_apps.append(replacement_app)
+							changed = True
 							break
 					else:
-						# We did not find the name in the resulting apps.
-						# Add it.
-						print('App "{}" not found, but adding anyway.'.format(replacement_app['name']))
-						resulting_apps.append(replacement_app)
-						changed = True
+						# We did not find a replacement app. That means we want
+						# to keep the original.
+						resulting_apps.append(existing_app)
+
+				# Now, if we want a true install, and not an update, make sure
+				# we add all apps that did not find a replacement on the board.
+				if replace == 'yes':
+					for replacement_app in replacement_apps:
+						for resulting_app in resulting_apps:
+							if replacement_app['name'] == resulting_app['name']:
+								break
+						else:
+							# We did not find the name in the resulting apps.
+							# Add it.
+							resulting_apps.append(replacement_app)
+							changed = True
+
+			elif replace == 'no':
+				# Just add the apps
+				resulting_apps = existing_apps + replacement_apps
+				changed = True
 
 			if changed:
 				# Since something is now different, update all of the apps
 				self._reshuffle_apps(address, resulting_apps)
 			else:
 				# Nothing changed, so we can raise an error
-				raise Exception('Nothing found to replace')
-
-
-	# Add the app to the list of the currently flashed apps
-	def add_app (self, tabs, address):
-		# Enter bootloader mode to get things started
-		with self._start_communication_with_board():
-
-			# Get a list of installed apps
-			apps = self._extract_all_app_headers(address)
-			# Add the new apps
-			apps += self._extract_apps_from_tabs(tabs)
-
-			# Now that we have an array of all the apps that are supposed to be
-			# on the board, write them in the correct order.
-			self._reshuffle_apps(address, apps)
+				raise Exception('Nothing found to update')
 
 
 	# If an app by this name exists, remove it from the chip
-	def remove_app (self, app_names, address):
+	def uninstall_app (self, app_names, address):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -1400,20 +1377,6 @@ def collect_tabs (args):
 	return tabs
 
 
-def command_install (args):
-	check_and_run_make(args)
-
-	# Load in all TABs
-	tabs = collect_tabs(args)
-
-	# Install the apps on the board
-	tock_loader = TockLoader(args)
-	tock_loader.open(args)
-
-	print('Installing apps on the board...')
-	tock_loader.install(tabs, args.app_address)
-
-
 def command_listen (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
@@ -1426,34 +1389,42 @@ def command_list (args):
 	tock_loader.list_apps(args.app_address, args.verbose, args.quiet)
 
 
-def command_replace (args):
+def command_install (args):
+	check_and_run_make(args)
+
+	# Load in all TABs
+	tabs = collect_tabs(args)
+
+	# Install the apps on the board
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	# Figure out how we want to do updates
+	replace = 'yes'
+	if args.no_replace:
+		replace = 'no'
+
+	print('Installing apps on the board...')
+	tock_loader.install(tabs, args.app_address, replace=replace)
+
+
+def command_update (args):
 	check_and_run_make(args)
 	tabs = collect_tabs(args)
 
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Replacing application(s) on the board...')
-	tock_loader.replace_app(tabs, args.app_address)
+	print('Updating application(s) on the board...')
+	tock_loader.install(tabs, args.app_address, replace='only')
 
 
-def command_add (args):
-	check_and_run_make(args)
-	tabs = collect_tabs(args)
-
-	tock_loader = TockLoader(args)
-	tock_loader.open(args)
-
-	print('Adding app(s) to the board...')
-	tock_loader.add_app(tabs, args.app_address)
-
-
-def command_remove (args):
+def command_uninstall (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
 	print('Removing app(s) "{}" from board...'.format(args.name))
-	tock_loader.remove_app(args.name, args.app_address)
+	tock_loader.uninstall_app(args.name, args.app_address)
 
 
 def command_erase_apps (args):
@@ -1588,31 +1559,23 @@ def main ():
 	install.add_argument('tab',
 		help='The TAB or TABs to install',
 		nargs='*')
-
-	add = subparser.add_parser('add',
-		parents=[parent, parent_apps, parent_jtag],
-		help='Add an app to the already flashed apps')
-	add.set_defaults(func=command_add)
-	add.add_argument('tab',
-		help='The TAB or TABs to add to the list of installed apps',
-		nargs='*')
-
-	replace = subparser.add_parser('replace',
-		parents=[parent, parent_apps, parent_jtag],
-		help='Replace an already flashed app with this version')
-	replace.set_defaults(func=command_replace)
-	replace.add_argument('tab',
-		help='The TAB or TABs to replace',
-		nargs='*')
-	replace.add_argument('--add',
-		help='Add the app if it is not already on the board',
+	install.add_argument('--no-replace',
+		help='Install apps again even if they are already there',
 		action='store_true')
 
-	remove = subparser.add_parser('remove',
+	update = subparser.add_parser('update',
+		parents=[parent, parent_apps, parent_jtag],
+		help='Update an existing app with this version')
+	update.set_defaults(func=command_update)
+	update.add_argument('tab',
+		help='The TAB or TABs to replace',
+		nargs='*')
+
+	uninstall = subparser.add_parser('uninstall',
 		parents=[parent, parent_apps, parent_jtag],
 		help='Remove an already flashed app')
-	remove.set_defaults(func=command_remove)
-	remove.add_argument('name',
+	uninstall.set_defaults(func=command_uninstall)
+	uninstall.add_argument('name',
 		help='The name of the app(s) to remove',
 		nargs='*')
 

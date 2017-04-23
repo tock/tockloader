@@ -1423,7 +1423,7 @@ def command_uninstall (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Removing app(s) "{}" from board...'.format(args.name))
+	print('Removing app(s) "{}" from board...'.format(','.join(args.name)))
 	tock_loader.uninstall_app(args.name, args.app_address)
 
 

@@ -64,6 +64,27 @@ Features
   - Segger JLinkExe JTAG support
 
 
+Complete Install Instructions
+-----------------------------
+
+Tockloader is a Python script that is installed as an executable.
+To use Tockloader, you need python3, a couple dependencies, and
+the Tockloader package.
+
+- Ubuntu
+    ```
+    sudo apt install python3-pip
+    sudo pip3 install -U pip      # update pip
+    sudo pip3 install tockloader
+    ```
+    
+- MacOS
+    ```
+    brew install python3
+    pip3 install tockloader
+    ```
+
+
 Upload to PyPI
 --------------
 

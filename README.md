@@ -55,6 +55,10 @@ an existing attribute if the key matches.
 
 Remove a particular attribute from the board.
 
+### `tockloader inspect`
+
+Show details about a compiled TAB file.
+
 
 Features
 --------
@@ -77,7 +81,7 @@ the Tockloader package.
     sudo pip3 install -U pip      # update pip
     sudo pip3 install tockloader
     ```
-    
+
 - MacOS
     ```
     brew install python3

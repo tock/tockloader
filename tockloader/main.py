@@ -1275,6 +1275,21 @@ class TAB:
 		metadata_str = self.tab.extractfile(metadata_tarinfo).read().decode('utf-8')
 		return pytoml.loads(metadata_str)
 
+	def get_supported_architectures (self):
+		contained_files = self.tab.getnames()
+		return [i[:-4] for i in contained_files if i[-4:] == '.bin']
+
+	def get_tbf_header (self):
+		# Find a .bin file
+		for f in self.tab.getnames():
+			if f[-4:] == '.bin':
+				binary_tarinfo = self.tab.getmember(f)
+				binary = self.tab.extractfile(binary_tarinfo).read()
+
+				# Get the TBF header from a binary in the TAB
+				return parse_tbf_header(binary)
+		return {}
+
 
 ################################################################################
 ## General Purpose Helper Functions
@@ -1339,7 +1354,7 @@ def check_and_run_make (args):
 
 # Load in Tock Application Bundle (TAB) files. If none are specified, this
 # searches for them in subfolders.
-def collect_tabs (args):
+def collect_tabs (args, wait=True):
 	tab_names = args.tab
 
 	# Check if any tab files were specified. If not, find them based
@@ -1363,8 +1378,9 @@ def collect_tabs (args):
 			raise Exception('No TAB files found.')
 
 		print('Using: {}'.format(tab_names))
-		print('Waiting one second before continuing...')
-		time.sleep(1)
+		if wait:
+			print('Waiting one second before continuing...')
+			time.sleep(1)
 
 	# Concatenate the binaries.
 	tabs = []
@@ -1474,6 +1490,28 @@ def command_remove_attribute (args):
 
 	print('Removing attribute...')
 	tock_loader.remove_attribute(args.key)
+
+
+def command_inspect (args):
+	tabs = collect_tabs(args, wait=False)
+
+	if len(tabs) == 0:
+		raise Exception('No TABs found to inspect')
+
+	print('Inspecting TABs...')
+	for tab in tabs:
+		metadata = tab.parse_metadata()
+		print('TAB: {}'.format(metadata['name']))
+		for k,v in sorted(metadata.items()):
+			if k == 'name':
+				continue
+			print('  {}: {}'.format(k,v))
+		print('  supported architectures: {}'.format(', '.join(tab.get_supported_architectures())))
+		print('  TBF Header')
+		tbf_header = tab.get_tbf_header()
+		for k,v in sorted(tbf_header.items()):
+			print('    {}: {}'.format(k,v))
+		print('')
 
 
 ################################################################################
@@ -1616,6 +1654,14 @@ def main ():
 	removeattribute.set_defaults(func=command_remove_attribute)
 	removeattribute.add_argument('key',
 		help='Attribute key')
+
+	inspect = subparser.add_parser('inspect',
+		parents=[parent],
+		help='Get details about a TAB')
+	inspect.set_defaults(func=command_inspect)
+	inspect.add_argument('tab',
+		help='The TAB or TABs to inspect',
+		nargs='*')
 
 	args = parser.parse_args()
 

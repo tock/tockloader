@@ -100,6 +100,9 @@ def menu(options, *,
 	else:
 		raise NotImplementedError('Menu caller asked for bad return_type')
 
+class TockLoaderException(Exception):
+	pass
+
 ################################################################################
 ## Main TockLoader Interface
 ################################################################################
@@ -262,7 +265,7 @@ class TockLoader:
 				self._reshuffle_apps(address, resulting_apps)
 			else:
 				# Nothing changed, so we can raise an error
-				raise Exception('Nothing found to update')
+				raise TockLoaderException('Nothing found to update')
 
 
 	# If an app by this name exists, remove it from the chip
@@ -287,7 +290,7 @@ class TockLoader:
 			self._reshuffle_apps(address, keep_apps)
 
 			if not removed:
-				raise Exception('Could not find any apps on the board to remove.')
+				raise TockLoaderException('Could not find any apps on the board to remove.')
 
 
 	# Erase flash where apps go
@@ -307,7 +310,7 @@ class TockLoader:
 		with self._start_communication_with_board():
 
 			if not self._bootloader_is_present():
-				raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
+				raise TockLoaderException('No bootloader found! That means there is nowhere for attributes to go.')
 
 			for index, attribute in enumerate(self.channel.get_all_attributes()):
 				if attribute:
@@ -320,15 +323,15 @@ class TockLoader:
 	def set_attribute (self, key, value):
 		# Do some checking
 		if len(key.encode('utf-8')) > 8:
-			raise Exception('Key is too long. Must be 8 bytes or fewer.')
+			raise TockLoaderException('Key is too long. Must be 8 bytes or fewer.')
 		if len(value.encode('utf-8')) > 55:
-			raise Exception('Value is too long. Must be 55 bytes or fewer.')
+			raise TockLoaderException('Value is too long. Must be 55 bytes or fewer.')
 
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
 			if not self._bootloader_is_present():
-				raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
+				raise TockLoaderException('No bootloader found! That means there is nowhere for attributes to go.')
 
 			# Create the buffer to write as the attribute
 			out = bytes([])
@@ -355,7 +358,7 @@ class TockLoader:
 						open_index = index
 			else:
 				if open_index == -1:
-					raise Exception('Error: No open space to save this attribute.')
+					raise TockLoaderException('Error: No open space to save this attribute.')
 				else:
 					print('Key not found. Writing new attribute to slot {}'.format(open_index))
 					self.channel.set_attribute(open_index, out)
@@ -365,13 +368,13 @@ class TockLoader:
 	def remove_attribute (self, key):
 		# Do some checking
 		if len(key.encode('utf-8')) > 8:
-			raise Exception('Key is too long. Must be 8 bytes or fewer.')
+			raise TockLoaderException('Key is too long. Must be 8 bytes or fewer.')
 
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
 			if not self._bootloader_is_present():
-				raise Exception('No bootloader found! That means there is nowhere for attributes to go.')
+				raise TockLoaderException('No bootloader found! That means there is nowhere for attributes to go.')
 
 			# Create a null buffer to overwrite with
 			out = bytes([0]*9)
@@ -383,7 +386,7 @@ class TockLoader:
 					self.channel.set_attribute(index, out)
 					break
 			else:
-				raise Exception('Error: Attribute does not exist.')
+				raise TockLoaderException('Error: Attribute does not exist.')
 
 
 	############################################################################
@@ -526,7 +529,7 @@ class TockLoader:
 				apps.append(tab.extract_app(arch))
 
 		if len(apps) == 0:
-			raise Exception('No valid apps for this board were provided. Use --force to override.')
+			raise TockLoaderException('No valid apps for this board were provided. Use --force to override.')
 
 		return apps
 
@@ -731,7 +734,7 @@ class BootloaderSerial(BoardInterface):
 			if must_match:
 				# We want to find a very specific board. If this does not
 				# exist, we want to fail.
-				raise Exception('Could not find a board matching "{}"'.format(device_name))
+				raise TockLoaderException('Could not find a board matching "{}"'.format(device_name))
 
 			# Just find any port and use the first one
 			ports = list(serial.tools.list_ports.comports())
@@ -739,7 +742,7 @@ class BootloaderSerial(BoardInterface):
 			# almost certainly never what you want, so drop these
 			ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
 			if len(ports) == 0:
-				raise Exception('No serial ports found. Is the board connected?')
+				raise TockLoaderException('No serial ports found. Is the board connected?')
 
 			print('No serial port with device name "{}" found'.format(device_name))
 			print('Found {} serial port(s).'.format(len(ports)))
@@ -808,7 +811,7 @@ class BootloaderSerial(BoardInterface):
 				print('  - The serial port being used is incorrect')
 				print('  - The bootloader API has changed')
 				print('  - There is a bug in this script')
-				raise Exception('Could not attach to the bootloader')
+				raise TockLoaderException('Could not attach to the bootloader')
 
 	# Reset the chip to exit bootloader mode
 	def exit_bootloader_mode (self):
@@ -837,7 +840,7 @@ class BootloaderSerial(BoardInterface):
 
 			if len(ret) == 2 and ret[1] == self.RESPONSE_PONG:
 				return
-		raise Exception('No PONG received')
+		raise TockLoaderException('No PONG received')
 
 	# Setup a command to send to the bootloader and handle the response.
 	def _issue_command (self, command, message, sync, response_len, response_code):
@@ -904,13 +907,13 @@ class BootloaderSerial(BoardInterface):
 			if not success:
 				print('Error: Error when flashing page')
 				if ret[1] == self.RESPONSE_BADADDR:
-					raise Exception('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*512)))
+					raise TockLoaderException('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*512)))
 				elif ret[1] == self.RESPONSE_INTERROR:
-					raise Exception('Error: RESPONSE_INTERROR: Internal error when writing flash')
+					raise TockLoaderException('Error: RESPONSE_INTERROR: Internal error when writing flash')
 				elif ret[1] == self.RESPONSE_BADARGS:
-					raise Exception('Error: RESPONSE_BADARGS: Invalid length for flash page write')
+					raise TockLoaderException('Error: RESPONSE_BADARGS: Invalid length for flash page write')
 				else:
-					raise Exception('Error: 0x{:X}'.format(ret[1]))
+					raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
 
 		# And check the CRC
 		self._check_crc(address, binary)
@@ -934,7 +937,7 @@ class BootloaderSerial(BoardInterface):
 			success, flash = self._issue_command(self.COMMAND_READ_RANGE, message, True, this_length, self.RESPONSE_READ_RANGE)
 
 			if not success:
-				raise Exception('Error: Could not read flash')
+				raise TockLoaderException('Error: Could not read flash')
 			else:
 				read += flash
 
@@ -949,13 +952,13 @@ class BootloaderSerial(BoardInterface):
 
 		if not success:
 			if ret[1] == self.RESPONSE_BADADDR:
-				raise Exception('Error: Page erase address was not on a page boundary.')
+				raise TockLoaderException('Error: Page erase address was not on a page boundary.')
 			elif ret[1] == self.RESPONSE_BADARGS:
-				raise Exception('Error: Need to supply erase page with correct 4 byte address.')
+				raise TockLoaderException('Error: Need to supply erase page with correct 4 byte address.')
 			elif ret[1] == self.RESPONSE_INTERROR:
-				raise Exception('Error: Internal error when erasing flash page.')
+				raise TockLoaderException('Error: Internal error when erasing flash page.')
 			else:
-				raise Exception('Error: 0x{:X}'.format(ret[1]))
+				raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
 
 	# Get the bootloader to compute a CRC
 	def _get_crc_internal_flash (self, address, length):
@@ -969,11 +972,11 @@ class BootloaderSerial(BoardInterface):
 
 		if not success:
 			if crc[1] == self.RESPONSE_BADADDR:
-				raise Exception('Error: RESPONSE_BADADDR: Invalid address for CRC (address: 0x{:X})'.format(address))
+				raise TockLoaderException('Error: RESPONSE_BADADDR: Invalid address for CRC (address: 0x{:X})'.format(address))
 			elif crc[1] == self.RESPONSE_BADARGS:
-				raise Exception('Error: RESPONSE_BADARGS: Invalid length for CRC check')
+				raise TockLoaderException('Error: RESPONSE_BADARGS: Invalid length for CRC check')
 			else:
-				raise Exception('Error: 0x{:X}'.format(crc[1]))
+				raise TockLoaderException('Error: 0x{:X}'.format(crc[1]))
 
 		return crc
 
@@ -990,7 +993,7 @@ class BootloaderSerial(BoardInterface):
 		crc_loader = crc_function(binary, 0)
 
 		if crc_bootloader != crc_loader:
-			raise Exception('Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}'.format(crc_loader, crc_bootloader))
+			raise TockLoaderException('Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}'.format(crc_loader, crc_bootloader))
 		else:
 			print('CRC check passed. Binaries successfully loaded.')
 
@@ -1001,11 +1004,11 @@ class BootloaderSerial(BoardInterface):
 
 		if not success:
 			if ret[1] == self.RESPONSE_BADADDR:
-				raise Exception('Error: Attribute number is invalid.')
+				raise TockLoaderException('Error: Attribute number is invalid.')
 			elif ret[1] == self.RESPONSE_BADARGS:
-				raise Exception('Error: Need to supply a correct attribute index.')
+				raise TockLoaderException('Error: Need to supply a correct attribute index.')
 			else:
-				raise Exception('Error: 0x{:X}'.format(ret[1]))
+				raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
 		return self._decode_attribute(ret)
 
 	def get_all_attributes (self):
@@ -1021,13 +1024,13 @@ class BootloaderSerial(BoardInterface):
 
 		if not success:
 			if ret[1] == self.RESPONSE_BADADDR:
-				raise Exception('Error: Attribute number is invalid.')
+				raise TockLoaderException('Error: Attribute number is invalid.')
 			elif ret[1] == self.RESPONSE_BADARGS:
-				raise Exception('Error: Wrong length of attribute set packet.')
+				raise TockLoaderException('Error: Wrong length of attribute set packet.')
 			elif ret[1] == self.RESPONSE_INTERROR:
-				raise Exception('Error: Internal error when setting attribute.')
+				raise TockLoaderException('Error: Internal error when setting attribute.')
 			else:
-				raise Exception('Error: 0x{:X}'.format(ret[1]))
+				raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
 
 	# For this communication protocol we can safely say the bootloader is
 	# present.
@@ -1038,7 +1041,7 @@ class BootloaderSerial(BoardInterface):
 		success, ret = self._issue_command(self.COMMAND_INFO, bytes(), True, 193, self.RESPONSE_INFO)
 
 		if not success:
-			raise Exception('Error: 0x{:X}'.format(ret[1]))
+			raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
 
 		length = ret[0]
 		json_data = ret[1:1+length].decode('utf-8')
@@ -1067,7 +1070,7 @@ class BootloaderSerial(BoardInterface):
 
 		# Check that we learned what we needed to learn.
 		if self.board == None or self.arch == None:
-			raise Exception('Could not determine the current board or arch')
+			raise TockLoaderException('Could not determine the current board or arch')
 
 
 ############################################################################
@@ -1118,18 +1121,18 @@ class JLinkExe(BoardInterface):
 			if p.returncode != 0:
 				print('ERROR: JTAG returned with error code ' + str(p.returncode))
 				print_output(p)
-				raise Exception('JTAG error')
+				raise TockLoaderException('JTAG error')
 			elif self.args.debug:
 				print_output(p)
 
 			# check that there was a JTAG programmer and that it found a device
 			stdout = p.stdout.decode('utf-8')
 			if 'USB...FAILED' in stdout:
-				raise Exception('ERROR: Cannot find JLink hardware. Is USB attached?')
+				raise TockLoaderException('ERROR: Cannot find JLink hardware. Is USB attached?')
 			if 'Can not connect to target.' in stdout:
-				raise Exception('ERROR: Cannot find device. Is JTAG connected?')
+				raise TockLoaderException('ERROR: Cannot find device. Is JTAG connected?')
 			if 'Error while programming flash' in stdout:
-				raise Exception('ERROR: Problem flashing.')
+				raise TockLoaderException('ERROR: Problem flashing.')
 
 			if write == False:
 				# Wanted to read binary, so lets pull that
@@ -1208,7 +1211,7 @@ class JLinkExe(BoardInterface):
 			return None
 
 	def get_serial_port (self):
-		raise Exception('No serial port for JLinkExe comm channel')
+		raise TockLoaderException('No serial port for JLinkExe comm channel')
 
 	# Figure out which board we are connected to. Most likely done by
 	# reading the attributes.
@@ -1229,7 +1232,7 @@ class JLinkExe(BoardInterface):
 
 		# Check that we learned what we needed to learn.
 		if self.board == None or self.arch == None or self.jtag_device == 'cortex-m0':
-			raise Exception('Could not determine the current board or arch or jtag device name')
+			raise TockLoaderException('Could not determine the current board or arch or jtag device name')
 
 
 ################################################################################
@@ -1259,7 +1262,7 @@ class TAB:
 				'binary': binary,
 			}
 		else:
-			raise Exception('Invalid TBF found in app in TAB')
+			raise TockLoaderException('Invalid TBF found in app in TAB')
 
 	def is_compatible_with_board (self, board):
 		metadata = self.parse_metadata()
@@ -1268,7 +1271,7 @@ class TAB:
 			       board in metadata['only-for-boards'] or \
 			       metadata['only-for-boards'] == ''
 		else:
-			raise Exception('Unable to understand version {} of metadata'.format(metadata['tab-version']))
+			raise TockLoaderException('Unable to understand version {} of metadata'.format(metadata['tab-version']))
 
 	def parse_metadata (self):
 		metadata_tarinfo = self.tab.getmember('metadata.toml')
@@ -1375,7 +1378,7 @@ def collect_tabs (args, wait=True):
 		# Search for ".tab" files
 		tab_names = glob.glob('./**/*.tab', recursive=True)
 		if len(tab_names) == 0:
-			raise Exception('No TAB files found.')
+			raise TockLoaderException('No TAB files found.')
 
 		print('Using: {}'.format(tab_names))
 		if wait:
@@ -1496,7 +1499,7 @@ def command_inspect (args):
 	tabs = collect_tabs(args, wait=False)
 
 	if len(tabs) == 0:
-		raise Exception('No TABs found to inspect')
+		raise TockLoaderException('No TABs found to inspect')
 
 	print('Inspecting TABs...')
 	for tab in tabs:
@@ -1676,7 +1679,7 @@ def main ():
 	if hasattr(args, 'func'):
 		try:
 			args.func(args)
-		except Exception as e:
+		except TockLoaderException as e:
 			print(e)
 			sys.exit(1)
 	else:

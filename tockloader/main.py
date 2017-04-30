@@ -685,6 +685,7 @@ class BootloaderSerial(BoardInterface):
 	COMMAND_XFINIT             = 0x18
 	COMMAND_CLKOUT             = 0x19
 	COMMAND_WUSER              = 0x20
+	COMMAND_CHANGE_BAUD_RATE   = 0x21
 
 	# Responses from the bootloader.
 	RESPONSE_OVERFLOW           = 0x10
@@ -703,6 +704,7 @@ class BootloaderSerial(BoardInterface):
 	RESPONSE_CRC_INTERNAL_FLASH = 0x23
 	RESPONSE_CRCXF              = 0x24
 	RESPONSE_INFO               = 0x25
+	RESPONSE_CHANGE_BAUD_FAIL   = 0x26
 
 	# Tell the bootloader to reset its buffer to handle a new command.
 	SYNC_MESSAGE = bytes([0x00, 0xFC, 0x05])
@@ -813,6 +815,9 @@ class BootloaderSerial(BoardInterface):
 				print('  - There is a bug in this script')
 				raise TockLoaderException('Could not attach to the bootloader')
 
+		# Speculatively try to get a faster baud rate.
+		self._change_baud_rate(600000)
+
 	# Reset the chip to exit bootloader mode
 	def exit_bootloader_mode (self):
 		if self.args.jtag:
@@ -843,7 +848,7 @@ class BootloaderSerial(BoardInterface):
 		raise TockLoaderException('No PONG received')
 
 	# Setup a command to send to the bootloader and handle the response.
-	def _issue_command (self, command, message, sync, response_len, response_code):
+	def _issue_command (self, command, message, sync, response_len, response_code, show_errors=True):
 		if sync:
 			self.sp.write(self.SYNC_MESSAGE)
 			time.sleep(0.0001)
@@ -867,20 +872,42 @@ class BootloaderSerial(BoardInterface):
 				break
 
 		if len(ret) < 2:
-			print('Error: No response after issuing command')
+			if show_errors:
+				print('Error: No response after issuing command')
 			return (False, bytes())
 
 		if ret[0] != self.ESCAPE_CHAR:
-			print('Error: Invalid response from bootloader (no escape character)')
+			if show_errors:
+				print('Error: Invalid response from bootloader (no escape character)')
 			return (False, ret[0:2])
 		if ret[1] != response_code:
-			print('Error: Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
+			if show_errors:
+				print('Error: Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
 			return (False, ret[0:2])
 		if len(ret) != 2 + response_len:
-			print('Error: Incorrect number of bytes received')
+			if show_errors:
+				print('Error: Incorrect number of bytes received')
 			return (False, ret[0:2])
 
 		return (True, ret[2:])
+
+	# If the bootloader on the board supports it and if it succeeds, try
+	# to increase the baud rate to make everything faster.
+	def _change_baud_rate (self, baud_rate):
+		pkt = struct.pack('<BI', 0x01, baud_rate)
+		success, ret = self._issue_command(self.COMMAND_CHANGE_BAUD_RATE, pkt, True, 0, self.RESPONSE_OK, show_errors=False)
+
+		if success:
+			# The bootloader is new enough to support this.
+			# Increase the baud rate
+			self.sp.baudrate = baud_rate
+			# Now confirm that everything is working.
+			pkt = struct.pack('<BI', 0x02, baud_rate)
+			success, ret = self._issue_command(self.COMMAND_CHANGE_BAUD_RATE, pkt, False, 0, self.RESPONSE_OK, show_errors=False)
+
+			if not success:
+				# Something went wrong. Go back to old baud rate
+				self.sp.baudrate = 115200
 
 	# Write pages until a binary has been flashed. binary must have a length that
 	# is a multiple of 512.

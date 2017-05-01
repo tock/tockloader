@@ -369,6 +369,8 @@ class TockLoader:
 
 				# Show bootloader version
 				version = self.channel.get_bootloader_version()
+				if version == None:
+					version = 'unknown'
 				print('Bootloader version: {}'.format(version))
 			else:
 				print('No bootloader.')

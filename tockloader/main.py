@@ -1598,7 +1598,8 @@ def main ():
 
 	# All commands need a serial port to talk to the board
 	parent.add_argument('--port', '-p', '--device', '-d',
-		help='The serial port or device name to use')
+		help='The serial port or device name to use',
+		metavar='STR')
 
 	parent.add_argument('--make',
 		action='store_true',
@@ -1646,7 +1647,8 @@ def main ():
 
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(
-		title='Commands')
+		title='Commands',
+		metavar='')
 
 	listen = subparser.add_parser('listen',
 		parents=[parent],

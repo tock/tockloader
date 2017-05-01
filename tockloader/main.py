@@ -1560,6 +1560,7 @@ def command_info (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
+	print('tockloader version: {}'.format(__version__))
 	print('Showing all properties of the board...')
 	tock_loader.info(args.app_address)
 

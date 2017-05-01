@@ -851,7 +851,7 @@ class BootloaderSerial(BoardInterface):
 				raise TockLoaderException('Could not attach to the bootloader')
 
 		# Speculatively try to get a faster baud rate.
-		self._change_baud_rate(600000)
+		self._change_baud_rate(self.args.baud_rate)
 
 	# Reset the chip to exit bootloader mode
 	def exit_bootloader_mode (self):
@@ -1644,6 +1644,10 @@ def main ():
 	parent_jtag.add_argument('--arch',
 		default=None,
 		help='Explicitly specify the architecture of the board that is being targeted.')
+	parent_jtag.add_argument('--baud-rate',
+		default=600000,
+		type=int,
+		help='If using serial, set the target baud rate.')
 
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(

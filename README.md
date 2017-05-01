@@ -55,6 +55,10 @@ an existing attribute if the key matches.
 
 Remove a particular attribute from the board.
 
+### `tockloader info`
+
+Show all properties of the board.
+
 ### `tockloader inspect`
 
 Show details about a compiled TAB file.

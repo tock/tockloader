@@ -171,43 +171,7 @@ class TockLoader:
 			# Get all apps based on their header
 			apps = self._extract_all_app_headers(address)
 
-			if not quiet:
-				# Print info about each app
-				for i,app in enumerate(apps):
-					tbfh = app['header']
-					start_address = app['address']
-
-					print('[App {}]'.format(i))
-					print('  Name:                  {}'.format(app['name']))
-					print('  Total Size in Flash:   {} bytes'.format(tbfh['total_size']))
-
-					# Check if this app is OK with the MPU region requirements.
-					if not self._app_is_aligned_correctly(start_address, tbfh['total_size']):
-						print('  [WARNING] App is misaligned for the MPU')
-
-					if verbose:
-						print('  Flash Start Address:   {:#010x}'.format(start_address))
-						print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
-						print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
-						print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
-						print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
-						print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
-						print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
-						print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
-						print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
-						print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
-						print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
-					print('')
-
-				if len(apps) == 0:
-					print('No found apps.')
-
-			else:
-				# In quiet mode just show the names.
-				app_names = []
-				for app in apps:
-					app_names.append(app['name'])
-				print(' '.join(app_names))
+			self._print_apps(apps, verbose, quiet)
 
 
 	# Add or update TABs on the board.
@@ -312,11 +276,7 @@ class TockLoader:
 			if not self._bootloader_is_present():
 				raise TockLoaderException('No bootloader found! That means there is nowhere for attributes to go.')
 
-			for index, attribute in enumerate(self.channel.get_all_attributes()):
-				if attribute:
-					print('{:02d}: {:>8} = {}'.format(index, attribute['key'], attribute['value']))
-				else:
-					print('{:02d}:'.format(index))
+			self._print_attributes(self.channel.get_all_attributes())
 
 
 	# Download all attributes stored on the board
@@ -388,6 +348,29 @@ class TockLoader:
 			else:
 				raise TockLoaderException('Error: Attribute does not exist.')
 
+
+	# Print all info about this board.
+	def info (self, app_address):
+		# Enter bootloader mode to get things started
+		with self._start_communication_with_board():
+
+			# Print all apps
+			print('Apps:')
+			apps = self._extract_all_app_headers(app_address)
+			self._print_apps(apps, True, False)
+
+			if self._bootloader_is_present():
+				# Print all attributes
+				print('Attributes:')
+				attributes = self.channel.get_all_attributes()
+				self._print_attributes(attributes)
+				print('')
+
+				# Show bootloader version
+				version = self.channel.get_bootloader_version()
+				print('Bootloader version: {}'.format(version))
+			else:
+				print('No bootloader.')
 
 	############################################################################
 	## Internal Helper Functions for Communicating with Boards
@@ -557,6 +540,57 @@ class TockLoader:
 			return False
 
 		return True
+
+	############################################################################
+	## Printing helper functions
+	############################################################################
+
+	# Print information about a list of apps
+	def _print_apps (self, apps, verbose, quiet):
+		if not quiet:
+			# Print info about each app
+			for i,app in enumerate(apps):
+				tbfh = app['header']
+				start_address = app['address']
+
+				print('[App {}]'.format(i))
+				print('  Name:                  {}'.format(app['name']))
+				print('  Total Size in Flash:   {} bytes'.format(tbfh['total_size']))
+
+				# Check if this app is OK with the MPU region requirements.
+				if not self._app_is_aligned_correctly(start_address, tbfh['total_size']):
+					print('  [WARNING] App is misaligned for the MPU')
+
+				if verbose:
+					print('  Flash Start Address:   {:#010x}'.format(start_address))
+					print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
+					print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
+					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
+					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
+					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
+					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
+					print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
+					print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
+					print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
+					print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
+				print('')
+
+			if len(apps) == 0:
+				print('No found apps.')
+
+		else:
+			# In quiet mode just show the names.
+			app_names = []
+			for app in apps:
+				app_names.append(app['name'])
+			print(' '.join(app_names))
+
+	def _print_attributes (self, attributes):
+		for index, attribute in enumerate(attributes):
+			if attribute:
+				print('{:02d}: {:>8} = {}'.format(index, attribute['key'], attribute['value']))
+			else:
+				print('{:02d}:'.format(index))
 
 
 ################################################################################
@@ -1522,6 +1556,14 @@ def command_remove_attribute (args):
 	tock_loader.remove_attribute(args.key)
 
 
+def command_info (args):
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	print('Showing all properties of the board...')
+	tock_loader.info(args.app_address)
+
+
 def command_inspect (args):
 	tabs = collect_tabs(args, wait=False)
 
@@ -1684,6 +1726,11 @@ def main ():
 	removeattribute.set_defaults(func=command_remove_attribute)
 	removeattribute.add_argument('key',
 		help='Attribute key')
+
+	info = subparser.add_parser('info',
+		parents=[parent, parent_apps, parent_jtag],
+		help='Verbose information about the connected board')
+	info.set_defaults(func=command_info)
 
 	inspect = subparser.add_parser('inspect',
 		parents=[parent],

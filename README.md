@@ -65,7 +65,7 @@ Remove a particular attribute from the board.
 
 Show all properties of the board.
 
-### `tockloader inspect`
+### `tockloader inspect-tab`
 
 Show details about a compiled TAB file.
 

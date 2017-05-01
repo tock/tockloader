@@ -1566,7 +1566,7 @@ def command_info (args):
 	tock_loader.info(args.app_address)
 
 
-def command_inspect (args):
+def command_inspect_tab (args):
 	tabs = collect_tabs(args, wait=False)
 
 	if len(tabs) == 0:
@@ -1734,11 +1734,11 @@ def main ():
 		help='Verbose information about the connected board')
 	info.set_defaults(func=command_info)
 
-	inspect = subparser.add_parser('inspect',
+	inspect_tab = subparser.add_parser('inspect-tab',
 		parents=[parent],
 		help='Get details about a TAB')
-	inspect.set_defaults(func=command_inspect)
-	inspect.add_argument('tab',
+	inspect_tab.set_defaults(func=command_inspect_tab)
+	inspect_tab.add_argument('tab',
 		help='The TAB or TABs to inspect',
 		nargs='*')
 

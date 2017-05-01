@@ -14,6 +14,7 @@ import tarfile
 import tempfile
 import time
 
+import argcomplete
 import colorama
 import crcmod
 import pytoml
@@ -1741,6 +1742,7 @@ def main ():
 		help='The TAB or TABs to inspect',
 		nargs='*')
 
+	argcomplete.autocomplete(parser)
 	args = parser.parse_args()
 
 	# Concat the args before the command with those that were specified

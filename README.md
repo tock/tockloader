@@ -9,6 +9,12 @@ Install
 (sudo) pip3 install tockloader
 ```
 
+If you want tab completions:
+
+```
+register-python-argcomplete tockloader >> ~/.bashrc
+```
+
 Usage
 -----
 

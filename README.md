@@ -6,7 +6,7 @@ Install
 -------
 
 ```
-(sudo) pip3 install tockloader
+pip3 install tockloader --user
 ```
 
 If you want tab completions:

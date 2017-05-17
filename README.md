@@ -88,8 +88,8 @@ the Tockloader package.
 - Ubuntu
     ```
     sudo apt install python3-pip
-    sudo pip3 install -U pip      # update pip
-    sudo pip3 install tockloader
+    pip3 install -U pip --user     # update pip
+    pip3 install tockloader --user
     ```
 
 - MacOS

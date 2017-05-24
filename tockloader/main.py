@@ -1524,6 +1524,13 @@ def command_flash (args):
 	# Load in all binaries
 	binary = bytes()
 	for binary_name in args.binary:
+		# check that file isn't a `.hex` file
+		if binary_name.endswith('.hex'):
+			exception_string = 'Error: Cannot flash ".hex" files.'
+			exception_string += ' Likely you meant to use a ".bin" file but used an intel hex file by accident.'
+			raise TockLoaderException(exception_string)
+
+		# add contents to binary
 		with open(binary_name, 'rb') as f:
 			binary += f.read()
 

@@ -241,6 +241,26 @@ class TockLoader:
 			# Get a list of installed apps
 			apps = self._extract_all_app_headers(address)
 
+			# If the user didn't specify an app list...
+			if len(app_names) == 0:
+				if len(apps) == 0:
+					raise TockLoaderException('No apps are installed on the board')
+				elif len(apps) == 1:
+					# If there's only one app, delete it
+					app_names = [apps[0]['name']]
+					print('Only one app on board. Uninstalling {}'.format(app_names[0]))
+				else:
+					print('There are multiple apps currently on the board:')
+					options = ['** Delete all']
+					options.extend([app['name'] for app in apps])
+					name = menu(options,
+							return_type='value',
+							prompt='Select app to uninstall ')
+					if name == '** Delete all':
+						app_names = [app['name'] for app in apps]
+					else:
+						app_names = [name]
+
 			# Remove the apps if they are there
 			removed = False
 			keep_apps = []
@@ -253,6 +273,16 @@ class TockLoader:
 			# Now take the remaining apps and make sure they
 			# are on the board properly.
 			self._reshuffle_apps(address, keep_apps)
+
+			print('Uninstall complete.')
+
+			# And let the user know the state of the world now that we're done
+			apps = self._extract_all_app_headers(address)
+			if len(apps):
+				print('Remaining apps on board:')
+				self._print_apps(apps, verbose=False, quiet=True)
+			else:
+				print('No apps on board.')
 
 			if not removed:
 				raise TockLoaderException('Could not find any apps on the board to remove.')
@@ -1506,7 +1536,7 @@ def command_uninstall (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Removing app(s) "{}" from board...'.format(','.join(args.name)))
+	print('Removing app(s) {} from board...'.format(', '.join(args.name)))
 	tock_loader.uninstall_app(args.name, args.app_address)
 
 

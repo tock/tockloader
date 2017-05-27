@@ -4,6 +4,7 @@ import argparse
 import atexit
 import binascii
 import contextlib
+import copy
 import glob
 import json
 import os
@@ -199,7 +200,7 @@ class TockLoader:
 				for existing_app in existing_apps:
 					for replacement_app in replacement_apps:
 						if existing_app['name'] == replacement_app['name']:
-							resulting_apps.append(replacement_app)
+							resulting_apps.append(copy.deepcopy(replacement_app))
 							changed = True
 							break
 					else:

@@ -1420,6 +1420,19 @@ class TAB:
 				return TBFHeader(binary)
 		return {}
 
+	def __str__ (self):
+		out = ''
+		metadata = self.parse_metadata()
+		out += 'TAB: {}\n'.format(metadata['name'])
+		for k,v in sorted(metadata.items()):
+			if k == 'name':
+				continue
+			out += '  {}: {}\n'.format(k,v)
+		out += '  supported architectures: {}\n'.format(', '.join(self.get_supported_architectures()))
+		out += '  TBF Header\n'
+		out += textwrap.indent(str(self.get_tbf_header()), '    ')
+		return out
+
 
 ################################################################################
 ## Tock Binary Format Header
@@ -1704,15 +1717,7 @@ def command_inspect_tab (args):
 
 	print('Inspecting TABs...')
 	for tab in tabs:
-		metadata = tab.parse_metadata()
-		print('TAB: {}'.format(metadata['name']))
-		for k,v in sorted(metadata.items()):
-			if k == 'name':
-				continue
-			print('  {}: {}'.format(k,v))
-		print('  supported architectures: {}'.format(', '.join(tab.get_supported_architectures())))
-		print('  TBF Header')
-		print(textwrap.indent(str(tab.get_tbf_header()), '    '))
+		print(tab)
 		print('')
 
 

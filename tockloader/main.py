@@ -867,12 +867,16 @@ class BootloaderSerial(BoardInterface):
 		# Make sure the bootloader is actually active and we can talk to it.
 		try:
 			self._ping_bootloader_and_wait_for_response()
+		except KeyboardInterrupt:
+			raise TockLoaderException('Exiting.')
 		except:
 			try:
 				# Give it another go
 				time.sleep(1)
 				self._toggle_bootloader_entry()
 				self._ping_bootloader_and_wait_for_response()
+			except KeyboardInterrupt:
+				raise TockLoaderException('Exiting.')
 			except:
 				print('Error connecting to bootloader. No "pong" received.')
 				print('Things that could be wrong:')
@@ -954,7 +958,7 @@ class BootloaderSerial(BoardInterface):
 			return (False, ret[0:2])
 		if len(ret) != 2 + response_len:
 			if show_errors:
-				print('Error: Incorrect number of bytes received')
+				print('Error: Incorrect number of bytes received. Expected {}, got {}.'.format(2+response_len, len(ret)))
 			return (False, ret[0:2])
 
 		return (True, ret[2:])

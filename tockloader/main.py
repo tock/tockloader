@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import textwrap
 import time
 
 import argcomplete
@@ -235,7 +236,7 @@ class TockLoader:
 
 
 	# If an app by this name exists, remove it from the chip
-	def uninstall_app (self, app_names, address):
+	def uninstall_app (self, app_names, address, force=False):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -266,10 +267,19 @@ class TockLoader:
 			removed = False
 			keep_apps = []
 			for app in apps:
-				if app['name'] not in app_names:
+				# Only keep apps that are not marked for uninstall or that
+				# are sticky (unless force was set)
+				if app['name'] not in app_names or (app['header'].is_sticky() and not force):
 					keep_apps.append(app)
 				else:
 					removed = True
+
+			# Tell the user if we are not removing certain apps because they
+			# are sticky.
+			if not force:
+				for app in apps:
+					if app['name'] in app_names and app['header'].is_sticky():
+						print('INFO: Not removing app "{}" because it is sticky.'.format(app['name']))
 
 			# Now take the remaining apps and make sure they
 			# are on the board properly.
@@ -290,14 +300,30 @@ class TockLoader:
 
 
 	# Erase flash where apps go
-	def erase_apps (self, address):
+	def erase_apps (self, address, force=False):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
-			# Then erase the next page. This ensures that flash is clean at the
-			# end of the installed apps and makes things nicer for future uses of
-			# this script.
-			self.channel.erase_page(address)
+			# On force we can just eliminate all apps
+			if force:
+				# Erase the first page where apps go. This will cause the first
+				# header to be invalid and effectively removes all apps.
+				self.channel.erase_page(address)
+
+			else:
+				# Get a list of installed apps
+				apps = self._extract_all_app_headers(address)
+
+				keep_apps = []
+				for app in apps:
+					if app['header'].is_sticky():
+						keep_apps.append(app)
+						print('INFO: Not erasing app "{}" because it is sticky.'.format(app['name']))
+
+				if len(keep_apps) == 0:
+					self.channel.erase_page(address)
+				else:
+					self._reshuffle_apps(address, keep_apps)
 
 
 	# Download all attributes stored on the board
@@ -467,7 +493,7 @@ class TockLoader:
 	# sort them in flash so they are in descending size order.
 	def _reshuffle_apps(self, address, apps):
 		# We are given an array of apps. First we need to order them by size.
-		apps.sort(key=lambda x: x['header']['total_size'], reverse=True)
+		apps.sort(key=lambda x: x['header'].fields['total_size'], reverse=True)
 
 		# Now iterate to see if the address has changed
 		start_address = address
@@ -480,12 +506,12 @@ class TockLoader:
 				# However, we may have a new binary to use, so we don't need to
 				# fetch it.
 				if 'binary' not in app:
-					app['binary'] = self.channel.read_range(app['address'], app['header']['total_size'])
+					app['binary'] = self.channel.read_range(app['address'], app['header'].fields['total_size'])
 
 				# Either way save the new address.
 				app['address'] = start_address
 
-			start_address += app['header']['total_size']
+			start_address += app['header'].fields['total_size']
 
 		# Now flash all apps that have a binary field. The presence of the
 		# binary indicates that they are new or moved.
@@ -493,7 +519,7 @@ class TockLoader:
 		for app in apps:
 			if 'binary' in app:
 				self.channel.flash_binary(app['address'], app['binary'])
-			end = app['address'] + app['header']['total_size']
+			end = app['address'] + app['header'].fields['total_size']
 
 		# Then erase the next page. This ensures that flash is clean at the
 		# end of the installed apps and makes things nicer for future uses of
@@ -507,7 +533,7 @@ class TockLoader:
 
 		# Jump through the linked list of apps
 		while (True):
-			header_length = 76 # Version 1
+			header_length = 80 # Version 2
 			flash = self.channel.read_range(address, header_length)
 
 			# if there was an error, the binary array will be empty
@@ -515,11 +541,11 @@ class TockLoader:
 				break
 
 			# Get all the fields from the header
-			tbfh = parse_tbf_header(flash)
+			tbfh = TBFHeader(flash)
 
-			if tbfh['valid']:
+			if tbfh.is_valid():
 				# Get the name out of the app
-				name = self._get_app_name(address+tbfh['package_name_offset'], tbfh['package_name_size'])
+				name = self._get_app_name(address+tbfh.fields['package_name_offset'], tbfh.fields['package_name_size'])
 
 				apps.append({
 					'address': address,
@@ -527,7 +553,7 @@ class TockLoader:
 					'name': name,
 				})
 
-				address += tbfh['total_size']
+				address += tbfh.fields['total_size']
 
 			else:
 				break
@@ -589,24 +615,26 @@ class TockLoader:
 
 				print('[App {}]'.format(i))
 				print('  Name:                  {}'.format(app['name']))
-				print('  Total Size in Flash:   {} bytes'.format(tbfh['total_size']))
+				print('  Enabled:               {}'.format(tbfh.is_enabled()))
+				print('  Sticky:                {}'.format(tbfh.is_sticky()))
+				print('  Total Size in Flash:   {} bytes'.format(tbfh.fields['total_size']))
 
 				# Check if this app is OK with the MPU region requirements.
-				if not self._app_is_aligned_correctly(start_address, tbfh['total_size']):
+				if not self._app_is_aligned_correctly(start_address, tbfh.fields['total_size']):
 					print('  [WARNING] App is misaligned for the MPU')
 
 				if verbose:
 					print('  Flash Start Address:   {:#010x}'.format(start_address))
-					print('  Flash End Address:     {:#010x}'.format(start_address+tbfh['total_size']-1))
-					print('  Entry Address:         {:#010x}'.format(start_address+tbfh['entry_offset']))
-					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh['rel_data_offset'], tbfh['rel_data_size']))
-					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['text_offset'], tbfh['text_size']))
-					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh['got_offset'], tbfh['got_size']))
-					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh['data_offset'], tbfh['data_size']))
-					print('  Minimum Stack Size:    {} bytes'.format(tbfh['min_stack_len']))
-					print('  Minimum Heap Size:     {} bytes'.format(tbfh['min_app_heap_len']))
-					print('  Minimum Grant Size:    {} bytes'.format(tbfh['min_kernel_heap_len']))
-					print('  Checksum:              {:#010x}'.format(tbfh['checksum']))
+					print('  Flash End Address:     {:#010x}'.format(start_address+tbfh.fields['total_size']-1))
+					print('  Entry Address:         {:#010x}'.format(start_address+tbfh.fields['entry_offset']))
+					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh.fields['rel_data_offset'], tbfh.fields['rel_data_size']))
+					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh.fields['text_offset'], tbfh.fields['text_size']))
+					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh.fields['got_offset'], tbfh.fields['got_size']))
+					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh.fields['data_offset'], tbfh.fields['data_size']))
+					print('  Minimum Stack Size:    {} bytes'.format(tbfh.fields['min_stack_len']))
+					print('  Minimum Heap Size:     {} bytes'.format(tbfh.fields['min_app_heap_len']))
+					print('  Minimum Grant Size:    {} bytes'.format(tbfh.fields['min_kernel_heap_len']))
+					print('  Checksum:              {:#010x}'.format(tbfh.checksum))
 				print('')
 
 			if len(apps) == 0:
@@ -1347,11 +1375,11 @@ class TAB:
 		binary = self.tab.extractfile(binary_tarinfo).read()
 
 		# First get the TBF header from the correct binary in the TAB
-		tbfh = parse_tbf_header(binary)
+		tbfh = TBFHeader(binary)
 
-		if tbfh['valid']:
-			start = tbfh['package_name_offset']
-			end = start+tbfh['package_name_size']
+		if tbfh.is_valid():
+			start = tbfh.fields['package_name_offset']
+			end = start+tbfh.fields['package_name_size']
 			name = binary[start:end].decode('utf-8')
 
 			return {
@@ -1389,54 +1417,112 @@ class TAB:
 				binary = self.tab.extractfile(binary_tarinfo).read()
 
 				# Get the TBF header from a binary in the TAB
-				return parse_tbf_header(binary)
+				return TBFHeader(binary)
 		return {}
 
 
 ################################################################################
-## General Purpose Helper Functions
+## Tock Binary Format Header
 ################################################################################
 
-# Parses a buffer into the Tock Binary Format header fields
-def parse_tbf_header (buffer):
-	out = {'valid': False}
+class TBFHeader:
+	def __init__ (self, buffer):
+		self.valid = False
+		self.fields = {}
 
-	# Read first word to get the TBF version
-	out['version'] = struct.unpack('<I', buffer[0:4])[0]
+		# Need at least a version number
+		if len(buffer) < 4:
+			return
 
-	if out['version'] == 1:
-		tbf_header = struct.unpack('<IIIIIIIIIIIIIIIIII', buffer[4:76])
-		out['total_size'] = tbf_header[0]
-		out['entry_offset'] = tbf_header[1]
-		out['rel_data_offset'] = tbf_header[2]
-		out['rel_data_size'] = tbf_header[3]
-		out['text_offset'] = tbf_header[4]
-		out['text_size'] = tbf_header[5]
-		out['got_offset'] = tbf_header[6]
-		out['got_size'] = tbf_header[7]
-		out['data_offset'] = tbf_header[8]
-		out['data_size'] = tbf_header[9]
-		out['bss_mem_offset'] = tbf_header[10]
-		out['bss_mem_size'] = tbf_header[11]
-		out['min_stack_len'] = tbf_header[12]
-		out['min_app_heap_len'] = tbf_header[13]
-		out['min_kernel_heap_len'] = tbf_header[14]
-		out['package_name_offset'] = tbf_header[15]
-		out['package_name_size'] = tbf_header[16]
-		out['checksum'] = tbf_header[17]
+		# Get the version number
+		self.version = struct.unpack('<I', buffer[0:4])[0]
 
-		xor = out['version'] ^ out['total_size'] ^ out['entry_offset'] \
-		      ^ out['rel_data_offset'] ^ out['rel_data_size'] ^ out['text_offset'] \
-		      ^ out['text_size'] ^ out['got_offset'] ^ out['got_size'] \
-		      ^ out['data_offset'] ^ out['data_size'] ^ out['bss_mem_offset'] \
-		      ^ out['bss_mem_size'] ^ out['min_stack_len'] \
-		      ^ out['min_app_heap_len'] ^ out['min_kernel_heap_len'] \
-		      ^ out['package_name_offset'] ^ out['package_name_size']
+		if (self.version == 1 or self.version == 2) and len(buffer) >= 72:
+			# Version 1 and 2 have the same first fields
+			base = struct.unpack('<IIIIIIIIIIIIIIIII', buffer[4:72])
+			self.fields['total_size'] = base[0]
+			self.fields['entry_offset'] = base[1]
+			self.fields['rel_data_offset'] = base[2]
+			self.fields['rel_data_size'] = base[3]
+			self.fields['text_offset'] = base[4]
+			self.fields['text_size'] = base[5]
+			self.fields['got_offset'] = base[6]
+			self.fields['got_size'] = base[7]
+			self.fields['data_offset'] = base[8]
+			self.fields['data_size'] = base[9]
+			self.fields['bss_mem_offset'] = base[10]
+			self.fields['bss_mem_size'] = base[11]
+			self.fields['min_stack_len'] = base[12]
+			self.fields['min_app_heap_len'] = base[13]
+			self.fields['min_kernel_heap_len'] = base[14]
+			self.fields['package_name_offset'] = base[15]
+			self.fields['package_name_size'] = base[16]
+		else:
+			return
 
-		if xor == out['checksum']:
-			out['valid'] = True
+		if self.version == 1 and len(buffer) >= 76:
+			others = struct.unpack('<I', buffer[72:76])
+			self.checksum = others[0]
 
-	return out
+			xor = self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
+			      ^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \
+			      ^ self.fields['text_size'] ^ self.fields['got_offset'] ^ self.fields['got_size'] \
+			      ^ self.fields['data_offset'] ^ self.fields['data_size'] ^ self.fields['bss_mem_offset'] \
+			      ^ self.fields['bss_mem_size'] ^ self.fields['min_stack_len'] \
+			      ^ self.fields['min_app_heap_len'] ^ self.fields['min_kernel_heap_len'] \
+			      ^ self.fields['package_name_offset'] ^ self.fields['package_name_size']
+
+			if xor == self.checksum:
+				self.valid = True
+
+		elif self.version == 2 and len(buffer) >= 80:
+			others = struct.unpack('<II', buffer[72:80])
+			self.fields['flags'] = others[0]
+			self.checksum = others[1]
+
+			xor = self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
+			      ^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \
+			      ^ self.fields['text_size'] ^ self.fields['got_offset'] ^ self.fields['got_size'] \
+			      ^ self.fields['data_offset'] ^ self.fields['data_size'] ^ self.fields['bss_mem_offset'] \
+			      ^ self.fields['bss_mem_size'] ^ self.fields['min_stack_len'] \
+			      ^ self.fields['min_app_heap_len'] ^ self.fields['min_kernel_heap_len'] \
+			      ^ self.fields['package_name_offset'] ^ self.fields['package_name_size'] \
+			      ^ self.fields['flags']
+
+			if xor == self.checksum:
+				self.valid = True
+
+	def is_valid (self):
+		return self.valid
+
+	def is_enabled (self):
+		if not self.valid:
+			return False
+		elif self.version == 1:
+			# Version 1 apps don't have this bit so they are just always enabled
+			return True
+		else:
+			return self.fields['flags'] & 0x01 == 0x01
+
+	def is_sticky (self):
+		if not self.valid:
+			return False
+		elif self.version == 1:
+			# No sticky bit in version 1, so they are not sticky
+			return False
+		else:
+			return self.fields['flags'] & 0x02 == 0x02
+
+	def __str__ (self):
+		out = ''
+		out += '{:<19}: {:>8}\n'.format('version', self.version)
+		for k,v in sorted(self.fields.items()):
+			out += '{:<19}: {:>8} {:>#10x}\n'.format(k, v, v)
+			if k == 'flags':
+				out += '  {:<17}: {:>8}\n'.format('enabled', v & 0x01)
+				out += '  {:<17}: {:>8}\n'.format('sticky', (v & 0x02) >> 1)
+		out += '{:<19}:          {:>#10x}'.format('checksum', self.checksum, self.checksum)
+		return out
 
 
 ################################################################################
@@ -1542,7 +1628,7 @@ def command_uninstall (args):
 	tock_loader.open(args)
 
 	print('Removing app(s) {} from board...'.format(', '.join(args.name)))
-	tock_loader.uninstall_app(args.name, args.app_address)
+	tock_loader.uninstall_app(args.name, args.app_address, args.force)
 
 
 def command_erase_apps (args):
@@ -1550,7 +1636,7 @@ def command_erase_apps (args):
 	tock_loader.open(args)
 
 	print('Removing apps...')
-	tock_loader.erase_apps(args.app_address)
+	tock_loader.erase_apps(args.app_address, args.force)
 
 
 def command_flash (args):
@@ -1626,9 +1712,7 @@ def command_inspect_tab (args):
 			print('  {}: {}'.format(k,v))
 		print('  supported architectures: {}'.format(', '.join(tab.get_supported_architectures())))
 		print('  TBF Header')
-		tbf_header = tab.get_tbf_header()
-		for k,v in sorted(tbf_header.items()):
-			print('    {}: {}'.format(k,v))
+		print(textwrap.indent(str(tab.get_tbf_header()), '    '))
 		print('')
 
 

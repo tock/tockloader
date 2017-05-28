@@ -200,7 +200,7 @@ class TockLoader:
 			if replace == 'yes' or replace == 'only':
 				for existing_app in existing_apps:
 					for replacement_app in replacement_apps:
-						if existing_app['name'] == replacement_app['name']:
+						if existing_app.name == replacement_app.name:
 							resulting_apps.append(copy.deepcopy(replacement_app))
 							changed = True
 							break
@@ -214,7 +214,7 @@ class TockLoader:
 				if replace == 'yes':
 					for replacement_app in replacement_apps:
 						for resulting_app in resulting_apps:
-							if replacement_app['name'] == resulting_app['name']:
+							if replacement_app.name == resulting_app.name:
 								break
 						else:
 							# We did not find the name in the resulting apps.
@@ -249,17 +249,17 @@ class TockLoader:
 					raise TockLoaderException('No apps are installed on the board')
 				elif len(apps) == 1:
 					# If there's only one app, delete it
-					app_names = [apps[0]['name']]
-					print('Only one app on board. Uninstalling {}'.format(app_names[0]))
+					app_names = [apps[0].name]
+					print('Only one app on board. Uninstalling {}'.format(apps[0]))
 				else:
 					print('There are multiple apps currently on the board:')
 					options = ['** Delete all']
-					options.extend([app['name'] for app in apps])
+					options.extend([app.name for app in apps])
 					name = menu(options,
 							return_type='value',
 							prompt='Select app to uninstall ')
 					if name == '** Delete all':
-						app_names = [app['name'] for app in apps]
+						app_names = [app.name for app in apps]
 					else:
 						app_names = [name]
 
@@ -269,7 +269,7 @@ class TockLoader:
 			for app in apps:
 				# Only keep apps that are not marked for uninstall or that
 				# are sticky (unless force was set)
-				if app['name'] not in app_names or (app['header'].is_sticky() and not force):
+				if app.name not in app_names or (app.is_sticky() and not force):
 					keep_apps.append(app)
 				else:
 					removed = True
@@ -278,8 +278,8 @@ class TockLoader:
 			# are sticky.
 			if not force:
 				for app in apps:
-					if app['name'] in app_names and app['header'].is_sticky():
-						print('INFO: Not removing app "{}" because it is sticky.'.format(app['name']))
+					if app.name in app_names and app.is_sticky():
+						print('INFO: Not removing app "{}" because it is sticky.'.format(app))
 
 			# Now take the remaining apps and make sure they
 			# are on the board properly.
@@ -316,9 +316,9 @@ class TockLoader:
 
 				keep_apps = []
 				for app in apps:
-					if app['header'].is_sticky():
+					if app.is_sticky():
 						keep_apps.append(app)
-						print('INFO: Not erasing app "{}" because it is sticky.'.format(app['name']))
+						print('INFO: Not erasing app "{}" because it is sticky.'.format(app))
 
 				if len(keep_apps) == 0:
 					self.channel.erase_page(address)
@@ -341,20 +341,20 @@ class TockLoader:
 			if len(app_names) == 0:
 				print('Which apps to configure?')
 				options = ['** All']
-				options.extend([app['name'] for app in apps])
+				options.extend([app.name for app in apps])
 				name = menu(options,
 						return_type='value',
 						prompt='Select app to configure ')
 				if name == '** All':
-					app_names = [app['name'] for app in apps]
+					app_names = [app.name for app in apps]
 				else:
 					app_names = [name]
 
 			# Configure all selected apps
 			changed = False
 			for app in apps:
-				if app['name'] in app_names:
-					app['header'].set_flag(flag_name, flag_value)
+				if app.name in app_names:
+					app.tbfh.set_flag(flag_name, flag_value)
 					changed = True
 
 			if changed:
@@ -530,33 +530,33 @@ class TockLoader:
 	# sort them in flash so they are in descending size order.
 	def _reshuffle_apps(self, address, apps):
 		# We are given an array of apps. First we need to order them by size.
-		apps.sort(key=lambda x: x['header'].fields['total_size'], reverse=True)
+		apps.sort(key=lambda app: app.get_size(), reverse=True)
 
 		# Now iterate to see if the address has changed
 		start_address = address
 		for app in apps:
 			# If the address already matches, then we are good.
 			# On to the next app.
-			if app['address'] != start_address:
+			if app.address != start_address:
 				# If they don't, then we need to read the binary out of
 				# flash and save it to be moved, as well as update the address.
 				# However, we may have a new binary to use, so we don't need to
 				# fetch it.
-				if 'binary' not in app:
-					app['binary'] = self.channel.read_range(app['address'], app['header'].fields['total_size'])
+				if not app.has_binary():
+					app.set_binary(self.channel.read_range(app.address, app.get_size()))
 
 				# Either way save the new address.
-				app['address'] = start_address
+				app.set_address(start_address)
 
-			start_address += app['header'].fields['total_size']
+			start_address += app.get_size()
 
 		# Now flash all apps that have a binary field. The presence of the
 		# binary indicates that they are new or moved.
 		end = address
 		for app in apps:
-			if 'binary' in app:
-				self.channel.flash_binary(app['address'], app['binary'])
-			end = app['address'] + app['header'].fields['total_size']
+			if app.has_binary():
+				self.channel.flash_binary(app.address, app.binary)
+			end = app.address + app.get_size()
 
 		# Then erase the next page. This ensures that flash is clean at the
 		# end of the installed apps and makes things nicer for future uses of
@@ -582,15 +582,12 @@ class TockLoader:
 
 			if tbfh.is_valid():
 				# Get the name out of the app
-				name = self._get_app_name(address+tbfh.fields['package_name_offset'], tbfh.fields['package_name_size'])
+				name = self._get_app_name(address+tbfh.get_name_offset(), tbfh.get_name_length())
 
-				apps.append({
-					'address': address,
-					'header': tbfh,
-					'name': name,
-				})
+				app = App(tbfh, address, name)
+				apps.append(app)
 
-				address += tbfh.fields['total_size']
+				address += app.get_size()
 
 			else:
 				break
@@ -602,10 +599,10 @@ class TockLoader:
 	# the headers or anything annoying like that.
 	def _reflash_app_headers (self, apps):
 		for app in apps:
-			if 'binary' in app:
+			if app.has_binary():
 				raise TockLoaderException('App headers should not have binaries! That would imply the app has changed!')
 
-			self.channel.flash_binary(app['address'], app['header'].get_binary(), pad=False)
+			self.channel.flash_binary(app.address, app.get_header_binary(), pad=False)
 
 	# Iterate through the list of TABs and create the app dict for each.
 	def _extract_apps_from_tabs (self, tabs):
@@ -657,30 +654,13 @@ class TockLoader:
 		if not quiet:
 			# Print info about each app
 			for i,app in enumerate(apps):
-				tbfh = app['header']
-				start_address = app['address']
-
 				print('[App {}]'.format(i))
-				print('  Name:                  {}'.format(app['name']))
-				print('  Enabled:               {}'.format(tbfh.is_enabled()))
-				print('  Sticky:                {}'.format(tbfh.is_sticky()))
-				print('  Total Size in Flash:   {} bytes'.format(tbfh.fields['total_size']))
 
 				# Check if this app is OK with the MPU region requirements.
-				if not self._app_is_aligned_correctly(start_address, tbfh.fields['total_size']):
+				if not self._app_is_aligned_correctly(app.address, app.get_size()):
 					print('  [WARNING] App is misaligned for the MPU')
 
-				if verbose:
-					print('  Flash Start Address:   {:#010x}'.format(start_address))
-					print('  Flash End Address:     {:#010x}'.format(start_address+tbfh.fields['total_size']-1))
-					print('  Entry Address:         {:#010x}'.format(start_address+tbfh.fields['entry_offset']))
-					print('  Relocate Data Address: {:#010x} (length: {} bytes)'.format(start_address+tbfh.fields['rel_data_offset'], tbfh.fields['rel_data_size']))
-					print('  Text Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh.fields['text_offset'], tbfh.fields['text_size']))
-					print('  GOT Address:           {:#010x} (length: {} bytes)'.format(start_address+tbfh.fields['got_offset'], tbfh.fields['got_size']))
-					print('  Data Address:          {:#010x} (length: {} bytes)'.format(start_address+tbfh.fields['data_offset'], tbfh.fields['data_size']))
-					print('  Minimum Stack Size:    {} bytes'.format(tbfh.fields['min_stack_len']))
-					print('  Minimum Heap Size:     {} bytes'.format(tbfh.fields['min_app_heap_len']))
-					print('  Minimum Grant Size:    {} bytes'.format(tbfh.fields['min_kernel_heap_len']))
+				print(textwrap.indent(app.info(verbose), '  '))
 				print('')
 
 			if len(apps) == 0:
@@ -690,7 +670,7 @@ class TockLoader:
 			# In quiet mode just show the names.
 			app_names = []
 			for app in apps:
-				app_names.append(app['name'])
+				app_names.append(app.name)
 			print(' '.join(app_names))
 
 	def _print_attributes (self, attributes):
@@ -1415,6 +1395,63 @@ class JLinkExe(BoardInterface):
 
 
 ################################################################################
+## Application Object
+################################################################################
+
+class App:
+	def __init__ (self, tbfh, address, name, binary=None):
+		self.tbfh = tbfh
+		self.address = address
+		self.name = name
+		self.binary = binary
+
+	def is_sticky (self):
+		return self.tbfh.is_sticky()
+
+	# Return the total size (including TBF header) of this app in bytes.
+	def get_size (self):
+		return self.tbfh.get_app_size()
+
+	def get_header_binary (self):
+		return self.tbfh.get_binary()
+
+	def set_binary (self, binary):
+		self.binary = binary
+
+	def set_address (self, address):
+		self.address = address
+
+	def has_binary (self):
+		return self.binary != None
+
+	def info (self, verbose=False):
+		offset = self.address
+		fields = self.tbfh.fields
+
+		out = ''
+		out += 'Name:                  {}\n'.format(self.name)
+		out += 'Enabled:               {}\n'.format(self.tbfh.is_enabled())
+		out += 'Sticky:                {}\n'.format(self.tbfh.is_sticky())
+		out += 'Total Size in Flash:   {} bytes\n'.format(self.get_size())
+
+		if verbose:
+			out += 'Flash Start Address:   {:#010x}\n'.format(offset)
+			out += 'Flash End Address:     {:#010x}\n'.format(offset+self.get_size()-1)
+			out += 'Entry Address:         {:#010x}\n'.format(offset+fields['entry_offset'])
+			out += 'Relocate Data Address: {:#010x} (length: {} bytes)\n'.format(offset+fields['rel_data_offset'], fields['rel_data_size'])
+			out += 'Text Address:          {:#010x} (length: {} bytes)\n'.format(offset+fields['text_offset'], fields['text_size'])
+			out += 'GOT Address:           {:#010x} (length: {} bytes)\n'.format(offset+fields['got_offset'], fields['got_size'])
+			out += 'Data Address:          {:#010x} (length: {} bytes)\n'.format(offset+fields['data_offset'], fields['data_size'])
+			out += 'Minimum Stack Size:    {} bytes\n'.format(fields['min_stack_len'])
+			out += 'Minimum Heap Size:     {} bytes\n'.format(fields['min_app_heap_len'])
+			out += 'Minimum Grant Size:    {} bytes'.format(fields['min_kernel_heap_len'])
+		return out
+
+	def __str__ (self):
+		return self.name
+
+
+################################################################################
 ## Tock Application Bundle Object
 ################################################################################
 
@@ -1434,12 +1471,7 @@ class TAB:
 			end = start+tbfh.fields['package_name_size']
 			name = binary[start:end].decode('utf-8')
 
-			return {
-				'address': None,
-				'header': tbfh,
-				'name': name,
-				'binary': binary,
-			}
+			return App(tbfh, None, name, binary)
 		else:
 			raise TockLoaderException('Invalid TBF found in app in TAB')
 
@@ -1470,7 +1502,7 @@ class TAB:
 
 				# Get the TBF header from a binary in the TAB
 				return TBFHeader(binary)
-		return {}
+		return None
 
 	def __str__ (self):
 		out = ''
@@ -1576,6 +1608,15 @@ class TBFHeader:
 				self.fields['flags'] |= 0x02;
 			else:
 				self.fields['flags'] &= ~0x02;
+
+	def get_app_size (self):
+		return self.fields['total_size']
+
+	def get_name_offset (self):
+		return self.fields['package_name_offset']
+
+	def get_name_length (self):
+		return self.fields['package_name_size']
 
 	# Return a buffer containing the header repacked as a binary buffer
 	def get_binary (self):

@@ -50,6 +50,14 @@ Enable an app so that the kernel will run it at boot.
 
 Disable an app so that the kernel will not start it at boot.
 
+### `tockloader sticky-app [application name(s)]`
+
+Mark an app as sticky so that the `--force` flag is required to uninstall it.
+
+### `tockloader unsticky-app [application name(s)]`
+
+Remove the sticky flag from an app.
+
 ### `tockloader flash`
 
 Load binaries onto hardware platforms that are running a compatible bootloader.

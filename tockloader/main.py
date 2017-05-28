@@ -1760,6 +1760,22 @@ def command_disable_app (args):
 	tock_loader.set_flag(args.name, 'enable', False, args.app_address)
 
 
+def command_sticky_app (args):
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	print('Making apps sticky...')
+	tock_loader.set_flag(args.name, 'sticky', True, args.app_address)
+
+
+def command_unsticky_app (args):
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	print('Making apps no longer sticky...')
+	tock_loader.set_flag(args.name, 'sticky', False, args.app_address)
+
+
 def command_flash (args):
 	check_and_run_make(args)
 
@@ -1957,6 +1973,22 @@ def main ():
 	disableapp.set_defaults(func=command_disable_app)
 	disableapp.add_argument('name',
 		help='The name of the app(s) to disable',
+		nargs='*')
+
+	stickyapp = subparser.add_parser('sticky-app',
+		parents=[parent, parent_apps, parent_jtag],
+		help='Make an app sticky so it is hard to erase')
+	stickyapp.set_defaults(func=command_sticky_app)
+	stickyapp.add_argument('name',
+		help='The name of the app(s) to sticky',
+		nargs='*')
+
+	unstickyapp = subparser.add_parser('unsticky-app',
+		parents=[parent, parent_apps, parent_jtag],
+		help='Make an app unsticky (the normal setting)')
+	unstickyapp.set_defaults(func=command_unsticky_app)
+	unstickyapp.add_argument('name',
+		help='The name of the app(s) to unsticky',
 		nargs='*')
 
 	flash = subparser.add_parser('flash',

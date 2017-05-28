@@ -326,6 +326,43 @@ class TockLoader:
 					self._reshuffle_apps(address, keep_apps)
 
 
+	# Set a flag in the TBF header
+	def set_flag (self, app_names, flag_name, flag_value, address):
+		# Enter bootloader mode to get things started
+		with self._start_communication_with_board():
+
+			# Get a list of installed apps
+			apps = self._extract_all_app_headers(address)
+
+			if len(apps) == 0:
+				raise TockLoaderException('No apps are installed on the board')
+
+			# User did not specify apps. Pick from list.
+			if len(app_names) == 0:
+				print('Which apps to configure?')
+				options = ['** All']
+				options.extend([app['name'] for app in apps])
+				name = menu(options,
+						return_type='value',
+						prompt='Select app to configure ')
+				if name == '** All':
+					app_names = [app['name'] for app in apps]
+				else:
+					app_names = [name]
+
+			# Configure all selected apps
+			changed = False
+			for app in apps:
+				if app['name'] in app_names:
+					app['header'].set_flag(flag_name, flag_value)
+					changed = True
+
+			if changed:
+				self._reflash_app_headers(apps)
+			else:
+				print('No matching apps found. Nothing changed.')
+
+
 	# Download all attributes stored on the board
 	def list_attributes (self):
 		# Enter bootloader mode to get things started
@@ -560,6 +597,16 @@ class TockLoader:
 
 		return apps
 
+	# Take a list of app headers and reflash them to the chip.
+	# This doesn't do a lot of checking, so you better have not re-ordered
+	# the headers or anything annoying like that.
+	def _reflash_app_headers (self, apps):
+		for app in apps:
+			if 'binary' in app:
+				raise TockLoaderException('App headers should not have binaries! That would imply the app has changed!')
+
+			self.channel.flash_binary(app['address'], app['header'].get_binary(), pad=False)
+
 	# Iterate through the list of TABs and create the app dict for each.
 	def _extract_apps_from_tabs (self, tabs):
 		apps = []
@@ -634,7 +681,6 @@ class TockLoader:
 					print('  Minimum Stack Size:    {} bytes'.format(tbfh.fields['min_stack_len']))
 					print('  Minimum Heap Size:     {} bytes'.format(tbfh.fields['min_app_heap_len']))
 					print('  Minimum Grant Size:    {} bytes'.format(tbfh.fields['min_kernel_heap_len']))
-					print('  Checksum:              {:#010x}'.format(tbfh.checksum))
 				print('')
 
 			if len(apps) == 0:
@@ -1011,12 +1057,18 @@ class BootloaderSerial(BoardInterface):
 
 	# Write pages until a binary has been flashed. binary must have a length that
 	# is a multiple of 512.
-	def flash_binary (self, address, binary):
+	def flash_binary (self, address, binary, pad=True):
 		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
 		if len(binary) % 512 != 0:
 			remaining = 512 - (len(binary) % 512)
-			binary += bytes([0xFF]*remaining)
-			print('NOTE: Padding binary with {} 0xFFs.'.format(remaining))
+			if pad:
+				binary += bytes([0xFF]*remaining)
+				print('NOTE: Padding binary with {} 0xFFs.'.format(remaining))
+			else:
+				# Don't pad, actually use the bytes already on the chip
+				missing = self.read_range(address + len(binary), remaining)
+				binary += missing
+				print('NOTE: Padding binary with {} bytes already on chip.'.format(remaining))
 
 		# Loop through the binary 512 bytes at a time until it has been flashed
 		# to the chip.
@@ -1475,34 +1527,17 @@ class TBFHeader:
 
 		if self.version == 1 and len(buffer) >= 76:
 			others = struct.unpack('<I', buffer[72:76])
-			self.checksum = others[0]
+			checksum = others[0]
 
-			xor = self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
-			      ^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \
-			      ^ self.fields['text_size'] ^ self.fields['got_offset'] ^ self.fields['got_size'] \
-			      ^ self.fields['data_offset'] ^ self.fields['data_size'] ^ self.fields['bss_mem_offset'] \
-			      ^ self.fields['bss_mem_size'] ^ self.fields['min_stack_len'] \
-			      ^ self.fields['min_app_heap_len'] ^ self.fields['min_kernel_heap_len'] \
-			      ^ self.fields['package_name_offset'] ^ self.fields['package_name_size']
-
-			if xor == self.checksum:
+			if self._checksum() == checksum:
 				self.valid = True
 
 		elif self.version == 2 and len(buffer) >= 80:
 			others = struct.unpack('<II', buffer[72:80])
 			self.fields['flags'] = others[0]
-			self.checksum = others[1]
+			checksum = others[1]
 
-			xor = self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
-			      ^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \
-			      ^ self.fields['text_size'] ^ self.fields['got_offset'] ^ self.fields['got_size'] \
-			      ^ self.fields['data_offset'] ^ self.fields['data_size'] ^ self.fields['bss_mem_offset'] \
-			      ^ self.fields['bss_mem_size'] ^ self.fields['min_stack_len'] \
-			      ^ self.fields['min_app_heap_len'] ^ self.fields['min_kernel_heap_len'] \
-			      ^ self.fields['package_name_offset'] ^ self.fields['package_name_size'] \
-			      ^ self.fields['flags']
-
-			if xor == self.checksum:
+			if self._checksum() == checksum:
 				self.valid = True
 
 	def is_valid (self):
@@ -1526,6 +1561,63 @@ class TBFHeader:
 		else:
 			return self.fields['flags'] & 0x02 == 0x02
 
+	def set_flag(self, flag_name, flag_value):
+		if self.version == 1 or not self.valid:
+			return
+
+		if flag_name == 'enable':
+			if flag_value:
+				self.fields['flags'] |= 0x01;
+			else:
+				self.fields['flags'] &= ~0x01;
+
+		elif flag_name == 'sticky':
+			if flag_value:
+				self.fields['flags'] |= 0x02;
+			else:
+				self.fields['flags'] &= ~0x02;
+
+	# Return a buffer containing the header repacked as a binary buffer
+	def get_binary (self):
+		buf = struct.pack('<IIIIIIIIIIIIIIIIII',
+			self.version, self.fields['total_size'], self.fields['entry_offset'],
+			self.fields['rel_data_offset'], self.fields['rel_data_size'],
+			self.fields['text_offset'], self.fields['text_size'],
+			self.fields['got_offset'], self.fields['got_size'],
+			self.fields['data_offset'], self.fields['data_size'],
+			self.fields['bss_mem_offset'], self.fields['bss_mem_size'],
+			self.fields['min_stack_len'], self.fields['min_app_heap_len'],
+			self.fields['min_kernel_heap_len'], self.fields['package_name_offset'],
+			self.fields['package_name_size'])
+
+		if self.version == 2:
+			buf += struct.pack('<I', self.fields['flags'])
+
+		buf += struct.pack('<I', self._checksum())
+		return buf
+
+	def _checksum (self):
+		if self.version == 1:
+			return self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
+			      ^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \
+			      ^ self.fields['text_size'] ^ self.fields['got_offset'] ^ self.fields['got_size'] \
+			      ^ self.fields['data_offset'] ^ self.fields['data_size'] ^ self.fields['bss_mem_offset'] \
+			      ^ self.fields['bss_mem_size'] ^ self.fields['min_stack_len'] \
+			      ^ self.fields['min_app_heap_len'] ^ self.fields['min_kernel_heap_len'] \
+			      ^ self.fields['package_name_offset'] ^ self.fields['package_name_size']
+
+		elif self.version == 2:
+			return self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
+			      ^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \
+			      ^ self.fields['text_size'] ^ self.fields['got_offset'] ^ self.fields['got_size'] \
+			      ^ self.fields['data_offset'] ^ self.fields['data_size'] ^ self.fields['bss_mem_offset'] \
+			      ^ self.fields['bss_mem_size'] ^ self.fields['min_stack_len'] \
+			      ^ self.fields['min_app_heap_len'] ^ self.fields['min_kernel_heap_len'] \
+			      ^ self.fields['package_name_offset'] ^ self.fields['package_name_size'] \
+			      ^ self.fields['flags']
+		else:
+			return 0
+
 	def __str__ (self):
 		out = ''
 		out += '{:<19}: {:>8}\n'.format('version', self.version)
@@ -1534,7 +1626,7 @@ class TBFHeader:
 			if k == 'flags':
 				out += '  {:<17}: {:>8}\n'.format('enabled', v & 0x01)
 				out += '  {:<17}: {:>8}\n'.format('sticky', (v & 0x02) >> 1)
-		out += '{:<19}:          {:>#10x}'.format('checksum', self.checksum, self.checksum)
+		out += '{:<19}:          {:>#10x}'.format('checksum', self._checksum(), self._checksum())
 		return out
 
 
@@ -1650,6 +1742,22 @@ def command_erase_apps (args):
 
 	print('Removing apps...')
 	tock_loader.erase_apps(args.app_address, args.force)
+
+
+def command_enable_app (args):
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	print('Enabling apps...')
+	tock_loader.set_flag(args.name, 'enable', True, args.app_address)
+
+
+def command_disable_app (args):
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	print('Disabling apps...')
+	tock_loader.set_flag(args.name, 'enable', False, args.app_address)
 
 
 def command_flash (args):
@@ -1834,6 +1942,22 @@ def main ():
 		parents=[parent, parent_apps, parent_jtag],
 		help='Delete apps from the board')
 	eraseapps.set_defaults(func=command_erase_apps)
+
+	enableapp = subparser.add_parser('enable-app',
+		parents=[parent, parent_apps, parent_jtag],
+		help='Enable an app so the kernel runs it')
+	enableapp.set_defaults(func=command_enable_app)
+	enableapp.add_argument('name',
+		help='The name of the app(s) to enable',
+		nargs='*')
+
+	disableapp = subparser.add_parser('disable-app',
+		parents=[parent, parent_apps, parent_jtag],
+		help='Disable an app so it will not be started')
+	disableapp.set_defaults(func=command_disable_app)
+	disableapp.add_argument('name',
+		help='The name of the app(s) to disable',
+		nargs='*')
 
 	flash = subparser.add_parser('flash',
 		parents=[parent, parent_jtag],

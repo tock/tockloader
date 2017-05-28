@@ -42,6 +42,14 @@ binary.
 
 Remove an application from flash by its name.
 
+### `tockloader enable-app [application name(s)]`
+
+Enable an app so that the kernel will run it at boot.
+
+### `tockloader disable-app [application name(s)]`
+
+Disable an app so that the kernel will not start it at boot.
+
 ### `tockloader flash`
 
 Load binaries onto hardware platforms that are running a compatible bootloader.

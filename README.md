@@ -62,7 +62,7 @@ Remove the sticky flag from an app.
 
 Load binaries onto hardware platforms that are running a compatible bootloader.
 This is used by the [TockOS](https://github.com/helena-project/tock) Make system
-when application binaries are programmed to the board with `make program`.
+when kernel binaries are programmed to the board with `make program`.
 
 ### `tockloader list-attributes`
 

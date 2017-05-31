@@ -98,6 +98,12 @@ the Tockloader package.
     pip3 install tockloader
     ```
 
+Test Locally
+------------
+To test the code locally without installing as a package, from the top-level
+directory:
+
+    python3 -m tockloader.main <COMMANDS>
 
 Upload to PyPI
 --------------

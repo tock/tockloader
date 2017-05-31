@@ -1217,11 +1217,26 @@ class JLinkExe(BoardInterface):
 
 	# Read a specific range of flash.
 	def read_range (self, address, length):
-		commands = [
-			'r',
-			'savebin {{binary}}, {address:#x} {length}'.format(address=address, length=length),
-			'r\ng\nq'
-		]
+
+		commands = []
+		if self.jtag_device == 'cortex-m0':
+			# We are in generic mode, trying to read attributes.
+			# We've found that when connecting to a generic
+			# `cortex-m0` reset commands sometimes fail, however it
+			# seems that reading the binary directly from flash
+			# still works, so do that.
+			commands = [
+				'savebin {{binary}}, {address:#x} {length}'.format(address=address, length=length),
+				'\nq'
+			]
+		else:
+			# We already know the specific jtag device we are
+			# connected to. This means we can reset and run code.
+			commands = [
+				'r',
+				'savebin {{binary}}, {address:#x} {length}'.format(address=address, length=length),
+				'r\ng\nq'
+			]
 
 		# Always return a valid byte array (like the serial version does)
 		read = bytes()

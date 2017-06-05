@@ -854,12 +854,19 @@ class BootloaderSerial(BoardInterface):
 			index = 0
 		elif len(ports) > 1:
 			index = menu(ports, return_type='index')
-		else:
-			if must_match:
+		elif must_match:
+			# pyserial's list_ports can't find all valid serial ports, for
+			# example if someone symlinks to a port or creates a software
+			# serial port with socat, if this path exists, let's trust the
+			# caller for now
+			if os.path.exists(device_name):
+				index = 0
+				ports = [serial.tools.list_ports_common.ListPortInfo(device_name)]
+			else:
 				# We want to find a very specific board. If this does not
 				# exist, we want to fail.
 				raise TockLoaderException('Could not find a board matching "{}"'.format(device_name))
-
+		else:
 			# Just find any port and use the first one
 			ports = list(serial.tools.list_ports.comports())
 			# Mac's will report Bluetooth devices with serial, which is

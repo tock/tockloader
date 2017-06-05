@@ -5,15 +5,19 @@ import atexit
 import binascii
 import contextlib
 import copy
+import fcntl
 import glob
+import hashlib
 import json
 import os
+import socket
 import struct
 import subprocess
 import sys
 import tarfile
 import tempfile
 import textwrap
+import threading
 import time
 
 import argcomplete
@@ -25,7 +29,6 @@ import serial.tools.list_ports
 import serial.tools.miniterm
 
 from ._version import __version__
-
 
 ################################################################################
 ## Niceties and Support
@@ -141,29 +144,9 @@ class TockLoader:
 			self.channel.flash_binary(address, binary)
 
 
-	# Run miniterm for receiving data from the board.
+	# Create an interactive terminal session with the board.
 	def run_terminal (self):
-		print('Listening for serial output.')
-
-		# Use trusty miniterm
-		miniterm = serial.tools.miniterm.Miniterm(
-			self.channel.get_serial_port(),
-			echo=False,
-			eol='crlf',
-			filters=['default'])
-
-		# Ctrl+c to exit.
-		miniterm.exit_character = serial.tools.miniterm.unichr(0x03)
-		miniterm.set_rx_encoding('UTF-8')
-		miniterm.set_tx_encoding('UTF-8')
-
-		miniterm.start()
-		try:
-			miniterm.join(True)
-		except KeyboardInterrupt:
-			pass
-		miniterm.join()
-		miniterm.close()
+		self.channel.run_terminal()
 
 
 	# Query the chip's flash to determine which apps are installed.
@@ -703,11 +686,6 @@ class BoardInterface:
 	def open_link_to_board (self):
 		return
 
-	# Get access to the underlying serial port (if it exists).
-	# This is used for running miniterm.
-	def get_serial_port (self):
-		return
-
 	# Get to a mode where we can read & write flash
 	def enter_bootloader_mode (self):
 		return
@@ -899,10 +877,133 @@ class BootloaderSerial(BoardInterface):
 		# https://github.com/pyserial/pyserial/issues/124#issuecomment-227235402
 		self.sp.dtr = 0
 		self.sp.rts = 0
+
+		# Only one process at a time can talk to a serial port (reliably)
+		# Before connecting, check whether there is another tockloader process
+		# running, if it's a listen, pause listening, otherwise bail out
+		self.comm_path = '/tmp/tockloader.' + self._get_serial_port_hash()
+		if os.path.exists(self.comm_path):
+			self.client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+			try:
+				self.client_sock.connect(self.comm_path)
+			except ConnectionRefusedError:
+				print('  [Warning]: Found stale tockloader server, removing')
+				print('             This may occur if a previous tockloader instance crashed')
+				os.unlink(self.comm_path)
+				self.client_sock = None
+		else:
+			self.client_sock = None
+
+		if self.client_sock:
+			print('     [Info]: Found another tockloader connected to this serial port')
+			self.client_sock.sendall('Version 1\n'.encode('utf-8'))
+			self.client_sock.sendall('Stop Listening\n'.encode('utf-8'))
+			r = ''
+			while '\n' not in r:
+				r += self.client_sock.recv(100).decode('utf-8')
+			if r == 'Busy\n':
+				raise TockLoaderException('Another tockloader process is active on this serial port')
+			elif r == 'Killing\n':
+				def restart_listener(path):
+					sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+					try:
+						sock.connect(path)
+						sock.sendall('Version 1\n'.encode('utf-8'))
+						sock.sendall('Start Listening\n'.encode('utf-8'))
+						sock.close()
+						print("     [Info]: Resumed other tockloader listen session")
+					except:
+						print('  [Warning]: Error restarting other tockloader listen process')
+						print('             You may need to manually begin listening again')
+				atexit.register(restart_listener, self.comm_path)
+				self.client_sock.close()
+				while os.path.exists(self.comm_path):
+					time.sleep(.1)
+				print('     [Info]: Paused an active tockloader listen in another session')
+			else:
+				raise TockLoaderException('Internal error: Got >{}< from IPC'.format(r))
+		else:
+			self.server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+			flags = fcntl.fcntl(self.server_sock, fcntl.F_GETFD)
+			fcntl.fcntl(self.server_sock, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+			self.server_sock.bind(self.comm_path)
+			self.server_sock.listen(1)
+			self.server_event = threading.Event()
+			self.server_thread = threading.Thread(
+					target=self._server_thread,
+					daemon=True,
+					)
+			self.server_thread.start()
+			def server_cleanup():
+				if self.server_sock is not None:
+					self.server_sock.close()
+					os.unlink(self.comm_path)
+			atexit.register(server_cleanup)
+
+			if hasattr(self.args, 'wait_to_listen') and self.args.wait_to_listen:
+				print('     [Info]: Waiting for other tockloader to finish before listening')
+				self.server_event.wait()
+				print('     [Info]: Resuming listening...')
+
 		self.sp.open()
 
-	def get_serial_port (self):
-		return self.sp
+	# While tockloader has a serial connection open, it leaves a unix socket
+	# open for other tockloader processes. For most of the time, this will
+	# simply report 'Busy\n' and new tockloader processes will back off and not
+	# steal the serial port. If miniterm is active, however, this process will
+	# send back 'Killing\n', terminate this process (due to miniterm
+	# architecture, there's no good way to programmatically kill & restart
+	# miniterm threads), and restart this process with --wait-to-listen
+	def _server_thread(self):
+		while True:
+			connection, client_address = self.server_sock.accept()
+			r = ''
+			while '\n' not in r:
+				r += connection.recv(100).decode('utf-8')
+			if r[:len('Version 1\n')] != 'Version 1\n':
+				print('WARN: Got unexpected connection: >{}< ; dropping'.format(r))
+				connection.close()
+				continue
+
+			r = r[len('Version 1\n'):]
+			while '\n' not in r:
+				r += connection.recv(100).decode('utf-8')
+
+			if r == 'Start Listening\n':
+				self.server_event.set()
+				continue
+			if r != 'Stop Listening\n':
+				print('WARN: Got unexpected command: >{}< ; dropping'.format(r))
+				connection.close()
+				continue
+
+			if not hasattr(self, 'miniterm'):
+				# Running something other than listen, reject other tockloader
+				connection.sendall('Busy\n'.encode('utf-8'))
+				connection.close()
+				continue
+
+			# Since there's no great way to kill & restart miniterm, we just
+			# redo the whole process, only tacking on a --wait-to-listen
+			print("     [Info]: Received request to pause from another tockloader process. Disconnecting...")
+			# And let them know we've progressed
+			connection.sendall('Killing\n'.encode('utf-8'))
+			connection.close()
+			self.server_sock.close()
+			os.unlink(self.comm_path)
+			# Need to run miniterm's atexit handler
+			self.miniterm.console.cleanup()
+
+			args = list(sys.argv)
+			args.append('--wait-to-listen')
+			os.execvp(args[0], args)
+
+
+	# Get an identifier that will be consistent for this serial port on this
+	# machine that is also guaranteed to not have any special characters (like
+	# slashes) that would interfere with using as a file name
+	def _get_serial_port_hash (self):
+		return hashlib.sha1(self.sp.port.encode('utf-8')).hexdigest()
 
 	# Reset the chip and assert the bootloader select pin to enter bootloader
 	# mode.
@@ -1237,6 +1338,33 @@ class BootloaderSerial(BoardInterface):
 		# Check that we learned what we needed to learn.
 		if self.board == None or self.arch == None:
 			raise TockLoaderException('Could not determine the current board or arch')
+
+
+	# Run miniterm for receiving data from the board.
+	def run_terminal(self):
+		print('Listening for serial output.')
+
+		# Use trusty miniterm
+		self.miniterm = serial.tools.miniterm.Miniterm(
+			self.sp,
+			echo=False,
+			eol='crlf',
+			filters=['default'])
+
+		# Ctrl+c to exit.
+		self.miniterm.exit_character = serial.tools.miniterm.unichr(0x03)
+		self.miniterm.set_rx_encoding('UTF-8')
+		self.miniterm.set_tx_encoding('UTF-8')
+
+		self.miniterm.start()
+		try:
+			self.miniterm.join(True)
+		except KeyboardInterrupt:
+			pass
+
+		self.miniterm.stop()
+		self.miniterm.join()
+		self.miniterm.close()
 
 
 ############################################################################
@@ -1977,6 +2105,9 @@ def main ():
 	listen = subparser.add_parser('listen',
 		parents=[parent],
 		help='Open a terminal to receive UART data')
+	listen.add_argument('--wait-to-listen',
+		help='Wait until contacted on server socket to actually listen',
+		action='store_true')
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',

@@ -163,7 +163,8 @@ class TockLoader:
 	# Add or update TABs on the board.
 	#
 	# `replace` can be either "yes", "no", or "only"
-	def install (self, tabs, address, replace='yes'):
+	# `erase` if true means erase all other apps before installing
+	def install (self, tabs, address, replace='yes', erase=False):
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -178,6 +179,17 @@ class TockLoader:
 
 			# Whether we actually made a change or not
 			changed = False
+
+			# If we want to erase first, loop through looking for non sticky
+			# apps and remove them from the existing app list.
+			if erase:
+				new_existing_apps = []
+				for existing_app in existing_apps:
+					if existing_app.is_sticky():
+						new_existing_apps.append(existing_app)
+				if len(existing_apps) != len(new_existing_apps):
+					changed = True
+				existing_apps = new_existing_apps
 
 			# Check to see if this app is in there
 			if replace == 'yes' or replace == 'only':
@@ -1905,7 +1917,7 @@ def command_install (args):
 		replace = 'no'
 
 	print('Installing apps on the board...')
-	tock_loader.install(tabs, args.app_address, replace=replace)
+	tock_loader.install(tabs, args.app_address, replace=replace, erase=args.erase)
 
 
 def command_update (args):
@@ -2130,6 +2142,9 @@ def main ():
 		nargs='*')
 	install.add_argument('--no-replace',
 		help='Install apps again even if they are already there',
+		action='store_true')
+	install.add_argument('--erase',
+		help='Erase all existing apps before installing.',
 		action='store_true')
 
 	update = subparser.add_parser('update',

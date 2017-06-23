@@ -20,6 +20,7 @@ def getmarkdown(module):
         output.append(module.__doc__)
 
     output.extend(getclasses(module))
+    output.extend(getfunctions(module))
     return "\n".join((str(x) for x in output))
 
 def getclasses(item, depth=0):
@@ -60,7 +61,7 @@ def getfunctions(item):
 
         # Get the signature
         out.append ('```py\n')
-        out.append('def %s%s\n' % (func[0], pydoc.inspect.formatargspec(*pydoc.inspect.getargspec(func[1]))))
+        out.append('def %s%s\n' % (func[0], pydoc.inspect.formatargspec(*pydoc.inspect.getfullargspec(func[1]))))
         out.append ('```\n')
 
         # get the docstring

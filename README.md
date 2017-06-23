@@ -114,17 +114,27 @@ the Tockloader package.
     pip3 install tockloader
     ```
 
-Test Locally
-------------
+
+Internal Notes
+--------------
+
+### Test Locally
+
 To test the code locally without installing as a package, from the top-level
 directory:
 
     python3 -m tockloader.main <COMMANDS>
 
-Upload to PyPI
---------------
 
-Internal note.
+### Upload to PyPI
 
     python3 setup.py sdist bdist_wheel
     twine upload dist/*
+
+
+### Build Docs
+
+    pip3 install pydoc-markdown
+    sudo python3 setup.py install_lib
+    cd docs
+    pydocmd build

@@ -1,3 +1,10 @@
+'''
+Main Tockloader interface.
+
+All high-level logic is contained here. All board-specific or communication
+channel specific code is in other files.
+'''
+
 import contextlib
 import copy
 import textwrap
@@ -8,11 +15,11 @@ from .bootloader_serial import BootloaderSerial
 from .tbfh import TBFHeader
 from .jlinkexe import JLinkExe
 
-################################################################################
-## Main TockLoader Interface
-################################################################################
-
 class TockLoader:
+	'''
+	Implement all Tockloader commands. All logic for how apps are arranged
+	is contained here.
+	'''
 
 	def __init__ (self, args):
 		self.args = args
@@ -24,32 +31,40 @@ class TockLoader:
 			self.channel = BootloaderSerial(args)
 
 
-	# Open the correct channel to talk to the board.
-	#
-	# For the bootloader, this means opening a serial port.
-	# For JTAG, not much needs to be done.
 	def open (self, args):
+		'''
+		Open the correct channel to talk to the board.
+
+		For the bootloader, this means opening a serial port. For JTAG, not much
+		needs to be done.
+		'''
 		self.channel.open_link_to_board()
 
 
-	# Tell the bootloader to save the binary blob to an address in internal
-	# flash.
-	#
-	# This will pad the binary as needed, so don't worry about the binary being
-	# a certain length.
 	def flash_binary (self, binary, address):
+		'''
+		Tell the bootloader to save the binary blob to an address in internal
+		flash.
+
+		This will pad the binary as needed, so don't worry about the binary
+		being a certain length.
+		'''
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 			self.channel.flash_binary(address, binary)
 
 
-	# Create an interactive terminal session with the board.
 	def run_terminal (self):
+		'''
+		Create an interactive terminal session with the board.
+		'''
 		self.channel.run_terminal()
 
 
-	# Query the chip's flash to determine which apps are installed.
 	def list_apps (self, address, verbose, quiet):
+		'''
+		Query the chip's flash to determine which apps are installed.
+		'''
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -59,11 +74,13 @@ class TockLoader:
 			self._print_apps(apps, verbose, quiet)
 
 
-	# Add or update TABs on the board.
-	#
-	# `replace` can be either "yes", "no", or "only"
-	# `erase` if true means erase all other apps before installing
 	def install (self, tabs, address, replace='yes', erase=False):
+		'''
+		Add or update TABs on the board.
+
+		- `replace` can be either "yes", "no", or "only"
+		- `erase` if true means erase all other apps before installing
+		'''
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -129,8 +146,11 @@ class TockLoader:
 				raise TockLoaderException('Nothing found to update')
 
 
-	# If an app by this name exists, remove it from the chip
 	def uninstall_app (self, app_names, address, force=False):
+		'''
+		If an app by this name exists, remove it from the chip. If no name is
+		given, present the user with a list of apps to remove.
+		'''
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -193,8 +213,11 @@ class TockLoader:
 				raise TockLoaderException('Could not find any apps on the board to remove.')
 
 
-	# Erase flash where apps go
 	def erase_apps (self, address, force=False):
+		'''
+		Erase flash where apps go. All apps are not actually cleared, we just
+		overwrite the header of the first app.
+		'''
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -220,8 +243,10 @@ class TockLoader:
 					self._reshuffle_apps(address, keep_apps)
 
 
-	# Set a flag in the TBF header
 	def set_flag (self, app_names, flag_name, flag_value, address):
+		'''
+		Set a flag in the TBF header.
+		'''
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -257,8 +282,10 @@ class TockLoader:
 				print('No matching apps found. Nothing changed.')
 
 
-	# Download all attributes stored on the board
 	def list_attributes (self):
+		'''
+		Download all attributes stored on the board.
+		'''
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -268,8 +295,10 @@ class TockLoader:
 			self._print_attributes(self.channel.get_all_attributes())
 
 
-	# Download all attributes stored on the board
 	def set_attribute (self, key, value):
+		'''
+		Download all attributes stored on the board.
+		'''
 		# Do some checking
 		if len(key.encode('utf-8')) > 8:
 			raise TockLoaderException('Key is too long. Must be 8 bytes or fewer.')
@@ -313,8 +342,10 @@ class TockLoader:
 					self.channel.set_attribute(open_index, out)
 
 
-	# Remove an existing attribute already stored on the board
 	def remove_attribute (self, key):
+		'''
+		Remove an existing attribute already stored on the board.
+		'''
 		# Do some checking
 		if len(key.encode('utf-8')) > 8:
 			raise TockLoaderException('Key is too long. Must be 8 bytes or fewer.')
@@ -338,8 +369,10 @@ class TockLoader:
 				raise TockLoaderException('Error: Attribute does not exist.')
 
 
-	# Print all info about this board.
 	def info (self, app_address):
+		'''
+		Print all info about this board.
+		'''
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
@@ -367,15 +400,16 @@ class TockLoader:
 	## Internal Helper Functions for Communicating with Boards
 	############################################################################
 
-	# Based on the transport method used, there may be some setup required
-	# to connect to the board. This function runs the setup needed to connect
-	# to the board. It also times the operation.
-	#
-	# For the bootloader, the board needs to be reset and told to enter the
-	# bootloader mode.
-	# For JTAG, this is unnecessary.
 	@contextlib.contextmanager
 	def _start_communication_with_board (self):
+		'''
+		Based on the transport method used, there may be some setup required
+		to connect to the board. This function runs the setup needed to connect
+		to the board. It also times the operation.
+
+		For the bootloader, the board needs to be reset and told to enter the
+		bootloader mode. For JTAG, this is unnecessary.
+		'''
 		# Time the operation
 		then = time.time()
 		try:
@@ -395,9 +429,11 @@ class TockLoader:
 		finally:
 			self.channel.exit_bootloader_mode()
 
-	# Check if a bootloader exists on this board. It is specified by the
-	# string "TOCKBOOTLOADER" being at address 0x400.
 	def _bootloader_is_present (self):
+		'''
+		Check if a bootloader exists on this board. It is specified by the
+		string "TOCKBOOTLOADER" being at address 0x400.
+		'''
 		# Check to see if the channel already knows this. For example,
 		# if you are connected via a serial link to the bootloader,
 		# then obviously the bootloader is present.
@@ -420,9 +456,11 @@ class TockLoader:
 	## Helper Functions for Manipulating Binaries and TBF
 	############################################################################
 
-	# Given an array of apps, some of which are new and some of which exist,
-	# sort them in flash so they are in descending size order.
 	def _reshuffle_apps(self, address, apps):
+		'''
+		Given an array of apps, some of which are new and some of which exist,
+		sort them in flash so they are in descending size order.
+		'''
 		# We are given an array of apps. First we need to order them by size.
 		apps.sort(key=lambda app: app.get_size(), reverse=True)
 
@@ -457,9 +495,11 @@ class TockLoader:
 		# this script.
 		self.channel.erase_page(end)
 
-	# Iterate through the flash on the board for
-	# the header information about each app.
 	def _extract_all_app_headers (self, address):
+		'''
+		Iterate through the flash on the board for the header information about
+		each app.
+		'''
 		apps = []
 
 		# Jump through the linked list of apps
@@ -488,18 +528,22 @@ class TockLoader:
 
 		return apps
 
-	# Take a list of app headers and reflash them to the chip.
-	# This doesn't do a lot of checking, so you better have not re-ordered
-	# the headers or anything annoying like that.
 	def _reflash_app_headers (self, apps):
+		'''
+		Take a list of app headers and reflash them to the chip. This doesn't do
+		a lot of checking, so you better have not re-ordered the headers or
+		anything annoying like that.
+		'''
 		for app in apps:
 			if app.has_binary():
 				raise TockLoaderException('App headers should not have binaries! That would imply the app has changed!')
 
 			self.channel.flash_binary(app.address, app.get_header_binary(), pad=False)
 
-	# Iterate through the list of TABs and create the app dict for each.
 	def _extract_apps_from_tabs (self, tabs):
+		'''
+		Iterate through the list of TABs and create the app dict for each.
+		'''
 		apps = []
 
 		# This is the architecture we need for the board
@@ -514,16 +558,20 @@ class TockLoader:
 
 		return apps
 
-	# Retrieve bytes from the board and interpret them as a string
 	def _get_app_name (self, address, length):
+		'''
+		Retrieve bytes from the board and interpret them as a string
+		'''
 		if length == 0:
 			return ''
 
 		name_memory = self.channel.read_range(address, length)
 		return name_memory.decode('utf-8')
 
-	# Check if putting an app at this address will be OK with the MPU.
 	def _app_is_aligned_correctly (self, address, size):
+		'''
+		Check if putting an app at this address will be OK with the MPU.
+		'''
 		# The rule for the MPU is that the size of the protected region must be
 		# a power of two, and that the region is aligned on a multiple of that
 		# size.
@@ -543,8 +591,10 @@ class TockLoader:
 	## Printing helper functions
 	############################################################################
 
-	# Print information about a list of apps
 	def _print_apps (self, apps, verbose, quiet):
+		'''
+		Print information about a list of apps
+		'''
 		if not quiet:
 			# Print info about each app
 			for i,app in enumerate(apps):
@@ -568,6 +618,9 @@ class TockLoader:
 			print(' '.join(app_names))
 
 	def _print_attributes (self, attributes):
+		'''
+		Print the list of attributes in the bootloader.
+		'''
 		for index, attribute in enumerate(attributes):
 			if attribute:
 				print('{:02d}: {:>8} = {}'.format(index, attribute['key'], attribute['value']))

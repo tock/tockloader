@@ -11,10 +11,17 @@ from .tbfh import TBFHeader
 ################################################################################
 
 class TAB:
-	def __init__ (self, tab_name):
-		self.tab = tarfile.open(tab_name)
+	'''
+	Tock Application Bundle object. This class handles the TAB format.
+	'''
+	def __init__ (self, tab_path):
+		self.tab = tarfile.open(tab_path)
 
 	def extract_app (self, arch):
+		'''
+		Return an `App` object from this TAB. You must specify the desired
+		MCU architecture so the correct binary can be retrieved.
+		'''
 		binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
 		binary = self.tab.extractfile(binary_tarinfo).read()
 
@@ -31,6 +38,9 @@ class TAB:
 			raise TockLoaderException('Invalid TBF found in app in TAB')
 
 	def is_compatible_with_board (self, board):
+		'''
+		Check if the Tock app is compatible with a particular Tock board.
+		'''
 		metadata = self.parse_metadata()
 		if metadata['tab-version'] == 1:
 			return 'only-for-boards' not in metadata or \
@@ -40,15 +50,26 @@ class TAB:
 			raise TockLoaderException('Unable to understand version {} of metadata'.format(metadata['tab-version']))
 
 	def parse_metadata (self):
+		'''
+		Open and parse the included metadata file in the TAB.
+		'''
 		metadata_tarinfo = self.tab.getmember('metadata.toml')
 		metadata_str = self.tab.extractfile(metadata_tarinfo).read().decode('utf-8')
 		return pytoml.loads(metadata_str)
 
 	def get_supported_architectures (self):
+		'''
+		Return a list of architectures that this TAB has compiled binaries for.
+		'''
 		contained_files = self.tab.getnames()
 		return [i[:-4] for i in contained_files if i[-4:] == '.bin']
 
 	def get_tbf_header (self):
+		'''
+		Return a TBFHeader object with the TBF header from the app in the TAB.
+		TBF headers are not architecture specific, so we pull from a random
+		binary if there are multiple architectures supported.
+		'''
 		# Find a .bin file
 		for f in self.tab.getnames():
 			if f[-4:] == '.bin':

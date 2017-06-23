@@ -1,3 +1,16 @@
+'''
+Interface for boards using Seggger's JLinkExe program.
+
+All communication with the board is done using JLinkExe commands and scripts.
+
+Different MCUs require different command line arguments so that the JLinkExe
+tool knows which JTAG interface it is talking to. Since we don't want to burden
+the user with specifying the board each time, we default to using a generic
+cortex-m0 target, and use that to read the bootloader attributes to get the
+correct version. Once we know more about the board we are talking to we use the
+correct command line argument for future communication.
+'''
+
 import subprocess
 import tempfile
 
@@ -9,13 +22,14 @@ from .exceptions import TockLoaderException
 ############################################################################
 
 class JLinkExe(BoardInterface):
-
-	# commands: List of JLinkExe commands. Use {binary} for where the name of
-	#           the binary file should be substituted.
-	# binary:   A bytes() object that will be used to write to the board.
-	# write:    Set to true if the command writes binaries to the board.
-	#           Set to false if the command will read bits from the board.
 	def _run_jtag_commands (self, commands, binary, write=True):
+		'''
+		- `commands`: List of JLinkExe commands. Use {binary} for where the name
+		  of the binary file should be substituted.
+		- `binary`: A bytes() object that will be used to write to the board.
+		- `write`: Set to true if the command writes binaries to the board. Set
+		  to false if the command will read bits from the board.
+		'''
 		delete = True
 		if self.args.debug:
 			delete = False
@@ -70,8 +84,10 @@ class JLinkExe(BoardInterface):
 				temp_bin.seek(0, 0)
 				return temp_bin.read()
 
-	# Write using JTAG
 	def flash_binary (self, address, binary):
+		'''
+		Write using JTAG
+		'''
 		commands = [
 			'r',
 			'loadbin {{binary}}, {address:#x}'.format(address=address),
@@ -81,7 +97,6 @@ class JLinkExe(BoardInterface):
 
 		self._run_jtag_commands(commands, binary)
 
-	# Read a specific range of flash.
 	def read_range (self, address, length):
 
 		commands = []
@@ -116,7 +131,6 @@ class JLinkExe(BoardInterface):
 
 		return read
 
-	# Read a specific range of flash.
 	def erase_page (self, address):
 		binary = bytes([0xFF]*512)
 		commands = [
@@ -128,7 +142,6 @@ class JLinkExe(BoardInterface):
 
 		self._run_jtag_commands(commands, binary)
 
-	# Get a single attribute.
 	def get_attribute (self, index):
 		address = 0x600 + (64 * index)
 		attribute_raw = self.read_range(address, 64)
@@ -143,7 +156,6 @@ class JLinkExe(BoardInterface):
 		raw = self.read_range(0x600, 64*16)
 		return [self._decode_attribute(r) for r in chunks(raw, 64)]
 
-	# Set a single attribute.
 	def set_attribute (self, index, raw):
 		address = 0x600 + (64 * index)
 		self.flash_binary(address, raw)
@@ -159,8 +171,6 @@ class JLinkExe(BoardInterface):
 	def get_serial_port (self):
 		raise TockLoaderException('No serial port for JLinkExe comm channel')
 
-	# Figure out which board we are connected to. Most likely done by
-	# reading the attributes.
 	def determine_current_board (self):
 		if self.board and self.arch and self.jtag_device:
 			# These are already set! Yay we are done.

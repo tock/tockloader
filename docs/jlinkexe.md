@@ -1,5 +1,17 @@
 # Package tockloader.jlinkexe Documentation
 
+
+Interface for boards using Seggger's JLinkExe program.
+
+All communication with the board is done using JLinkExe commands and scripts.
+
+Different MCUs require different command line arguments so that the JLinkExe
+tool knows which JTAG interface it is talking to. Since we don't want to burden
+the user with specifying the board each time, we default to using a generic
+cortex-m0 target, and use that to read the bootloader attributes to get the
+correct version. Once we know more about the board we are talking to we use the
+correct command line argument for future communication.
+
 ## Class JLinkExe
 Base class for interacting with hardware boards. All of the class functions
 should be overridden to support a new method of interacting with a board.
@@ -86,7 +98,7 @@ def flash_binary(self, address, binary)
 
 
 
-Write a binary to the address given.
+Write using JTAG
 
 
 ### get\_all\_attributes
@@ -211,6 +223,13 @@ def _run_jtag_commands(self, commands, binary, write=True)
 
 ```
 
+
+
+- `commands`: List of JLinkExe commands. Use {binary} for where the name
+  of the binary file should be substituted.
+- `binary`: A bytes() object that will be used to write to the board.
+- `write`: Set to true if the command writes binaries to the board. Set
+  to false if the command will read bits from the board.
 
 
 

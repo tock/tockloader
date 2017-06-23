@@ -1,10 +1,10 @@
 import struct
 
-################################################################################
-## Tock Binary Format Header
-################################################################################
-
 class TBFHeader:
+	'''
+	Tock Binary Format header class. This can parse TBF encoded headers and
+	return various properties of the application.
+	'''
 	def __init__ (self, buffer):
 		self.valid = False
 		self.fields = {}
@@ -55,9 +55,16 @@ class TBFHeader:
 				self.valid = True
 
 	def is_valid (self):
+		'''
+		Whether the CRC and other checks passed for this header.
+		'''
 		return self.valid
 
 	def is_enabled (self):
+		'''
+		Whether the application is marked as enabled. Enabled apps start when
+		the board boots, and disabled ones do not.
+		'''
 		if not self.valid:
 			return False
 		elif self.version == 1:
@@ -67,6 +74,10 @@ class TBFHeader:
 			return self.fields['flags'] & 0x01 == 0x01
 
 	def is_sticky (self):
+		'''
+		Whether the app is marked sticky and won't be erase during normal app
+		erases.
+		'''
 		if not self.valid:
 			return False
 		elif self.version == 1:
@@ -76,6 +87,11 @@ class TBFHeader:
 			return self.fields['flags'] & 0x02 == 0x02
 
 	def set_flag(self, flag_name, flag_value):
+		'''
+		Set a flag in the TBF header.
+
+		Valid flag names: `enable`, `sticky`
+		'''
 		if self.version == 1 or not self.valid:
 			return
 
@@ -92,16 +108,28 @@ class TBFHeader:
 				self.fields['flags'] &= ~0x02;
 
 	def get_app_size (self):
+		'''
+		Get the total size the app takes in bytes in the flash of the chip.
+		'''
 		return self.fields['total_size']
 
 	def get_name_offset (self):
+		'''
+		Get the offset in the application binary where the application name is.
+		'''
 		return self.fields['package_name_offset']
 
 	def get_name_length (self):
+		'''
+		Get the number of bytes for the application name.
+		'''
 		return self.fields['package_name_size']
 
 	# Return a buffer containing the header repacked as a binary buffer
 	def get_binary (self):
+		'''
+		Get the TBF header in a bytes array.
+		'''
 		buf = struct.pack('<IIIIIIIIIIIIIIIIII',
 			self.version, self.fields['total_size'], self.fields['entry_offset'],
 			self.fields['rel_data_offset'], self.fields['rel_data_size'],
@@ -120,6 +148,9 @@ class TBFHeader:
 		return buf
 
 	def _checksum (self):
+		'''
+		Calculate the TBF header checksum.
+		'''
 		if self.version == 1:
 			return self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
 			      ^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \

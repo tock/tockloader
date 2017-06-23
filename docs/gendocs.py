@@ -85,14 +85,14 @@ def generatedocs(module, filename):
     except pydoc.ErrorDuringImport as e:
         print("Error while trying to import " + module)
 
-if __name__ == '__main__':
-    generatedocs('tockloader.main', 'main.md')
-    generatedocs('tockloader.tockloader', 'tockloader.md')
-    generatedocs('tockloader.board_interface', 'board_interface.md')
-    generatedocs('tockloader.bootloader_serial', 'bootloader_serial.md')
-    generatedocs('tockloader.jlinkexe', 'jlinkexe.md')
-    generatedocs('tockloader.app', 'app.md')
-    generatedocs('tockloader.tab', 'tab.md')
-    generatedocs('tockloader.tbfh', 'tbfh.md')
-    generatedocs('tockloader.exceptions', 'exceptions.md')
-    generatedocs('tockloader.helpers', 'helpers.md')
+# if __name__ == '__main__':
+generatedocs('tockloader.main', 'main.md')
+generatedocs('tockloader.tockloader', 'tockloader.md')
+generatedocs('tockloader.board_interface', 'board_interface.md')
+generatedocs('tockloader.bootloader_serial', 'bootloader_serial.md')
+generatedocs('tockloader.jlinkexe', 'jlinkexe.md')
+generatedocs('tockloader.app', 'app.md')
+generatedocs('tockloader.tab', 'tab.md')
+generatedocs('tockloader.tbfh', 'tbfh.md')
+generatedocs('tockloader.exceptions', 'exceptions.md')
+generatedocs('tockloader.helpers', 'helpers.md')

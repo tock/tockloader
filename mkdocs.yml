@@ -1,0 +1,15 @@
+site_name: Tockloader
+theme: readthedocs
+pages:
+- Home: 'index.md'
+- API Documentation:
+  - Main: main.md
+  - Tockloader: tockloader.md
+  - Board Interface: board_interface.md
+  - Bootloader Serial: bootloader_serial.md
+  - JLinkExe: jlinkexe.md
+  - App: app.md
+  - TAB: tab.md
+  - TBF Header: tbfh.md
+  - Exceptions: exceptions.md
+  - Helpers: helpers.md

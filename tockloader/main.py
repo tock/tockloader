@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+'''
+### Main command line interface for Tockloader.
+
+Each `tockloader` command is mapped to a function which calls the correct
+tockloader class function. This file also handles discovering and reading in TAB
+files.
+'''
+
 import argparse
 import atexit
 import binascii
@@ -18,12 +26,11 @@ from .tab import TAB
 from .tockloader import TockLoader
 from ._version import __version__
 
-################################################################################
-## Command Functions
-################################################################################
-
-# Checks for a Makefile, and it it exists runs `make`.
 def check_and_run_make (args):
+	'''
+	Checks for a Makefile, and it it exists runs `make`.
+	'''
+
 	if args.make:
 		if os.path.isfile('./Makefile'):
 			print('Running `make`...')
@@ -33,9 +40,12 @@ def check_and_run_make (args):
 				print('Error running make.')
 				sys.exit(1)
 
-# Load in Tock Application Bundle (TAB) files. If none are specified, this
-# searches for them in subfolders.
 def collect_tabs (args, wait=True):
+	'''
+	Load in Tock Application Bundle (TAB) files. If none are specified, this
+	searches for them in subfolders.
+	'''
+
 	tab_names = args.tab
 
 	# Check if any tab files were specified. If not, find them based
@@ -238,6 +248,10 @@ def command_inspect_tab (args):
 ################################################################################
 
 def main ():
+	'''
+	Read in command line arguments and call the correct command function.
+	'''
+
 	# Cleanup any title the program may set
 	atexit.register(helpers.set_terminal_title, '')
 

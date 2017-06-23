@@ -1,3 +1,7 @@
+'''
+Various helper functions that tockloader uses. Mostly for interacting with
+users in a nice way.
+'''
 
 import colorama
 
@@ -5,6 +9,9 @@ def set_terminal_title(title):
 	print(colorama.ansi.set_title(title))
 
 def set_terminal_title_from_port_info(info):
+	'''
+	Set a terminal title from a `pyserial` object.
+	'''
 	extras = ['Tockloader']
 	if info.manufacturer and info.manufacturer != 'n/a':
 		extras.append(info.manufacturer)
@@ -22,6 +29,9 @@ def set_terminal_title_from_port_info(info):
 	set_terminal_title(title)
 
 def set_terminal_title_from_port(port):
+	'''
+	Set the title of the user's terminal for Tockloader.
+	'''
 	set_terminal_title('Tockloader : ' + port)
 
 def menu(options, *,
@@ -29,7 +39,8 @@ def menu(options, *,
 		default_index=0,
 		prompt='Which option? '
 		):
-	'''Present a menu of choices to a user
+	'''
+	Present a menu of choices to a user
 
 	`options` should be a like-list object whose iterated objects can be coerced
 	into strings.

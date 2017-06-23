@@ -923,7 +923,7 @@ class BootloaderSerial(BoardInterface):
 						sock.sendall('Version 1\n'.encode('utf-8'))
 						sock.sendall('Start Listening\n'.encode('utf-8'))
 						sock.close()
-						print("     [Info]: Resumed other tockloader listen session")
+						print('     [Info]: Resumed other tockloader listen session')
 					except:
 						print('  [Warning]: Error restarting other tockloader listen process')
 						print('             You may need to manually begin listening again')
@@ -997,7 +997,7 @@ class BootloaderSerial(BoardInterface):
 
 			# Since there's no great way to kill & restart miniterm, we just
 			# redo the whole process, only tacking on a --wait-to-listen
-			print("     [Info]: Received request to pause from another tockloader process. Disconnecting...")
+			print('     [Info]: Received request to pause from another tockloader process. Disconnecting...')
 			# And let them know we've progressed
 			connection.sendall('Killing\n'.encode('utf-8'))
 			connection.close()

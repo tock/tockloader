@@ -134,7 +134,8 @@ directory:
 
 ### Build Docs
 
-    pip3 install pydoc-markdown
-    sudo python3 setup.py install_lib
+    pip3 install mkdocs
     cd docs
-    pydocmd build
+    ./generate_docs.py
+    cd ..
+    mkdocs serve --dev-addr=0.0.0.0:8001

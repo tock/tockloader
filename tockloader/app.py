@@ -1,10 +1,9 @@
-################################################################################
-## Application Object
-#
-# Representation of a Tock app stored on a board.
-################################################################################
 
 class App:
+	'''
+	Representation of a Tock app stored on a board. YES
+	'''
+
 	def __init__ (self, tbfh, address, name, binary=None):
 		self.tbfh = tbfh
 		self.address = address

@@ -1,3 +1,8 @@
+'''
+Interface with a board over serial that is using the
+[Tock Bootloader](https://github.com/helena-project/tock-bootloader).
+'''
+
 import atexit
 import crcmod
 import fcntl
@@ -18,11 +23,10 @@ from . import helpers
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
 
-################################################################################
-## Bootloader Specific Functions
-################################################################################
-
 class BootloaderSerial(BoardInterface):
+	'''
+	Implementation of `BoardInterface` for the Tock Bootloader over serial.
+	'''
 
 	# "This was chosen as it is infrequent in .bin files" - immesys
 	ESCAPE_CHAR = 0xFC
@@ -72,8 +76,13 @@ class BootloaderSerial(BoardInterface):
 	# Tell the bootloader to reset its buffer to handle a new command.
 	SYNC_MESSAGE = bytes([0x00, 0xFC, 0x05])
 
-	# Open the serial port to the chip/bootloader
 	def open_link_to_board (self):
+		'''
+		Open the serial port to the chip/bootloader.
+
+		Also sets up a local port for determining when two Tockloader instances
+		are running simultaneously.
+		'''
 		# Check to see if the serial port was specified or we should find
 		# one to use
 		if self.args.port == None:
@@ -260,16 +269,19 @@ class BootloaderSerial(BoardInterface):
 			args.append('--wait-to-listen')
 			os.execvp(args[0], args)
 
-
-	# Get an identifier that will be consistent for this serial port on this
-	# machine that is also guaranteed to not have any special characters (like
-	# slashes) that would interfere with using as a file name
 	def _get_serial_port_hash (self):
+		'''
+		Get an identifier that will be consistent for this serial port on this
+		machine that is also guaranteed to not have any special characters (like
+		slashes) that would interfere with using as a file name.
+		'''
 		return hashlib.sha1(self.sp.port.encode('utf-8')).hexdigest()
 
-	# Reset the chip and assert the bootloader select pin to enter bootloader
-	# mode.
 	def _toggle_bootloader_entry (self):
+		'''
+		Reset the chip and assert the bootloader select pin to enter bootloader
+		mode.
+		'''
 		# Reset the SAM4L
 		self.sp.dtr = 1
 		# Set RTS to make the SAM4L go into bootloader mode
@@ -283,9 +295,11 @@ class BootloaderSerial(BoardInterface):
 		# The select line can go back high
 		self.sp.rts = 0
 
-	# Reset the chip and assert the bootloader select pin to enter bootloader
-	# mode.
 	def enter_bootloader_mode (self):
+		'''
+		Reset the chip and assert the bootloader select pin to enter bootloader
+		mode. Handle retries if necessary.
+		'''
 		self._toggle_bootloader_entry()
 
 		# Make sure the bootloader is actually active and we can talk to it.
@@ -314,8 +328,10 @@ class BootloaderSerial(BoardInterface):
 		# Speculatively try to get a faster baud rate.
 		self._change_baud_rate(self.args.baud_rate)
 
-	# Reset the chip to exit bootloader mode
 	def exit_bootloader_mode (self):
+		'''
+		Reset the chip to exit bootloader mode.
+		'''
 		if self.args.jtag:
 			return
 
@@ -328,8 +344,10 @@ class BootloaderSerial(BoardInterface):
 		# Let the SAM4L startup
 		self.sp.dtr = 0
 
-	# Throws an exception if the device does not respond with a PONG
 	def _ping_bootloader_and_wait_for_response (self):
+		'''
+		Throws an exception if the device does not respond with a PONG.
+		'''
 		for i in range(30):
 			# Try to ping the SAM4L to ensure it is in bootloader mode
 			ping_pkt = bytes([self.ESCAPE_CHAR, self.COMMAND_PING])
@@ -343,8 +361,10 @@ class BootloaderSerial(BoardInterface):
 				return
 		raise TockLoaderException('No PONG received')
 
-	# Setup a command to send to the bootloader and handle the response.
 	def _issue_command (self, command, message, sync, response_len, response_code, show_errors=True):
+		'''
+		Setup a command to send to the bootloader and handle the response.
+		'''
 		if sync:
 			self.sp.write(self.SYNC_MESSAGE)
 			time.sleep(0.0001)
@@ -387,9 +407,11 @@ class BootloaderSerial(BoardInterface):
 
 		return (True, ret[2:])
 
-	# If the bootloader on the board supports it and if it succeeds, try
-	# to increase the baud rate to make everything faster.
 	def _change_baud_rate (self, baud_rate):
+		'''
+		If the bootloader on the board supports it and if it succeeds, try to
+		increase the baud rate to make everything faster.
+		'''
 		pkt = struct.pack('<BI', 0x01, baud_rate)
 		success, ret = self._issue_command(self.COMMAND_CHANGE_BAUD_RATE, pkt, True, 0, self.RESPONSE_OK, show_errors=False)
 
@@ -405,9 +427,11 @@ class BootloaderSerial(BoardInterface):
 				# Something went wrong. Go back to old baud rate
 				self.sp.baudrate = 115200
 
-	# Write pages until a binary has been flashed. binary must have a length that
-	# is a multiple of 512.
 	def flash_binary (self, address, binary, pad=True):
+		'''
+		Write pages until a binary has been flashed. binary must have a length
+		that is a multiple of 512.
+		'''
 		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
 		if len(binary) % 512 != 0:
 			remaining = 512 - (len(binary) % 512)
@@ -447,7 +471,6 @@ class BootloaderSerial(BoardInterface):
 		# And check the CRC
 		self._check_crc(address, binary)
 
-	# Read a specific range of flash.
 	def read_range (self, address, length):
 		# Can only read up to 4095 bytes at a time.
 		MAX_READ = 4095
@@ -474,7 +497,6 @@ class BootloaderSerial(BoardInterface):
 
 		return read
 
-	# Erase a specific page.
 	def erase_page (self, address):
 		message = struct.pack('<I', address)
 		success, ret = self._issue_command(self.COMMAND_ERASE_PAGE, message, True, 0, self.RESPONSE_OK)
@@ -489,8 +511,10 @@ class BootloaderSerial(BoardInterface):
 			else:
 				raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
 
-	# Get the bootloader to compute a CRC
 	def _get_crc_internal_flash (self, address, length):
+		'''
+		Get the bootloader to compute a CRC.
+		'''
 		message = struct.pack('<II', address, length)
 		success, crc = self._issue_command(self.COMMAND_CRC_INTERNAL_FLASH, message, True, 4, self.RESPONSE_CRC_INTERNAL_FLASH)
 
@@ -509,8 +533,11 @@ class BootloaderSerial(BoardInterface):
 
 		return crc
 
-	# Compares the CRC of the local binary to the one calculated by the bootloader
 	def _check_crc (self, address, binary):
+		'''
+		Compares the CRC of the local binary to the one calculated by the
+		bootloader.
+		'''
 		# Check the CRC
 		crc_data = self._get_crc_internal_flash(address, len(binary))
 
@@ -526,7 +553,6 @@ class BootloaderSerial(BoardInterface):
 		else:
 			print('CRC check passed. Binaries successfully loaded.')
 
-	# Get a single attribute.
 	def get_attribute (self, index):
 		message = struct.pack('<B', index)
 		success, ret = self._issue_command(self.COMMAND_GET_ATTRIBUTE, message, True, 64, self.RESPONSE_GET_ATTRIBUTE)
@@ -546,7 +572,6 @@ class BootloaderSerial(BoardInterface):
 			attributes.append(self.get_attribute(index))
 		return attributes
 
-	# Set a single attribute.
 	def set_attribute (self, index, raw):
 		message = struct.pack('<B', index) + raw
 		success, ret = self._issue_command(self.COMMAND_SET_ATTRIBUTE, message, True, 0, self.RESPONSE_OK)
@@ -561,9 +586,11 @@ class BootloaderSerial(BoardInterface):
 			else:
 				raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
 
-	# For this communication protocol we can safely say the bootloader is
-	# present.
 	def bootloader_is_present (self):
+		'''
+		For this communication protocol we can safely say the bootloader is
+		present.
+		'''
 		return True
 
 	def get_bootloader_version (self):
@@ -582,8 +609,6 @@ class BootloaderSerial(BoardInterface):
 			# In this case we don't know what the version is.
 			return None
 
-	# Figure out which board we are connected to. Most likely done by
-	# reading the attributes.
 	def determine_current_board (self):
 		if self.board and self.arch:
 			# These are already set! Yay we are done.
@@ -602,8 +627,10 @@ class BootloaderSerial(BoardInterface):
 			raise TockLoaderException('Could not determine the current board or arch')
 
 
-	# Run miniterm for receiving data from the board.
 	def run_terminal(self):
+		'''
+		Run miniterm for receiving data from the board.
+		'''
 		print('Listening for serial output.')
 
 		# Use trusty miniterm

@@ -907,7 +907,6 @@ class BootloaderSerial(BoardInterface):
 			self.client_sock = None
 
 		if self.client_sock:
-			print('     [Info]: Found another tockloader connected to this serial port')
 			self.client_sock.sendall('Version 1\n'.encode('utf-8'))
 			self.client_sock.sendall('Stop Listening\n'.encode('utf-8'))
 			r = ''

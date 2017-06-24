@@ -10,6 +10,7 @@ import copy
 import textwrap
 import time
 
+from . import helpers
 from .app import App
 from .bootloader_serial import BootloaderSerial
 from .tbfh import TBFHeader
@@ -169,7 +170,7 @@ class TockLoader:
 					print('There are multiple apps currently on the board:')
 					options = ['** Delete all']
 					options.extend([app.name for app in apps])
-					name = menu(options,
+					name = helpers.menu(options,
 							return_type='value',
 							prompt='Select app to uninstall ')
 					if name == '** Delete all':
@@ -261,7 +262,7 @@ class TockLoader:
 				print('Which apps to configure?')
 				options = ['** All']
 				options.extend([app.name for app in apps])
-				name = menu(options,
+				name = helpers.menu(options,
 						return_type='value',
 						prompt='Select app to configure ')
 				if name == '** All':

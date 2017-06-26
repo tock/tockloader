@@ -18,72 +18,113 @@ register-python-argcomplete tockloader >> ~/.bashrc
 Usage
 -----
 
-This tool installs a binary called `tockloader`, which supports several commands:
+This tool installs a binary called `tockloader`, which supports several commands.
 
-### `tockloader listen`
+### Primary Commands
 
-Listen to UART `printf()` data from a board.
+These are the main commands for managing apps on a board.
 
-### `tockloader list`
-
-Print information about the apps currently loaded onto the board.
-
-### `tockloader install`
+#### `tockloader install`
 
 Load Tock applications on to the board. Use `--no-replace` to install
 multiple copies of the same app.
 
-### `tockloader update`
+#### `tockloader update`
 
 Update an application that is already flashed to the board with a new
 binary.
 
-### `tockloader uninstall [application name(s)]`
+#### `tockloader uninstall [application name(s)]`
 
 Remove an application from flash by its name.
 
-### `tockloader enable-app [application name(s)]`
 
-Enable an app so that the kernel will run it at boot.
+### Board Inspection Commands
 
-### `tockloader disable-app [application name(s)]`
+These query the board for its current state.
 
-Disable an app so that the kernel will not start it at boot.
+#### `tockloader list`
 
-### `tockloader sticky-app [application name(s)]`
+Print information about the apps currently loaded onto the board.
 
-Mark an app as sticky so that the `--force` flag is required to uninstall it.
+#### `tockloader info`
 
-### `tockloader unsticky-app [application name(s)]`
+Show all properties of the board.
 
-Remove the sticky flag from an app.
 
-### `tockloader flash`
+### Utility Commands
+
+These provide other helpful features.
+
+#### `tockloader listen`
+
+Listen to UART `printf()` data from a board.
+
+
+### Other Commands
+
+These provide more internal functionality.
+
+#### `tockloader flash`
 
 Load binaries onto hardware platforms that are running a compatible bootloader.
 This is used by the [TockOS](https://github.com/helena-project/tock) Make system
 when kernel binaries are programmed to the board with `make program`.
 
-### `tockloader list-attributes`
+#### `tockloader inspect-tab`
+
+Show details about a compiled TAB file.
+
+#### `tockloader enable-app [application name(s)]`
+
+Enable an app so that the kernel will run it at boot.
+
+#### `tockloader disable-app [application name(s)]`
+
+Disable an app so that the kernel will not start it at boot.
+
+#### `tockloader sticky-app [application name(s)]`
+
+Mark an app as sticky so that the `--force` flag is required to uninstall it.
+
+#### `tockloader unsticky-app [application name(s)]`
+
+Remove the sticky flag from an app.
+
+#### `tockloader list-attributes`
 
 Show all of the attributes that are stored on the board.
 
-### `tockloader set-attribute [attribute key] [attribute value]`
+#### `tockloader set-attribute [attribute key] [attribute value]`
 
 Set a particular attribute key to the specified value. This will overwrite
 an existing attribute if the key matches.
 
-### `tockloader remove-attribute [attribute key]`
+#### `tockloader remove-attribute [attribute key]`
 
 Remove a particular attribute from the board.
 
-### `tockloader info`
 
-Show all properties of the board.
+Specifying the Board
+--------------------
 
-### `tockloader inspect-tab`
+For tockloader to know how to interface with a particular hardware board, it
+typically reads attributes from the bootloader to identify properties of the
+board. If those are unavailable, they can be specified as command line
+arguments.
 
-Show details about a compiled TAB file.
+    tockloader [command] --arch [arch] --board [board]
+
+- `arch`: The architecture of the board. Likely `cortex-m0` or `cortex-m4`.
+- `board`: The name of the board. This helps prevent incompatible applications
+  from being flashed on the wrong board.
+
+Tockloader also supports a JTAG interface using JLinkExe. JLinkExe requires
+knowing the device type of the MCU on the board.
+
+    tockloader [command] --jtag --arch [arch] --board [board] --jtag-device [device]
+
+- `device`: The JLinkExe device identifier.
 
 
 Features

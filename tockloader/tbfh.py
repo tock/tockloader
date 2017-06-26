@@ -86,7 +86,7 @@ class TBFHeader:
 		else:
 			return self.fields['flags'] & 0x02 == 0x02
 
-	def set_flag(self, flag_name, flag_value):
+	def set_flag (self, flag_name, flag_value):
 		'''
 		Set a flag in the TBF header.
 

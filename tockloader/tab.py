@@ -6,10 +6,6 @@ import pytoml
 from .app import App
 from .tbfh import TBFHeader
 
-################################################################################
-## Tock Application Bundle Object
-################################################################################
-
 class TAB:
 	'''
 	Tock Application Bundle object. This class handles the TAB format.

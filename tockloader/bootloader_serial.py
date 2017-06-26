@@ -225,7 +225,7 @@ class BootloaderSerial(BoardInterface):
 	# send back 'Killing\n', terminate this process (due to miniterm
 	# architecture, there's no good way to programmatically kill & restart
 	# miniterm threads), and restart this process with --wait-to-listen
-	def _server_thread(self):
+	def _server_thread (self):
 		while True:
 			connection, client_address = self.server_sock.accept()
 			r = ''

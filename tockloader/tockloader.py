@@ -457,7 +457,7 @@ class TockLoader:
 	## Helper Functions for Manipulating Binaries and TBF
 	############################################################################
 
-	def _reshuffle_apps(self, address, apps):
+	def _reshuffle_apps (self, address, apps):
 		'''
 		Given an array of apps, some of which are new and some of which exist,
 		sort them in flash so they are in descending size order.

@@ -5,10 +5,10 @@ users in a nice way.
 
 import colorama
 
-def set_terminal_title(title):
+def set_terminal_title (title):
 	print(colorama.ansi.set_title(title))
 
-def set_terminal_title_from_port_info(info):
+def set_terminal_title_from_port_info (info):
 	'''
 	Set a terminal title from a `pyserial` object.
 	'''
@@ -28,17 +28,13 @@ def set_terminal_title_from_port_info(info):
 
 	set_terminal_title(title)
 
-def set_terminal_title_from_port(port):
+def set_terminal_title_from_port (port):
 	'''
 	Set the title of the user's terminal for Tockloader.
 	'''
-	set_terminal_title('Tockloader : ' + port)
+	set_terminal_title('Tockloader : {}'.format(port))
 
-def menu(options, *,
-		return_type,
-		default_index=0,
-		prompt='Which option? '
-		):
+def menu (options, *, return_type, default_index=0, prompt='Which option? '):
 	'''
 	Present a menu of choices to a user
 

@@ -17,10 +17,6 @@ import tempfile
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
 
-############################################################################
-## JTAG Specific Functions
-############################################################################
-
 class JLinkExe(BoardInterface):
 	def _run_jtag_commands (self, commands, binary, write=True):
 		'''

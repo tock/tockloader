@@ -127,6 +127,27 @@ knowing the device type of the MCU on the board.
 - `device`: The JLinkExe device identifier.
 
 
+Example Usage
+-------------
+
+Install an app, make sure it's up to date, and make sure it's the only app on
+the board:
+
+    tockloader install --make --erase
+
+Get all info from the board that can be used to help debugging:
+
+    tockloader info
+
+Print additionally debugging information. This can be helpful when using JTAG.
+
+    tockloader install --debug
+
+Get `printf()` data from a board:
+
+    tockloader listen
+
+
 Features
 --------
 

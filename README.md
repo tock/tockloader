@@ -104,6 +104,10 @@ an existing attribute if the key matches.
 
 Remove a particular attribute from the board.
 
+#### `tockloader dump-flash-page [page number]`
+
+Show the contents of a page of flash.
+
 
 Specifying the Board
 --------------------

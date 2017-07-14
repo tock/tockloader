@@ -41,6 +41,15 @@ def command_disable_app(args)
 
 
 
+### command\_dump\_flash\_page
+```py
+
+def command_dump_flash_page(args)
+
+```
+
+
+
 ### command\_enable\_app
 ```py
 

@@ -21,6 +21,18 @@ def __init__(self, args)
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### dump\_flash\_page
+```py
+
+def dump_flash_page(self, page_num)
+
+```
+
+
+
+Print one page of flash contents.
+
+
 ### erase\_apps
 ```py
 

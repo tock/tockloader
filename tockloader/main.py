@@ -243,6 +243,13 @@ def command_inspect_tab (args):
 		print('')
 
 
+def command_dump_flash_page (args):
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	print('Getting page of flash...')
+	tock_loader.dump_flash_page(args.page)
+
 ################################################################################
 ## Setup and parse command line arguments
 ################################################################################
@@ -447,6 +454,14 @@ def main ():
 	inspect_tab.add_argument('tab',
 		help='The TAB or TABs to inspect',
 		nargs='*')
+
+	dump_flash_page = subparser.add_parser('dump-flash-page',
+		parents=[parent, parent_jtag],
+		help='Read a page of flash from the board')
+	dump_flash_page.set_defaults(func=command_dump_flash_page)
+	dump_flash_page.add_argument('page',
+		help='The number of the page to read',
+		type=int)
 
 	argcomplete.autocomplete(parser)
 	args = parser.parse_args()

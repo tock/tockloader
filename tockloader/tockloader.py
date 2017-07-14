@@ -5,8 +5,10 @@ All high-level logic is contained here. All board-specific or communication
 channel specific code is in other files.
 '''
 
+import binascii
 import contextlib
 import copy
+import string
 import textwrap
 import time
 
@@ -396,6 +398,34 @@ class TockLoader:
 				print('Bootloader version: {}'.format(version))
 			else:
 				print('No bootloader.')
+
+
+	def dump_flash_page (self, page_num):
+		'''
+		Print one page of flash contents.
+		'''
+		with self._start_communication_with_board():
+			address = 512 * page_num
+			print('Page number: {} ({:#08x})'.format(page_num, address))
+
+			flash = self.channel.read_range(address, 512)
+
+			def chunks(l, n):
+				for i in range(0, len(l), n):
+					yield l[i:i + n]
+
+			def dump_line (addr, bytes):
+				k = binascii.hexlify(bytes).decode('utf-8')
+				b = ' '.join(list(chunks(k, 2)))
+				if len(b) >= 26:
+					# add middle space
+					b = '{} {}'.format(b[0:24], b[24:])
+				printable = string.ascii_letters + string.digits + string.punctuation + ' '
+				t = ''.join([chr(i) if chr(i) in printable else '.' for i in bytes])
+				print('{:08x}  {}  |{}|'.format(addr, b, t))
+
+			for i,chunk in enumerate(chunks(flash, 16)):
+				dump_line(address+(i*16), chunk)
 
 	############################################################################
 	## Internal Helper Functions for Communicating with Boards

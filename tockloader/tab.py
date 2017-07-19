@@ -4,6 +4,7 @@ import textwrap
 import pytoml
 
 from .app import App
+from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 
 class TAB:
@@ -25,9 +26,13 @@ class TAB:
 		tbfh = TBFHeader(binary)
 
 		if tbfh.is_valid():
-			start = tbfh.fields['package_name_offset']
-			end = start+tbfh.fields['package_name_size']
-			name = binary[start:end].decode('utf-8')
+			name_or_params = tbfh.get_app_name()
+			if isinstance(name_or_params, str):
+				name = name_or_params
+			else:
+				start = name_or_params[0]
+				end = start+name_or_params[1]
+				name = binary[start:end].decode('utf-8')
 
 			return App(tbfh, None, name, binary)
 		else:

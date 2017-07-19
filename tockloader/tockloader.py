@@ -535,7 +535,7 @@ class TockLoader:
 
 		# Jump through the linked list of apps
 		while (True):
-			header_length = 80 # Version 2
+			header_length = 100 # Version 2
 			flash = self.channel.read_range(address, header_length)
 
 			# if there was an error, the binary array will be empty
@@ -546,8 +546,12 @@ class TockLoader:
 			tbfh = TBFHeader(flash)
 
 			if tbfh.is_valid():
-				# Get the name out of the app
-				name = self._get_app_name(address+tbfh.get_name_offset(), tbfh.get_name_length())
+				# Get the name out of the app.
+				name_or_params = tbfh.get_app_name()
+				if isinstance(name_or_params, str):
+					name = name_or_params
+				else:
+					name = self._get_app_name(address+name_or_params[0], name_or_params[1])
 
 				app = App(tbfh, address, name)
 				apps.append(app)

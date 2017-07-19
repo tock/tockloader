@@ -295,10 +295,14 @@ class TBFHeader:
 		if hasattr(self, 'writeable_flash_regions'):
 			for i, wfr in enumerate(self.writeable_flash_regions):
 				out += 'writeable flash region {}\n'.format(i)
-				out += '  {:<20}: {:>8} {:>#10x}\n'.format('offset', wfr[0], wfr[0])
-				out += '  {:<20}: {:>8} {:>#10x}\n'.format('length', wfr[1], wfr[1])
+				out += '  {:<20}: {:>8} {:>#12x}\n'.format('offset', wfr[0], wfr[0])
+				out += '  {:<20}: {:>8} {:>#12x}\n'.format('length', wfr[1], wfr[1])
 		for k,v in sorted(self.fields.items()):
-			out += '{:<22}: {:>8} {:>#10x}\n'.format(k, v, v)
+			if k == 'checksum':
+				out += '{:<22}:          {:>#12x}\n'.format(k, v)
+			else:
+				out += '{:<22}: {:>8} {:>#12x}\n'.format(k, v, v)
+
 			if k == 'flags':
 				out += '  {:<20}: {:>8}\n'.format('enabled', (v >> 0) & 0x01)
 				out += '  {:<20}: {:>8}\n'.format('sticky', (v >> 1) & 0x01)

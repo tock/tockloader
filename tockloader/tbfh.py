@@ -51,7 +51,7 @@ class TBFHeader:
 			self.fields['checksum'] = base[17]
 			self.is_app = True
 
-			if self._checksum() == self.fields['checksum']:
+			if checksum == self.fields['checksum']:
 				self.valid = True
 
 		elif self.version == 2 and len(buffer) >= 14:
@@ -68,6 +68,7 @@ class TBFHeader:
 				nbuf[:] = full_buffer[0:self.fields['header_size']]
 				struct.pack_into('<I', nbuf, 12, 0)
 				checksum = self._checksum(nbuf)
+				print("checksum {:#x}".format(checksum))
 
 				remaining = self.fields['header_size'] - 16
 
@@ -126,8 +127,8 @@ class TBFHeader:
 						remaining -= length
 
 
-					# if checksum == self.fields['checksum']:
-					self.valid = True
+					if checksum == self.fields['checksum']:
+						self.valid = True
 
 				else:
 					# This is just padding and not an app.
@@ -266,7 +267,6 @@ class TBFHeader:
 		'''
 		Calculate the TBF header checksum.
 		'''
-
 		# Add 0s to the end to make sure that we are multiple of 4.
 		padding = len(buffer) % 4
 		if padding != 0:
@@ -279,35 +279,6 @@ class TBFHeader:
 			checksum ^= struct.unpack('<I', buffer[i:i+4])[0]
 
 		return checksum
-
-		# if self.version == 1:
-			# return self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
-			# 	^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \
-			# 	^ self.fields['text_size'] ^ self.fields['got_offset'] ^ self.fields['got_size'] \
-			# 	^ self.fields['data_offset'] ^ self.fields['data_size'] ^ self.fields['bss_mem_offset'] \
-			# 	^ self.fields['bss_mem_size'] ^ self.fields['min_stack_len'] \
-			# 	^ self.fields['min_app_heap_len'] ^ self.fields['min_kernel_heap_len'] \
-			# 	^ self.fields['package_name_offset'] ^ self.fields['package_name_size']
-
-		# elif self.version == 2:
-		# 	checksum = self.version ^ self.fields['total_size'] ^ self.fields['flags']
-		# 	# if self.is_app:
-		# 	# 	checksum ^= self.fields['init_fn_offset'] ^ self.fields['protected_size'] \
-		# 	# 		^ self.fields['minimum_ram_size'] ^ self.fields['number_writeable_flash_regions']
-		# 	# 	if self.fields['number_writeable_flash_regions'] > 0:
-		# 	# 		for wfr in self.writeable_flash_regions:
-		# 	# 			checksum ^= wfr[0] ^ wfr[1]
-		# 	# 	if (self.fields['flags'] >> 3) & 0x07 == 0x01:
-		# 	# 		checksum ^= self.fields['text_offset'] ^ self.fields['data_offset'] \
-		# 	# 			^ self.fields['data_size'] ^ self.fields['bss_memory_offset'] \
-		# 	# 			^ self.fields['bss_size'] ^ self.fields['relocation_data_offset'] \
-		# 	# 			^ self.fields['relocation_data_size'] ^ self.fields['got_offset'] \
-		# 	# 			^ self.fields['got_size'] ^ self.fields['minimum_stack_length']
-		# 	# 	checksum ^= self.fields['package_name_size']
-		# 	return checksum
-
-		# else:
-		# 	return 0
 
 	def __str__ (self):
 		out = ''

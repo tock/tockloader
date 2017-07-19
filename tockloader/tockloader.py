@@ -15,6 +15,7 @@ import time
 from . import helpers
 from .app import App
 from .bootloader_serial import BootloaderSerial
+from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 from .jlinkexe import JLinkExe
 

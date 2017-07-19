@@ -68,7 +68,6 @@ class TBFHeader:
 				nbuf[:] = full_buffer[0:self.fields['header_size']]
 				struct.pack_into('<I', nbuf, 12, 0)
 				checksum = self._checksum(nbuf)
-				print("checksum {:#x}".format(checksum))
 
 				remaining = self.fields['header_size'] - 16
 

@@ -1,3 +1,4 @@
+import textwrap
 
 class App:
 	'''
@@ -62,16 +63,7 @@ class App:
 		out += 'Total Size in Flash:   {} bytes\n'.format(self.get_size())
 
 		if verbose:
-			out += 'Flash Start Address:   {:#010x}\n'.format(offset)
-			out += 'Flash End Address:     {:#010x}\n'.format(offset+self.get_size()-1)
-			out += 'Entry Address:         {:#010x}\n'.format(offset+fields['entry_offset'])
-			out += 'Relocate Data Address: {:#010x} (length: {} bytes)\n'.format(offset+fields['rel_data_offset'], fields['rel_data_size'])
-			out += 'Text Address:          {:#010x} (length: {} bytes)\n'.format(offset+fields['text_offset'], fields['text_size'])
-			out += 'GOT Address:           {:#010x} (length: {} bytes)\n'.format(offset+fields['got_offset'], fields['got_size'])
-			out += 'Data Address:          {:#010x} (length: {} bytes)\n'.format(offset+fields['data_offset'], fields['data_size'])
-			out += 'Minimum Stack Size:    {} bytes\n'.format(fields['min_stack_len'])
-			out += 'Minimum Heap Size:     {} bytes\n'.format(fields['min_app_heap_len'])
-			out += 'Minimum Grant Size:    {} bytes'.format(fields['min_kernel_heap_len'])
+			out += textwrap.indent(str(self.tbfh), '  ')
 		return out
 
 	def __str__ (self):

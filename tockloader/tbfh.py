@@ -155,7 +155,7 @@ class TBFHeader:
 			# Version 1 apps don't have this bit so they are just always enabled
 			return True
 		else:
-			return self.fields['flags'] & 0x02 == 0x02
+			return self.fields['flags'] & 0x01 == 0x01
 
 	def is_sticky (self):
 		'''
@@ -168,7 +168,7 @@ class TBFHeader:
 			# No sticky bit in version 1, so they are not sticky
 			return False
 		else:
-			return self.fields['flags'] & 0x04 == 0x04
+			return self.fields['flags'] & 0x02 == 0x02
 
 	def set_flag (self, flag_name, flag_value):
 		'''
@@ -181,15 +181,15 @@ class TBFHeader:
 
 		if flag_name == 'enable':
 			if flag_value:
-				self.fields['flags'] |= 0x02;
+				self.fields['flags'] |= 0x01;
 			else:
-				self.fields['flags'] &= ~0x02;
+				self.fields['flags'] &= ~0x01;
 
 		elif flag_name == 'sticky':
 			if flag_value:
-				self.fields['flags'] |= 0x04;
+				self.fields['flags'] |= 0x02;
 			else:
-				self.fields['flags'] &= ~0x04;
+				self.fields['flags'] &= ~0x02;
 
 	def get_app_size (self):
 		'''
@@ -256,6 +256,10 @@ class TBFHeader:
 					encoded_name = self.package_name.encode('utf-8')
 					buf += struct.pack('<HH', self.HEADER_TYPE_PACKAGE_NAME, len(encoded_name))
 					buf += encoded_name
+
+			nbuf = bytearray(len(buf))
+			nbuf[:] = buf
+			buf = nbuf
 
 			checksum = self._checksum(buf)
 			struct.pack_into('<I', buf, 12, checksum)

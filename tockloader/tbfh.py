@@ -16,8 +16,10 @@ class TBFHeader:
 		self.is_app = False
 		self.fields = {}
 
+		full_buffer = buffer;
+
 		# Need at least a version number
-		if len(buffer) < 4:
+		if len(buffer) < 2:
 			return
 
 		# Get the version number
@@ -25,6 +27,7 @@ class TBFHeader:
 		buffer = buffer[2:]
 
 		if self.version == 1 and len(buffer) >= 74:
+			checksum = self._checksum(full_buffer[0:72])
 			buffer = buffer[2:]
 			base = struct.unpack('<IIIIIIIIIIIIIIIIII', buffer[0:72])
 			buffer = buffer[72:]
@@ -59,119 +62,77 @@ class TBFHeader:
 			self.fields['flags'] = base[2]
 			self.fields['checksum'] = base[3]
 
-			remaining = self.fields['header_size'] - 16
+			if len(full_buffer) >= self.fields['header_size']:
+				# Zero out checksum for checksum calculation.
+				nbuf = bytearray(self.fields['header_size'])
+				nbuf[:] = full_buffer[0:self.fields['header_size']]
+				struct.pack_into('<I', nbuf, 12, 0)
+				checksum = self._checksum(nbuf)
 
-			# Now check to see if this is an app or padding.
-			if remaining > 0 and len(buffer) >= remaining:
-				# This is an application. That means we need more parsing.
-				self.is_app = True
+				remaining = self.fields['header_size'] - 16
 
-				while remaining >= 4:
-					base = struct.unpack('<HH', buffer[0:4])
-					buffer = buffer[4:]
-					tipe = base[0]
-					length = base[1]
+				# Now check to see if this is an app or padding.
+				if remaining > 0 and len(buffer) >= remaining:
+					# This is an application. That means we need more parsing.
+					self.is_app = True
 
-					remaining -= 4
+					while remaining >= 4:
+						base = struct.unpack('<HH', buffer[0:4])
+						buffer = buffer[4:]
+						tipe = base[0]
+						length = base[1]
 
-					if tipe == self.HEADER_TYPE_MAIN:
-						if remaining >= 12 and length == 12:
-							base = struct.unpack('<III', buffer[0:12])
-							buffer = buffer[12:]
-							self.fields['init_fn_offset'] = base[0]
-							self.fields['protected_size'] = base[1]
-							self.fields['minimum_ram_size'] = base[2]
+						remaining -= 4
 
-					elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
-						if remaining >= length:
-							self.writeable_flash_regions = []
-							for i in length / 8:
-								base = struct.unpack('<II', buffer[0:8])
-								buffer = buffer[8:]
-								# Add offset,length.
-								self.writeable_flash_regions.append((base[0], base[1]))
+						if tipe == self.HEADER_TYPE_MAIN:
+							if remaining >= 12 and length == 12:
+								base = struct.unpack('<III', buffer[0:12])
+								buffer = buffer[12:]
+								self.fields['init_fn_offset'] = base[0]
+								self.fields['protected_size'] = base[1]
+								self.fields['minimum_ram_size'] = base[2]
 
-					elif tipe == self.HEADER_TYPE_PACKAGE_NAME:
-						if remaining >= length:
-							self.package_name = buffer[0:length].decode('utf-8')
-							buffer = buffer[length:]
+						elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
+							if remaining >= length:
+								self.writeable_flash_regions = []
+								for i in length / 8:
+									base = struct.unpack('<II', buffer[0:8])
+									buffer = buffer[8:]
+									# Add offset,length.
+									self.writeable_flash_regions.append((base[0], base[1]))
 
-					elif tipe == self.HEADER_TYPE_PIC_OPTION_1:
-						if remaining >= 40 and length == 40:
-							base = struct.unpack('<IIIIIIIIII', buffer[0:40])
-							buffer = buffer[40:]
-							self.fields['text_offset'] = base[0]
-							self.fields['data_offset'] = base[1]
-							self.fields['data_size'] = base[2]
-							self.fields['bss_memory_offset'] = base[3]
-							self.fields['bss_size'] = base[4]
-							self.fields['relocation_data_offset'] = base[5]
-							self.fields['relocation_data_size'] = base[6]
-							self.fields['got_offset'] = base[7]
-							self.fields['got_size'] = base[8]
-							self.fields['minimum_stack_length'] = base[9]
+						elif tipe == self.HEADER_TYPE_PACKAGE_NAME:
+							if remaining >= length:
+								self.package_name = buffer[0:length].decode('utf-8')
+								buffer = buffer[length:]
 
-							self.pic_strategy = 'C Style'
+						elif tipe == self.HEADER_TYPE_PIC_OPTION_1:
+							if remaining >= 40 and length == 40:
+								base = struct.unpack('<IIIIIIIIII', buffer[0:40])
+								buffer = buffer[40:]
+								self.fields['text_offset'] = base[0]
+								self.fields['data_offset'] = base[1]
+								self.fields['data_size'] = base[2]
+								self.fields['bss_memory_offset'] = base[3]
+								self.fields['bss_size'] = base[4]
+								self.fields['relocation_data_offset'] = base[5]
+								self.fields['relocation_data_size'] = base[6]
+								self.fields['got_offset'] = base[7]
+								self.fields['got_size'] = base[8]
+								self.fields['minimum_stack_length'] = base[9]
 
-					remaining -= length
+								self.pic_strategy = 'C Style'
 
-
-				# if self._checksum() == self.fields['checksum']:
-				self.valid = True
+						remaining -= length
 
 
-				# if len(buffer) >= 16:
-				# 	base = struct.unpack('<IIII', buffer[0:16])
-				# 	buffer = buffer[16:]
-				# 	self.fields['init_fn_offset'] = base[0]
-				# 	self.fields['protected_size'] = base[1]
-				# 	self.fields['minimum_ram_size'] = base[2]
-				# 	self.fields['number_writeable_flash_regions'] = base[3]
-
-				# 	# Extract any writeable flash regions specified.
-				# 	self.writeable_flash_regions = []
-				# 	if self.fields['number_writeable_flash_regions'] > 0:
-				# 		if len(buffer) >= self.fields['number_writeable_flash_regions']*8:
-				# 			for i in self.fields['number_writeable_flash_regions']:
-				# 				base = struct.unpack('<II', buffer[0:8])
-				# 				buffer = buffer[8:]
-				# 				# Add offset,length.
-				# 				self.writeable_flash_regions.append((base[0], base[1]))
-
-				# 	# Check if there are PIC fields.
-				# 	if (self.fields['flags'] >> 3) & 0x07 == 0x01 and len(buffer) >= 40:
-				# 		base = struct.unpack('<IIIIIIIIII', buffer[0:40])
-				# 		buffer = buffer[40:]
-				# 		self.fields['text_offset'] = base[0]
-				# 		self.fields['data_offset'] = base[1]
-				# 		self.fields['data_size'] = base[2]
-				# 		self.fields['bss_memory_offset'] = base[3]
-				# 		self.fields['bss_size'] = base[4]
-				# 		self.fields['relocation_data_offset'] = base[5]
-				# 		self.fields['relocation_data_size'] = base[6]
-				# 		self.fields['got_offset'] = base[7]
-				# 		self.fields['got_size'] = base[8]
-				# 		self.fields['minimum_stack_length'] = base[9]
-
-				# 	# Now get the package name.
-				# 	if len(buffer) >= 4:
-				# 		base = struct.unpack('<I', buffer[0:4])
-				# 		buffer = buffer[4:]
-				# 		self.fields['package_name_size'] = base[0]
-
-				# 		if len(buffer) >= self.fields['package_name_size']:
-				# 			self.package_name = buffer[0:self.fields['package_name_size']].decode('utf-8')
-
-				# 		# And check the checksum. We do this here because
-				# 		# we don't want the checksum to match if the buffer
-				# 		# isn't long enough.
-				# 		if self._checksum() == self.fields['checksum']:
-				# 			self.valid = True
-
-			else:
-				# This is just padding and not an app.
-				if self._checksum() == self.fields['checksum']:
+					# if checksum == self.fields['checksum']:
 					self.valid = True
+
+				else:
+					# This is just padding and not an app.
+					if checksum == self.fields['checksum']:
+						self.valid = True
 
 		else:
 			# Unknown version.
@@ -263,12 +224,14 @@ class TBFHeader:
 				self.fields['bss_mem_offset'], self.fields['bss_mem_size'],
 				self.fields['min_stack_len'], self.fields['min_app_heap_len'],
 				self.fields['min_kernel_heap_len'], self.fields['package_name_offset'],
-				self.fields['package_name_size'], self._checksum())
+				self.fields['package_name_size'])
+			checksum = self._checksum(buf)
+			buf += struct.pack('<I', checksum)
 
 		elif self.version == 2:
 			buf = struct.pack('<HHIII',
 				self.version, self.fields['header_size'], self.fields['total_size'],
-				self.fields['flags'], self._checksum())
+				self.fields['flags'], 0)
 			if self.is_app:
 				buf += struct.pack('<HHIII',
 					self.HEADER_TYPE_MAIN, 12,
@@ -294,60 +257,75 @@ class TBFHeader:
 					buf += struct.pack('<HH', self.HEADER_TYPE_PACKAGE_NAME, len(encoded_name))
 					buf += encoded_name
 
+			checksum = self._checksum(buf)
+			struct.pack_into('<I', buf, 12, checksum)
+
 		return buf
 
-	def _checksum (self):
+	def _checksum (self, buffer):
 		'''
 		Calculate the TBF header checksum.
 		'''
-		if self.version == 1:
-			return self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
-				^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \
-				^ self.fields['text_size'] ^ self.fields['got_offset'] ^ self.fields['got_size'] \
-				^ self.fields['data_offset'] ^ self.fields['data_size'] ^ self.fields['bss_mem_offset'] \
-				^ self.fields['bss_mem_size'] ^ self.fields['min_stack_len'] \
-				^ self.fields['min_app_heap_len'] ^ self.fields['min_kernel_heap_len'] \
-				^ self.fields['package_name_offset'] ^ self.fields['package_name_size']
 
-		elif self.version == 2:
-			checksum = self.version ^ self.fields['total_size'] ^ self.fields['flags']
-			# if self.is_app:
-			# 	checksum ^= self.fields['init_fn_offset'] ^ self.fields['protected_size'] \
-			# 		^ self.fields['minimum_ram_size'] ^ self.fields['number_writeable_flash_regions']
-			# 	if self.fields['number_writeable_flash_regions'] > 0:
-			# 		for wfr in self.writeable_flash_regions:
-			# 			checksum ^= wfr[0] ^ wfr[1]
-			# 	if (self.fields['flags'] >> 3) & 0x07 == 0x01:
-			# 		checksum ^= self.fields['text_offset'] ^ self.fields['data_offset'] \
-			# 			^ self.fields['data_size'] ^ self.fields['bss_memory_offset'] \
-			# 			^ self.fields['bss_size'] ^ self.fields['relocation_data_offset'] \
-			# 			^ self.fields['relocation_data_size'] ^ self.fields['got_offset'] \
-			# 			^ self.fields['got_size'] ^ self.fields['minimum_stack_length']
-			# 	checksum ^= self.fields['package_name_size']
-			return checksum
+		# Add 0s to the end to make sure that we are multiple of 4.
+		padding = len(buffer) % 4
+		if padding != 0:
+			padding = 4 - padding
+			buffer += bytes([0]*padding)
 
-		else:
-			return 0
+		# Loop throw
+		checksum = 0
+		for i in range(0, len(buffer), 4):
+			checksum ^= struct.unpack('<I', buffer[i:i+4])[0]
+
+		return checksum
+
+		# if self.version == 1:
+			# return self.version ^ self.fields['total_size'] ^ self.fields['entry_offset'] \
+			# 	^ self.fields['rel_data_offset'] ^ self.fields['rel_data_size'] ^ self.fields['text_offset'] \
+			# 	^ self.fields['text_size'] ^ self.fields['got_offset'] ^ self.fields['got_size'] \
+			# 	^ self.fields['data_offset'] ^ self.fields['data_size'] ^ self.fields['bss_mem_offset'] \
+			# 	^ self.fields['bss_mem_size'] ^ self.fields['min_stack_len'] \
+			# 	^ self.fields['min_app_heap_len'] ^ self.fields['min_kernel_heap_len'] \
+			# 	^ self.fields['package_name_offset'] ^ self.fields['package_name_size']
+
+		# elif self.version == 2:
+		# 	checksum = self.version ^ self.fields['total_size'] ^ self.fields['flags']
+		# 	# if self.is_app:
+		# 	# 	checksum ^= self.fields['init_fn_offset'] ^ self.fields['protected_size'] \
+		# 	# 		^ self.fields['minimum_ram_size'] ^ self.fields['number_writeable_flash_regions']
+		# 	# 	if self.fields['number_writeable_flash_regions'] > 0:
+		# 	# 		for wfr in self.writeable_flash_regions:
+		# 	# 			checksum ^= wfr[0] ^ wfr[1]
+		# 	# 	if (self.fields['flags'] >> 3) & 0x07 == 0x01:
+		# 	# 		checksum ^= self.fields['text_offset'] ^ self.fields['data_offset'] \
+		# 	# 			^ self.fields['data_size'] ^ self.fields['bss_memory_offset'] \
+		# 	# 			^ self.fields['bss_size'] ^ self.fields['relocation_data_offset'] \
+		# 	# 			^ self.fields['relocation_data_size'] ^ self.fields['got_offset'] \
+		# 	# 			^ self.fields['got_size'] ^ self.fields['minimum_stack_length']
+		# 	# 	checksum ^= self.fields['package_name_size']
+		# 	return checksum
+
+		# else:
+		# 	return 0
 
 	def __str__ (self):
 		out = ''
 		if not self.valid:
 			out += 'INVALID!\n'
 		if hasattr(self, 'package_name'):
-			out += '{:<30}: {}\n'.format('package_name', self.package_name)
+			out += '{:<22}: {}\n'.format('package_name', self.package_name)
 		if hasattr(self, 'pic_strategy'):
-			out += '{:<30}: {}\n'.format('PIC', self.pic_strategy)
-		out += '{:<30}: {:>8}\n'.format('version', self.version)
+			out += '{:<22}: {}\n'.format('PIC', self.pic_strategy)
+		out += '{:<22}: {:>8}\n'.format('version', self.version)
 		if hasattr(self, 'writeable_flash_regions'):
 			for i, wfr in enumerate(self.writeable_flash_regions):
 				out += 'writeable flash region {}\n'.format(i)
-				out += '  {:<28}: {:>8} {:>#10x}\n'.format('offset', wfr[0], wfr[0])
-				out += '  {:<28}: {:>8} {:>#10x}\n'.format('length', wfr[1], wfr[1])
+				out += '  {:<20}: {:>8} {:>#10x}\n'.format('offset', wfr[0], wfr[0])
+				out += '  {:<20}: {:>8} {:>#10x}\n'.format('length', wfr[1], wfr[1])
 		for k,v in sorted(self.fields.items()):
-			out += '{:<30}: {:>8} {:>#10x}\n'.format(k, v, v)
+			out += '{:<22}: {:>8} {:>#10x}\n'.format(k, v, v)
 			if k == 'flags':
-				out += '  {:<28}: {:>8}\n'.format('enabled', (v >> 0) & 0x01)
-				out += '  {:<28}: {:>8}\n'.format('sticky', (v >> 1) & 0x01)
-
-		out += '{:<30}:          {:>#10x}'.format('checksum', self._checksum(), self._checksum())
+				out += '  {:<20}: {:>8}\n'.format('enabled', (v >> 0) & 0x01)
+				out += '  {:<20}: {:>8}\n'.format('sticky', (v >> 1) & 0x01)
 		return out

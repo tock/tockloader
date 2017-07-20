@@ -536,7 +536,7 @@ class TockLoader:
 
 		# Jump through the linked list of apps
 		while (True):
-			header_length = 100 # Version 2
+			header_length = 200 # Version 2
 			flash = self.channel.read_range(address, header_length)
 
 			# if there was an error, the binary array will be empty

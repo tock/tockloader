@@ -95,7 +95,7 @@ class TBFHeader:
 						elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
 							if remaining >= length:
 								self.writeable_flash_regions = []
-								for i in length / 8:
+								for i in range(0, int(length / 8)):
 									base = struct.unpack('<II', buffer[0:8])
 									buffer = buffer[8:]
 									# Add offset,length.
@@ -128,6 +128,8 @@ class TBFHeader:
 
 					if checksum == self.fields['checksum']:
 						self.valid = True
+					else:
+						print('Checksum mismatch. in packet: {:#x}, calculated: {:#x}'.format(self.fields['checksum'], checksum))
 
 				else:
 					# This is just padding and not an app.

@@ -306,6 +306,7 @@ class TBFHeader:
 				out += '{:<22}: {:>8} {:>#12x}\n'.format(k, v, v)
 
 			if k == 'flags':
-				out += '  {:<20}: {:>8}\n'.format('enabled', (v >> 0) & 0x01)
-				out += '  {:<20}: {:>8}\n'.format('sticky', (v >> 1) & 0x01)
+				values = ['No', 'Yes']
+				out += '  {:<20}: {}\n'.format('enabled', values[(v >> 0) & 0x01])
+				out += '  {:<20}: {}\n'.format('sticky', values[(v >> 1) & 0x01])
 		return out

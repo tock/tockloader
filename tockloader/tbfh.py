@@ -122,6 +122,9 @@ class TBFHeader:
 								self.fields['minimum_stack_length'] = base[9]
 
 								self.pic_strategy = 'C Style'
+						else:
+							print('Warning: Unknown TLV block in TBF header.')
+							print('Warning: You might want to update tockloader.')
 
 						remaining -= length
 
@@ -138,7 +141,8 @@ class TBFHeader:
 
 		else:
 			# Unknown version.
-			return
+			print('Warning: Unknown TBF header version.')
+			print('Warning: You might want to update tockloader.')
 
 	def is_valid (self):
 		'''

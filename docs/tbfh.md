@@ -15,6 +15,19 @@ def __init__(self, buffer)
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### get\_app\_name
+```py
+
+def get_app_name(self)
+
+```
+
+
+
+Return the package name if it was encoded in the header, otherwise
+return a tuple of (package_name_offset, package_name_size).
+
+
 ### get\_app\_size
 ```py
 
@@ -37,30 +50,6 @@ def get_binary(self)
 
 
 Get the TBF header in a bytes array.
-
-
-### get\_name\_length
-```py
-
-def get_name_length(self)
-
-```
-
-
-
-Get the number of bytes for the application name.
-
-
-### get\_name\_offset
-```py
-
-def get_name_offset(self)
-
-```
-
-
-
-Get the offset in the application binary where the application name is.
 
 
 ### is\_enabled
@@ -130,7 +119,7 @@ Return str(self).
 ### \_checksum
 ```py
 
-def _checksum(self)
+def _checksum(self, buffer)
 
 ```
 

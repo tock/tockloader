@@ -139,11 +139,6 @@ class TBFHeader:
 					if checksum == self.fields['checksum']:
 						self.valid = True
 
-		else:
-			# Unknown version.
-			print('Warning: Unknown TBF header version.')
-			print('Warning: You might want to update tockloader.')
-
 	def is_valid (self):
 		'''
 		Whether the CRC and other checks passed for this header.

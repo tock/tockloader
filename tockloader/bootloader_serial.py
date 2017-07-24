@@ -623,8 +623,10 @@ class BootloaderSerial(BoardInterface):
 				self.arch = attribute['value']
 
 		# Check that we learned what we needed to learn.
-		if self.board == None or self.arch == None:
-			raise TockLoaderException('Could not determine the current board or arch')
+		if self.board == None:
+			raise TockLoaderException('Could not determine the current board; use, e.g., --board hail')
+		if self.arch == None:
+			raise TockLoaderException('Could not determine the current arch; use, e.g., --arch cortex-m4')
 
 
 	def run_terminal(self):

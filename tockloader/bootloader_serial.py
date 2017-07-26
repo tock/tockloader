@@ -624,9 +624,14 @@ class BootloaderSerial(BoardInterface):
 
 		# Check that we learned what we needed to learn.
 		if self.board == None:
-			raise TockLoaderException('Could not determine the current board; use, e.g., --board hail')
+			print('Error: The bootloader does not have a "board" attribute.')
+			print('       Please update the bootloader or specify a board; e.g. --board hail')
 		if self.arch == None:
-			raise TockLoaderException('Could not determine the current arch; use, e.g., --arch cortex-m4')
+			print('Error: The bootloader does not have an "arch" attribute.')
+			print('       Please update the bootloader or specify a board; e.g. --arch cortex-m4')
+
+		if self.board == None or self.arch == None:
+			raise TockLoaderException('Could not determine the board and/or architecture')
 
 
 	def run_terminal(self):

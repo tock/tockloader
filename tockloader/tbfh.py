@@ -76,6 +76,9 @@ class TBFHeader:
 					# This is an application. That means we need more parsing.
 					self.is_app = True
 
+					def roundup (x, to):
+						return x if x % to == 0 else x + to - x % to
+
 					while remaining >= 4:
 						base = struct.unpack('<HH', buffer[0:4])
 						buffer = buffer[4:]
@@ -87,7 +90,6 @@ class TBFHeader:
 						if tipe == self.HEADER_TYPE_MAIN:
 							if remaining >= 12 and length == 12:
 								base = struct.unpack('<III', buffer[0:12])
-								buffer = buffer[12:]
 								self.fields['init_fn_offset'] = base[0]
 								self.fields['protected_size'] = base[1]
 								self.fields['minimum_ram_size'] = base[2]
@@ -96,20 +98,17 @@ class TBFHeader:
 							if remaining >= length:
 								self.writeable_flash_regions = []
 								for i in range(0, int(length / 8)):
-									base = struct.unpack('<II', buffer[0:8])
-									buffer = buffer[8:]
+									base = struct.unpack('<II', buffer[i*8:(i+1)*8])
 									# Add offset,length.
 									self.writeable_flash_regions.append((base[0], base[1]))
 
 						elif tipe == self.HEADER_TYPE_PACKAGE_NAME:
 							if remaining >= length:
 								self.package_name = buffer[0:length].decode('utf-8')
-								buffer = buffer[length:]
 
 						elif tipe == self.HEADER_TYPE_PIC_OPTION_1:
 							if remaining >= 40 and length == 40:
 								base = struct.unpack('<IIIIIIIIII', buffer[0:40])
-								buffer = buffer[40:]
 								self.fields['text_offset'] = base[0]
 								self.fields['data_offset'] = base[1]
 								self.fields['data_size'] = base[2]
@@ -126,8 +125,11 @@ class TBFHeader:
 							print('Warning: Unknown TLV block in TBF header.')
 							print('Warning: You might want to update tockloader.')
 
+						# All blocks are padded to four byte, so we may need to
+						# round up.
+						length = roundup(length, 4)
+						buffer = buffer[length:]
 						remaining -= length
-
 
 					if checksum == self.fields['checksum']:
 						self.valid = True

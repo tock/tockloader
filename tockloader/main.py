@@ -314,7 +314,7 @@ def main ():
 		default=None,
 		help='Explicitly specify the architecture of the board that is being targeted.')
 	parent_jtag.add_argument('--baud-rate',
-		default=600000,
+		default=115200,
 		type=int,
 		help='If using serial, set the target baud rate.')
 

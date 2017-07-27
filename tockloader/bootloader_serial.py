@@ -326,7 +326,8 @@ class BootloaderSerial(BoardInterface):
 				raise TockLoaderException('Could not attach to the bootloader')
 
 		# Speculatively try to get a faster baud rate.
-		self._change_baud_rate(self.args.baud_rate)
+		if self.args.baud_rate != 115200:
+			self._change_baud_rate(self.args.baud_rate)
 
 	def exit_bootloader_mode (self):
 		'''

@@ -172,6 +172,18 @@ class JLinkExe(BoardInterface):
 			# These are already set! Yay we are done.
 			return
 
+		# If the user specified a board, use that configuration
+		if self.board:
+			try:
+				board = self.KNOWN_BOARDS[self.board]
+			except KeyError:
+				print('Known boards: ' + ', '.join(self.KNOWN_BOARDS.keys()))
+				raise TockLoaderException('Unknown board: ' + self.board)
+
+			self.arch = board['arch']
+			self.jtag_device = board['jtag_device']
+			return
+
 		# The primary (only?) way to do this is to look at attributes
 		attributes = self.get_all_attributes()
 		for attribute in attributes:

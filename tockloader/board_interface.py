@@ -5,6 +5,13 @@ class BoardInterface:
 	should be overridden to support a new method of interacting with a board.
 	'''
 
+	KNOWN_BOARDS = {
+			'hail': {'arch': 'cortex-m4', 'jtag_device': 'ATSAM4LC8C'},
+			'imix': {'arch': 'cortex-m4', 'jtag_device': 'ATSAM4LC8C'},
+			'nrf51dk': {'arch': 'cortex-m0', 'jtag_device': 'nrf51422'},
+			'nrf52dk': {'arch': 'cortex-m4', 'jtag_device': 'nrf52840'},
+			}
+
 	def __init__ (self, args):
 		self.args = args
 

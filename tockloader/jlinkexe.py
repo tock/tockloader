@@ -177,6 +177,9 @@ class JLinkExe(BoardInterface):
 			try:
 				board = self.KNOWN_BOARDS[self.board]
 			except KeyError:
+				print(self.board + ' is not a board tockloader knows about')
+				print('You must also specify --arch and --jtag-device')
+				print('')
 				print('Known boards: ' + ', '.join(self.KNOWN_BOARDS.keys()))
 				raise TockLoaderException('Unknown board: ' + self.board)
 

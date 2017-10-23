@@ -173,16 +173,9 @@ class JLinkExe(BoardInterface):
 			return
 
 		# If the user specified a board, use that configuration
-		if self.board:
-			try:
-				board = self.KNOWN_BOARDS[self.board]
-			except KeyError:
-				print(self.board + ' is not a board tockloader knows about')
-				print('You must also specify --arch and --jtag-device')
-				print('')
-				print('Known boards: ' + ', '.join(self.KNOWN_BOARDS.keys()))
-				raise TockLoaderException('Unknown board: ' + self.board)
-
+		if self.board and self.board in self.KNOWN_BOARDS:
+			print('Using known arch and jtag-device for known board {}'.format(self.board))
+			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
 			self.jtag_device = board['jtag_device']
 			return

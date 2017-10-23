@@ -12,6 +12,7 @@ class BoardInterface:
 		# command line. Another is the attributes section on the board.
 		# There could be more in the future.
 		# Also, not all are required depending on the connection method used.
+		self.apps_start_address = getattr(self.args, 'app_address', None)
 		self.board = getattr(self.args, 'board', None)
 		self.arch = getattr(self.args, 'arch', None)
 		self.jtag_device = getattr(self.args, 'jtag_device', None)
@@ -98,6 +99,29 @@ class BoardInterface:
 		like `0.5.0`, or `None` if it is unknown.
 		'''
 		return
+
+	def get_apps_start_address (self):
+		'''
+		Return the address in flash where applications start on this platform.
+		This might be set on the board itself, in the command line arguments
+		to Tockloader, or just be the default.
+		'''
+
+		# Start by checking if we already have the address. This would be if
+		# we have already looked it up or we specified it on the command line.
+		if self.apps_start_address != None:
+			return self.apps_start_address
+
+		# Check if there is an attribute we can use.
+		attributes = self.get_all_attributes()
+		for attribute in attributes:
+			if attribute and attribute['key'] == 'appaddr':
+				self.apps_start_address = int(attribute['value'], 0)
+				return self.apps_start_address
+
+		# Lastly resort to the default setting
+		self.apps_start_address = 0x30000
+		return self.apps_start_address
 
 	def determine_current_board (self):
 		'''

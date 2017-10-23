@@ -65,7 +65,7 @@ class TockLoader:
 		self.channel.run_terminal()
 
 
-	def list_apps (self, address, verbose, quiet):
+	def list_apps (self, verbose, quiet):
 		'''
 		Query the chip's flash to determine which apps are installed.
 		'''
@@ -73,12 +73,12 @@ class TockLoader:
 		with self._start_communication_with_board():
 
 			# Get all apps based on their header
-			apps = self._extract_all_app_headers(address)
+			apps = self._extract_all_app_headers()
 
 			self._print_apps(apps, verbose, quiet)
 
 
-	def install (self, tabs, address, replace='yes', erase=False):
+	def install (self, tabs, replace='yes', erase=False):
 		'''
 		Add or update TABs on the board.
 
@@ -92,7 +92,7 @@ class TockLoader:
 			replacement_apps = self._extract_apps_from_tabs(tabs)
 
 			# Get a list of installed apps
-			existing_apps = self._extract_all_app_headers(address)
+			existing_apps = self._extract_all_app_headers()
 
 			# What apps we want after this command completes
 			resulting_apps = []
@@ -144,13 +144,13 @@ class TockLoader:
 
 			if changed:
 				# Since something is now different, update all of the apps
-				self._reshuffle_apps(address, resulting_apps)
+				self._reshuffle_apps(resulting_apps)
 			else:
 				# Nothing changed, so we can raise an error
 				raise TockLoaderException('Nothing found to update')
 
 
-	def uninstall_app (self, app_names, address, force=False):
+	def uninstall_app (self, app_names, force=False):
 		'''
 		If an app by this name exists, remove it from the chip. If no name is
 		given, present the user with a list of apps to remove.
@@ -159,7 +159,7 @@ class TockLoader:
 		with self._start_communication_with_board():
 
 			# Get a list of installed apps
-			apps = self._extract_all_app_headers(address)
+			apps = self._extract_all_app_headers()
 
 			# If the user didn't specify an app list...
 			if len(app_names) == 0:
@@ -201,12 +201,12 @@ class TockLoader:
 
 			# Now take the remaining apps and make sure they
 			# are on the board properly.
-			self._reshuffle_apps(address, keep_apps)
+			self._reshuffle_apps(keep_apps)
 
 			print('Uninstall complete.')
 
 			# And let the user know the state of the world now that we're done
-			apps = self._extract_all_app_headers(address)
+			apps = self._extract_all_app_headers()
 			if len(apps):
 				print('Remaining apps on board:')
 				self._print_apps(apps, verbose=False, quiet=True)
@@ -217,7 +217,7 @@ class TockLoader:
 				raise TockLoaderException('Could not find any apps on the board to remove.')
 
 
-	def erase_apps (self, address, force=False):
+	def erase_apps (self, force=False):
 		'''
 		Erase flash where apps go. All apps are not actually cleared, we just
 		overwrite the header of the first app.
@@ -229,11 +229,12 @@ class TockLoader:
 			if force:
 				# Erase the first page where apps go. This will cause the first
 				# header to be invalid and effectively removes all apps.
+				address = self.channel.get_apps_start_address()
 				self.channel.erase_page(address)
 
 			else:
 				# Get a list of installed apps
-				apps = self._extract_all_app_headers(address)
+				apps = self._extract_all_app_headers()
 
 				keep_apps = []
 				for app in apps:
@@ -242,12 +243,13 @@ class TockLoader:
 						print('INFO: Not erasing app "{}" because it is sticky.'.format(app))
 
 				if len(keep_apps) == 0:
+					address = self.channel.get_apps_start_address()
 					self.channel.erase_page(address)
 				else:
-					self._reshuffle_apps(address, keep_apps)
+					self._reshuffle_apps(keep_apps)
 
 
-	def set_flag (self, app_names, flag_name, flag_value, address):
+	def set_flag (self, app_names, flag_name, flag_value):
 		'''
 		Set a flag in the TBF header.
 		'''
@@ -255,7 +257,7 @@ class TockLoader:
 		with self._start_communication_with_board():
 
 			# Get a list of installed apps
-			apps = self._extract_all_app_headers(address)
+			apps = self._extract_all_app_headers()
 
 			if len(apps) == 0:
 				raise TockLoaderException('No apps are installed on the board')
@@ -373,7 +375,7 @@ class TockLoader:
 				raise TockLoaderException('Error: Attribute does not exist.')
 
 
-	def info (self, app_address):
+	def info (self):
 		'''
 		Print all info about this board.
 		'''
@@ -382,7 +384,7 @@ class TockLoader:
 
 			# Print all apps
 			print('Apps:')
-			apps = self._extract_all_app_headers(app_address)
+			apps = self._extract_all_app_headers()
 			self._print_apps(apps, True, False)
 
 			if self._bootloader_is_present():
@@ -488,13 +490,16 @@ class TockLoader:
 	## Helper Functions for Manipulating Binaries and TBF
 	############################################################################
 
-	def _reshuffle_apps (self, address, apps):
+	def _reshuffle_apps (self, apps):
 		'''
 		Given an array of apps, some of which are new and some of which exist,
 		sort them in flash so they are in descending size order.
 		'''
 		# We are given an array of apps. First we need to order them by size.
 		apps.sort(key=lambda app: app.get_size(), reverse=True)
+
+		# Get where the apps live in flash.
+		address = self.channel.get_apps_start_address()
 
 		# Now iterate to see if the address has changed
 		start_address = address
@@ -527,12 +532,16 @@ class TockLoader:
 		# this script.
 		self.channel.erase_page(end)
 
-	def _extract_all_app_headers (self, address):
+	def _extract_all_app_headers (self):
 		'''
 		Iterate through the flash on the board for the header information about
 		each app.
 		'''
 		apps = []
+
+		# This can be the default, it can be configured in the attributes on
+		# the hardware, or it can be passed in to Tockloader.
+		address = self.channel.get_apps_start_address()
 
 		# Jump through the linked list of apps
 		while (True):

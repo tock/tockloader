@@ -93,7 +93,7 @@ def command_listen (args):
 def command_list (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
-	tock_loader.list_apps(args.app_address, args.verbose, args.quiet)
+	tock_loader.list_apps(args.verbose, args.quiet)
 
 
 def command_install (args):
@@ -112,7 +112,7 @@ def command_install (args):
 		replace = 'no'
 
 	print('Installing apps on the board...')
-	tock_loader.install(tabs, args.app_address, replace=replace, erase=args.erase)
+	tock_loader.install(tabs, replace=replace, erase=args.erase)
 
 
 def command_update (args):
@@ -123,7 +123,7 @@ def command_update (args):
 	tock_loader.open(args)
 
 	print('Updating application(s) on the board...')
-	tock_loader.install(tabs, args.app_address, replace='only')
+	tock_loader.install(tabs, replace='only')
 
 
 def command_uninstall (args):
@@ -131,7 +131,7 @@ def command_uninstall (args):
 	tock_loader.open(args)
 
 	print('Removing app(s) {} from board...'.format(', '.join(args.name)))
-	tock_loader.uninstall_app(args.name, args.app_address, args.force)
+	tock_loader.uninstall_app(args.name, args.force)
 
 
 def command_erase_apps (args):
@@ -139,7 +139,7 @@ def command_erase_apps (args):
 	tock_loader.open(args)
 
 	print('Removing apps...')
-	tock_loader.erase_apps(args.app_address, args.force)
+	tock_loader.erase_apps(args.force)
 
 
 def command_enable_app (args):
@@ -147,7 +147,7 @@ def command_enable_app (args):
 	tock_loader.open(args)
 
 	print('Enabling apps...')
-	tock_loader.set_flag(args.name, 'enable', True, args.app_address)
+	tock_loader.set_flag(args.name, 'enable', True)
 
 
 def command_disable_app (args):
@@ -155,7 +155,7 @@ def command_disable_app (args):
 	tock_loader.open(args)
 
 	print('Disabling apps...')
-	tock_loader.set_flag(args.name, 'enable', False, args.app_address)
+	tock_loader.set_flag(args.name, 'enable', False)
 
 
 def command_sticky_app (args):
@@ -163,7 +163,7 @@ def command_sticky_app (args):
 	tock_loader.open(args)
 
 	print('Making apps sticky...')
-	tock_loader.set_flag(args.name, 'sticky', True, args.app_address)
+	tock_loader.set_flag(args.name, 'sticky', True)
 
 
 def command_unsticky_app (args):
@@ -171,7 +171,7 @@ def command_unsticky_app (args):
 	tock_loader.open(args)
 
 	print('Making apps no longer sticky...')
-	tock_loader.set_flag(args.name, 'sticky', False, args.app_address)
+	tock_loader.set_flag(args.name, 'sticky', False)
 
 
 def command_flash (args):
@@ -228,7 +228,7 @@ def command_info (args):
 
 	print('tockloader version: {}'.format(__version__))
 	print('Showing all properties of the board...')
-	tock_loader.info(args.app_address)
+	tock_loader.info()
 
 
 def command_inspect_tab (args):
@@ -293,8 +293,7 @@ def main ():
 	parent_apps = argparse.ArgumentParser(add_help=False)
 	parent_apps.add_argument('--app-address', '-a',
 		help='Address where apps are located',
-		type=lambda x: int(x, 0),
-		default=0x30000)
+		type=lambda x: int(x, 0))
 	parent_apps.add_argument('--force',
 		help='Allow apps on boards that are not listed as compatible',
 		action='store_true')

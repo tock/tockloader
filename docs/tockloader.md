@@ -36,7 +36,7 @@ Print one page of flash contents.
 ### erase\_apps
 ```py
 
-def erase_apps(self, address, force=False)
+def erase_apps(self, force=False)
 
 ```
 
@@ -65,7 +65,7 @@ being a certain length.
 ### info
 ```py
 
-def info(self, app_address)
+def info(self)
 
 ```
 
@@ -77,7 +77,7 @@ Print all info about this board.
 ### install
 ```py
 
-def install(self, tabs, address, replace='yes', erase=False)
+def install(self, tabs, replace='yes', erase=False)
 
 ```
 
@@ -92,7 +92,7 @@ Add or update TABs on the board.
 ### list\_apps
 ```py
 
-def list_apps(self, address, verbose, quiet)
+def list_apps(self, verbose, quiet)
 
 ```
 
@@ -167,7 +167,7 @@ Download all attributes stored on the board.
 ### set\_flag
 ```py
 
-def set_flag(self, app_names, flag_name, flag_value, address)
+def set_flag(self, app_names, flag_name, flag_value)
 
 ```
 
@@ -179,7 +179,7 @@ Set a flag in the TBF header.
 ### uninstall\_app
 ```py
 
-def uninstall_app(self, app_names, address, force=False)
+def uninstall_app(self, app_names, force=False)
 
 ```
 
@@ -217,7 +217,7 @@ string "TOCKBOOTLOADER" being at address 0x400.
 ### \_extract\_all\_app\_headers
 ```py
 
-def _extract_all_app_headers(self, address)
+def _extract_all_app_headers(self)
 
 ```
 
@@ -292,7 +292,7 @@ anything annoying like that.
 ### \_reshuffle\_apps
 ```py
 
-def _reshuffle_apps(self, address, apps)
+def _reshuffle_apps(self, apps)
 
 ```
 

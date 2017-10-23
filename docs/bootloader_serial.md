@@ -106,6 +106,20 @@ def get_all_attributes(self)
 Get all attributes on a board.
 
 
+### get\_apps\_start\_address
+```py
+
+def get_apps_start_address(self)
+
+```
+
+
+
+Return the address in flash where applications start on this platform.
+This might be set on the board itself, in the command line arguments
+to Tockloader, or just be the default.
+
+
 ### get\_attribute
 ```py
 

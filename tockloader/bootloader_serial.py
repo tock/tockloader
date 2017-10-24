@@ -615,6 +615,13 @@ class BootloaderSerial(BoardInterface):
 			# These are already set! Yay we are done.
 			return
 
+		# If the user specified a board, use that configuration
+		if self.board and self.board in self.KNOWN_BOARDS:
+			print('Using known arch for known board {}'.format(self.board))
+			board = self.KNOWN_BOARDS[self.board]
+			self.arch = board['arch']
+			return
+
 		# The primary (only?) way to do this is to look at attributes
 		attributes = self.get_all_attributes()
 		for attribute in attributes:

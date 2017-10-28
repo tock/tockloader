@@ -34,6 +34,13 @@ class TAB:
 				end = start+name_or_params[1]
 				name = binary[start:end].decode('utf-8')
 
+			# Check that total size actually matches the binary that we got.
+			if tbfh.get_app_size() < len(binary):
+				# It's fine if the binary is smaller, but the binary cannot be
+				# longer than the amount of reserved space (`total_size` in the
+				# TBF header) for the app.
+				raise TockLoaderException('Invalid TAB, the app binary is longer than its defined total_size')
+
 			return App(tbfh, None, name, binary)
 		else:
 			raise TockLoaderException('Invalid TBF found in app in TAB')

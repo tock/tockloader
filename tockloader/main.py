@@ -270,10 +270,6 @@ def main ():
 		help='The serial port or device name to use',
 		metavar='STR')
 
-	parent.add_argument('--make',
-		action='store_true',
-		help='Run `make` before loading an application')
-
 	parent.add_argument('--debug',
 		action='store_true',
 		help='Print additional debugging information')
@@ -350,6 +346,9 @@ def main ():
 		nargs='*')
 	install.add_argument('--no-replace',
 		help='Install apps again even if they are already there',
+		action='store_true')
+	install.add_argument('--make',
+		help='Run `make` before loading an application',
 		action='store_true')
 	install.add_argument('--erase',
 		help='Erase all existing apps before installing.',
@@ -469,8 +468,9 @@ def main ():
 	# after the command. This is a workaround because for some reason python
 	# won't parse a set of parent options before the "command" option
 	# (or it is getting overwritten).
+	print(vars(before_command_args[0]).items())
 	for key,value in vars(before_command_args[0]).items():
-		if getattr(args, key) == None and value != None:
+		if getattr(args, key) != value:
 			setattr(args, key, value)
 
 	if hasattr(args, 'func'):

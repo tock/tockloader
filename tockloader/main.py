@@ -468,7 +468,6 @@ def main ():
 	# after the command. This is a workaround because for some reason python
 	# won't parse a set of parent options before the "command" option
 	# (or it is getting overwritten).
-	print(vars(before_command_args[0]).items())
 	for key,value in vars(before_command_args[0]).items():
 		if getattr(args, key) != value:
 			setattr(args, key, value)

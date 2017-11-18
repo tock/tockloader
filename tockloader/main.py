@@ -31,7 +31,7 @@ def check_and_run_make (args):
 	Checks for a Makefile, and it it exists runs `make`.
 	'''
 
-	if args.make:
+	if hasattr(args, 'make') and args.make:
 		if os.path.isfile('./Makefile'):
 			print('Running `make`...')
 			p = subprocess.Popen(['make'])

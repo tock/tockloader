@@ -379,14 +379,11 @@ class BootloaderSerial(BoardInterface):
 		ret = self.sp.read(2 + response_len)
 
 		# Response is escaped, so we need to handle that
-		while True:
-			num_escaped = ret.count(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]))
-			if num_escaped > 0:
-				# De-escape, and then read in the missing characters.
-				ret = ret.replace(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]), bytes([self.ESCAPE_CHAR]))
-				ret += self.sp.read(num_escaped)
-			else:
-				break
+		num_escaped = ret.count(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]))
+		if num_escaped > 0:
+			# De-escape, and then read in the missing characters.
+			ret = ret.replace(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]), bytes([self.ESCAPE_CHAR]))
+			ret += self.sp.read(num_escaped)
 
 		if len(ret) < 2:
 			if show_errors:

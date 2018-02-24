@@ -462,7 +462,7 @@ def main ():
 	dump_flash_page.set_defaults(func=command_dump_flash_page)
 	dump_flash_page.add_argument('page',
 		help='The number of the page to read',
-		type=int)
+		type=lambda x: int(x, 0))
 
 	argcomplete.autocomplete(parser)
 	args = parser.parse_args()

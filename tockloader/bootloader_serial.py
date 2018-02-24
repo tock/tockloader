@@ -265,8 +265,20 @@ class BootloaderSerial(BoardInterface):
 			# Need to run miniterm's atexit handler
 			self.miniterm.console.cleanup()
 
+			# Prep arguments for next tockloader
 			args = list(sys.argv)
+
+			# Need to wait for the process that killed this session to be done
 			args.append('--wait-to-listen')
+
+			# If there are multiple devices plugged in, we want the resuming
+			# tockloader to auto-choose the one it was already listening to.
+			# We can blindly append here as argument parsing will use the last
+			# -p option it finds, thus no warning/error if the user had already
+			# supplied a -p when first invoked
+			args.append('-p')
+			args.append(self.sp.port)
+
 			os.execvp(args[0], args)
 
 	def _get_serial_port_hash (self):

@@ -63,6 +63,7 @@ class App:
 		out += 'Total Size in Flash:   {} bytes\n'.format(self.get_size())
 
 		if verbose:
+			out += 'Address in Flash:      {:#x}\n'.format(offset)
 			out += textwrap.indent(str(self.tbfh), '  ')
 		return out
 

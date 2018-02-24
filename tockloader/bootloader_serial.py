@@ -375,18 +375,17 @@ class BootloaderSerial(BoardInterface):
 		pkt = escaped_message + bytes([self.ESCAPE_CHAR, command])
 		self.sp.write(pkt)
 
-		# Response has a two byte header, then response_len bytes
-		ret = self.sp.read(2 + response_len)
+		# Response has a two byte header, then response_len bytes. Keeping in
+		# mind that bytes can be escaped, keep track of how how many bytes we
+		# need to read in.
+		bytes_to_read = 2 + response_len
 
-		# Response is escaped, so we need to handle that
-		while True:
-			num_escaped = ret.count(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]))
-			if num_escaped > 0:
-				# De-escape, and then read in the missing characters.
-				ret = ret.replace(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]), bytes([self.ESCAPE_CHAR]))
-				ret += self.sp.read(num_escaped)
-			else:
-				break
+		# Loop to read in that number of bytes. Only unescape the newest bytes.
+		ret = bytes()
+		while bytes_to_read - len(ret) > 0:
+			new_data = self.sp.read(bytes_to_read - len(ret))
+			# De-escape, and add to array of read in bytes.
+			ret += new_data.replace(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]), bytes([self.ESCAPE_CHAR]))
 
 		if len(ret) < 2:
 			if show_errors:

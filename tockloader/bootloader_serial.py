@@ -393,9 +393,20 @@ class BootloaderSerial(BoardInterface):
 		bytes_to_read = 2 + response_len
 
 		# Loop to read in that number of bytes. Only unescape the newest bytes.
-		ret = bytes()
+		# Start with the header we know we are going to get. This makes
+		# checking for dangling escape characters easier.
+		ret = self.sp.read(2)
 		while bytes_to_read - len(ret) > 0:
 			new_data = self.sp.read(bytes_to_read - len(ret))
+
+			# Escape characters are tricky here. We need to make sure that if
+			# the last character is an an escape character that it isn't
+			# escaping the next character we haven't read yet.
+			if new_data.count(self.ESCAPE_CHAR) % 2 == 1:
+				# Odd number of escape characters. These can only come in pairs,
+				# so read another byte.
+				new_data += self.sp.read(1)
+
 			# De-escape, and add to array of read in bytes.
 			ret += new_data.replace(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]), bytes([self.ESCAPE_CHAR]))
 

@@ -412,23 +412,17 @@ class TockLoader:
 			print('Page number: {} ({:#08x})'.format(page_num, address))
 
 			flash = self.channel.read_range(address, 512)
+			self._print_flash(address, flash)
 
-			def chunks(l, n):
-				for i in range(0, len(l), n):
-					yield l[i:i + n]
 
-			def dump_line (addr, bytes):
-				k = binascii.hexlify(bytes).decode('utf-8')
-				b = ' '.join(list(chunks(k, 2)))
-				if len(b) >= 26:
-					# add middle space
-					b = '{} {}'.format(b[0:24], b[24:])
-				printable = string.ascii_letters + string.digits + string.punctuation + ' '
-				t = ''.join([chr(i) if chr(i) in printable else '.' for i in bytes])
-				print('{:08x}  {}  |{}|'.format(addr, b, t))
+	def read_flash (self, address, length):
+		'''
+		Print some flash contents.
+		'''
+		with self._start_communication_with_board():
+			flash = self.channel.read_range(address, length)
+			self._print_flash(address, flash)
 
-			for i,chunk in enumerate(chunks(flash, 16)):
-				dump_line(address+(i*16), chunk)
 
 	############################################################################
 	## Internal Helper Functions for Communicating with Boards
@@ -635,6 +629,30 @@ class TockLoader:
 	############################################################################
 	## Printing helper functions
 	############################################################################
+
+	def _print_flash (self, address, flash):
+		'''
+		Print binary data in a nice hexdump format.
+		'''
+		def chunks(l, n):
+			for i in range(0, len(l), n):
+				yield l[i:i + n]
+
+		def dump_line (addr, bytes):
+			k = binascii.hexlify(bytes).decode('utf-8')
+			b = ' '.join(list(chunks(k, 2)))
+			if len(b) >= 26:
+				# add middle space
+				b = '{} {}'.format(b[0:24], b[24:])
+			# Add right padding for not full lines
+			if len(b) < 48:
+				b = '{0: <48}'.format(b)
+			printable = string.ascii_letters + string.digits + string.punctuation + ' '
+			t = ''.join([chr(i) if chr(i) in printable else '.' for i in bytes])
+			print('{:08x}  {}  |{}|'.format(addr, b, t))
+
+		for i,chunk in enumerate(chunks(flash, 16)):
+			dump_line(address+(i*16), chunk)
 
 	def _print_apps (self, apps, verbose, quiet):
 		'''

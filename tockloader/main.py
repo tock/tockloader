@@ -201,6 +201,15 @@ def command_flash (args):
 	tock_loader.flash_binary(binary, args.address)
 
 
+def command_read (args):
+	# Read the correct flash from the chip
+	tock_loader = TockLoader(args)
+	tock_loader.open(args)
+
+	print('Reading flash from the board...')
+	tock_loader.read_flash(args.address, args.length)
+
+
 def command_list_attributes (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
@@ -421,6 +430,19 @@ def main ():
 		help='Address to flash the binary at',
 		type=lambda x: int(x, 0),
 		default=0x30000)
+
+	flash = subparser.add_parser('read',
+		parents=[parent, parent_jtag],
+		help='Read arbitrary flash memory')
+	flash.set_defaults(func=command_read)
+	flash.add_argument('--address', '-a',
+		help='Address to read from',
+		type=lambda x: int(x, 0),
+		default=0x30000)
+	flash.add_argument('--length', '-l',
+		help='Number of bytes to read',
+		type=lambda x: int(x, 0),
+		default=512)
 
 	listattributes = subparser.add_parser('list-attributes',
 		parents=[parent, parent_jtag],

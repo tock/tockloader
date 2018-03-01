@@ -131,6 +131,15 @@ def command_listen(args)
 
 
 
+### command\_read
+```py
+
+def command_read(args)
+
+```
+
+
+
 ### command\_remove\_attribute
 ```py
 

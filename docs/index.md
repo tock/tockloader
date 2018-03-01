@@ -108,6 +108,9 @@ Remove a particular attribute from the board.
 
 Show the contents of a page of flash.
 
+#### `tockloader read --address [address] --length [# bytes]`
+
+Read arbitrary flash memory from the board.
 
 Specifying the Board
 --------------------

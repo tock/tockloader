@@ -128,6 +128,18 @@ For the bootloader, this means opening a serial port. For JTAG, not much
 needs to be done.
 
 
+### read\_flash
+```py
+
+def read_flash(self, address, length)
+
+```
+
+
+
+Print some flash contents.
+
+
 ### remove\_attribute
 ```py
 
@@ -273,6 +285,18 @@ def _print_attributes(self, attributes)
 
 
 Print the list of attributes in the bootloader.
+
+
+### \_print\_flash
+```py
+
+def _print_flash(self, address, flash)
+
+```
+
+
+
+Print binary data in a nice hexdump format.
 
 
 ### \_reflash\_app\_headers

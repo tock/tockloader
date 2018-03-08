@@ -1,6 +1,6 @@
 '''
 Interface with a board over serial that is using the
-[Tock Bootloader](https://github.com/helena-project/tock-bootloader).
+[Tock Bootloader](https://github.com/tock/tock-bootloader).
 '''
 
 import atexit

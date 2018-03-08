@@ -2,7 +2,7 @@
 
 
 Interface with a board over serial that is using the
-[Tock Bootloader](https://github.com/helena-project/tock-bootloader).
+[Tock Bootloader](https://github.com/tock/tock-bootloader).
 
 ## Class BootloaderSerial
 Implementation of `BoardInterface` for the Tock Bootloader over serial.

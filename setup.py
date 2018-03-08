@@ -18,10 +18,10 @@ else:
 setup(name='tockloader',
       version=verstr,
       description='TockOS Support Tool',
-      long_description='Please visit `Github <https://github.com/helena-project/tockloader>`_ for more information.',
+      long_description='Please visit `Github <https://github.com/tock/tockloader>`_ for more information.',
       author='Tock Project Developers',
       author_email='tock-dev@googlegroups.com',
-      url='https://github.com/helena-project/tockloader',
+      url='https://github.com/tock/tockloader',
       packages=['tockloader'],
       entry_points={
         'console_scripts': [

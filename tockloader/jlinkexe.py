@@ -138,35 +138,6 @@ class JLinkExe(BoardInterface):
 
 		self._run_jtag_commands(commands, binary)
 
-	def get_attribute (self, index):
-		address = 0x600 + (64 * index)
-		attribute_raw = self.read_range(address, 64)
-		return self._decode_attribute(attribute_raw)
-
-	def get_all_attributes (self):
-		# Read the entire block of attributes using JTAG.
-		# This is much faster.
-		def chunks(l, n):
-			for i in range(0, len(l), n):
-				yield l[i:i + n]
-		raw = self.read_range(0x600, 64*16)
-		return [self._decode_attribute(r) for r in chunks(raw, 64)]
-
-	def set_attribute (self, index, raw):
-		address = 0x600 + (64 * index)
-		self.flash_binary(address, raw)
-
-	def get_bootloader_version (self):
-		address = 0x40E
-		version_raw = self.read_range(address, 8)
-		try:
-			return version_raw.decode('utf-8')
-		except:
-			return None
-
-	def get_serial_port (self):
-		raise TockLoaderException('No serial port for JLinkExe comm channel')
-
 	def determine_current_board (self):
 		if self.board and self.arch and self.jtag_device:
 			# These are already set! Yay we are done.

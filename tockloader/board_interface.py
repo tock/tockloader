@@ -63,21 +63,32 @@ class BoardInterface:
 
 	def get_attribute (self, index):
 		'''
-		Get a single attribute.
+		Get a single attribute. Returns a dict with two keys: `key` and `value`.
 		'''
-		return
+		# Default implementation to get an attribute. Reads flash directly and
+		# extracts the attribute.
+		address = 0x600 + (64 * index)
+		attribute_raw = self.read_range(address, 64)
+		return self._decode_attribute(attribute_raw)
 
 	def get_all_attributes (self):
 		'''
-		Get all attributes on a board.
+		Get all attributes on a board. Returns an array of attribute dicts.
 		'''
-		return
+		# Read the entire block of attributes directly from flash.
+		# This is much faster.
+		def chunks(l, n):
+			for i in range(0, len(l), n):
+				yield l[i:i + n]
+		raw = self.read_range(0x600, 64*16)
+		return [self._decode_attribute(r) for r in chunks(raw, 64)]
 
 	def set_attribute (self, index, raw):
 		'''
 		Set a single attribute.
 		'''
-		return
+		address = 0x600 + (64 * index)
+		self.flash_binary(address, raw)
 
 	def _decode_attribute (self, raw):
 		try:
@@ -105,7 +116,12 @@ class BoardInterface:
 		Return the version string of the bootloader. Should return a value
 		like `0.5.0`, or `None` if it is unknown.
 		'''
-		return
+		address = 0x40E
+		version_raw = self.read_range(address, 8)
+		try:
+			return version_raw.decode('utf-8')
+		except:
+			return None
 
 	def get_apps_start_address (self):
 		'''

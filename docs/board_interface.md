@@ -98,7 +98,7 @@ def get_all_attributes(self)
 
 
 
-Get all attributes on a board.
+Get all attributes on a board. Returns an array of attribute dicts.
 
 
 ### get\_apps\_start\_address
@@ -124,7 +124,7 @@ def get_attribute(self, index)
 
 
 
-Get a single attribute.
+Get a single attribute. Returns a dict with two keys: `key` and `value`.
 
 
 ### get\_board\_arch

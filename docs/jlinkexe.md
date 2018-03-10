@@ -110,7 +110,7 @@ def get_all_attributes(self)
 
 
 
-Get all attributes on a board.
+Get all attributes on a board. Returns an array of attribute dicts.
 
 
 ### get\_apps\_start\_address
@@ -136,7 +136,7 @@ def get_attribute(self, index)
 
 
 
-Get a single attribute.
+Get a single attribute. Returns a dict with two keys: `key` and `value`.
 
 
 ### get\_board\_arch
@@ -174,15 +174,6 @@ def get_bootloader_version(self)
 
 Return the version string of the bootloader. Should return a value
 like `0.5.0`, or `None` if it is unknown.
-
-
-### get\_serial\_port
-```py
-
-def get_serial_port(self)
-
-```
-
 
 
 ### open\_link\_to\_board

@@ -129,7 +129,7 @@ arguments.
 Tockloader also supports a JTAG interface using JLinkExe. JLinkExe requires
 knowing the device type of the MCU on the board.
 
-    tockloader [command] --jtag --arch [arch] --board [board] --jtag-device [device]
+    tockloader [command] --jlink --arch [arch] --board [board] --jlink-device [device]
 
 - `device`: The JLinkExe device identifier.
 

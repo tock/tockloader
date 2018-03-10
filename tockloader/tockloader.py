@@ -29,7 +29,7 @@ class TockLoader:
 		self.args = args
 
 		# Get an object that allows talking to the board
-		if hasattr(self.args, 'jtag') and self.args.jtag:
+		if hasattr(self.args, 'jlink') and self.args.jlink:
 			self.channel = JLinkExe(args)
 		else:
 			self.channel = BootloaderSerial(args)

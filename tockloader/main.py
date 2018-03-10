@@ -310,8 +310,14 @@ def main ():
 	parent_jtag = argparse.ArgumentParser(add_help=False)
 	parent_jtag.add_argument('--jtag',
 		action='store_true',
-		help='Use JTAG and JLinkExe to flash.')
+		help='Use JTAG and JLinkExe to flash. Deprecated. Use --jlink instead.')
+	parent_jtag.add_argument('--jlink',
+		action='store_true',
+		help='Use JLinkExe to flash.')
 	parent_jtag.add_argument('--jtag-device',
+		default='cortex-m0',
+		help='The device type to pass to JLinkExe. Useful for initial commissioning. Deprecated. Use --jlink-device instead.')
+	parent_jtag.add_argument('--jlink-device',
 		default='cortex-m0',
 		help='The device type to pass to JLinkExe. Useful for initial commissioning.')
 	parent_jtag.add_argument('--board',
@@ -496,6 +502,14 @@ def main ():
 	for key,value in vars(before_command_args[0]).items():
 		if getattr(args, key) != value:
 			setattr(args, key, value)
+
+	# Handle deprecated arguments.
+	# --jtag is now --jlink. If --jtag was passed copy it to --jlink.
+	if hasattr(args, 'jtag') and args.jtag:
+		print('Deprecation Notice! --jtag has been replaced with --jlink.')
+		setattr(args, 'jlink', args.jtag)
+	if hasattr(args, 'jtag_device') and args.jtag_device:
+		setattr(args, 'jlink_device', args.jtag_device)
 
 	if hasattr(args, 'func'):
 		try:

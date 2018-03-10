@@ -47,7 +47,7 @@ class JLinkExe(BoardInterface):
 
 			jlink_file.flush()
 
-			jlink_command = 'JLinkExe -device {} -if swd -speed 1200 -AutoConnect 1 {}'.format(self.jtag_device, jlink_file.name)
+			jlink_command = 'JLinkExe -device {} -if swd -speed 1200 -AutoConnect 1 {}'.format(self.jlink_device, jlink_file.name)
 
 			if self.args.debug:
 				print('Running "{}".'.format(jlink_command))
@@ -96,7 +96,7 @@ class JLinkExe(BoardInterface):
 	def read_range (self, address, length):
 
 		commands = []
-		if self.jtag_device == 'cortex-m0':
+		if self.jlink_device == 'cortex-m0':
 			# We are in generic mode, trying to read attributes.
 			# We've found that when connecting to a generic
 			# `cortex-m0` reset commands sometimes fail, however it
@@ -139,7 +139,7 @@ class JLinkExe(BoardInterface):
 		self._run_jtag_commands(commands, binary)
 
 	def determine_current_board (self):
-		if self.board and self.arch and self.jtag_device:
+		if self.board and self.arch and self.jlink_device:
 			# These are already set! Yay we are done.
 			return
 
@@ -148,7 +148,7 @@ class JLinkExe(BoardInterface):
 			print('Using known arch and jtag-device for known board {}'.format(self.board))
 			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
-			self.jtag_device = board['jtag_device']
+			self.jlink_device = board['jlink_device']
 			return
 
 		# The primary (only?) way to do this is to look at attributes
@@ -159,8 +159,8 @@ class JLinkExe(BoardInterface):
 			if attribute and attribute['key'] == 'arch' and self.arch == None:
 				self.arch = attribute['value']
 			if attribute and attribute['key'] == 'jldevice':
-				self.jtag_device = attribute['value']
+				self.jlink_device = attribute['value']
 
 		# Check that we learned what we needed to learn.
-		if self.board == None or self.arch == None or self.jtag_device == 'cortex-m0':
+		if self.board == None or self.arch == None or self.jlink_device == 'cortex-m0':
 			raise TockLoaderException('Could not determine the current board or arch or jtag device name')

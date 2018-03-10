@@ -6,10 +6,10 @@ class BoardInterface:
 	'''
 
 	KNOWN_BOARDS = {
-			'hail': {'arch': 'cortex-m4', 'jtag_device': 'ATSAM4LC8C'},
-			'imix': {'arch': 'cortex-m4', 'jtag_device': 'ATSAM4LC8C'},
-			'nrf51dk': {'arch': 'cortex-m0', 'jtag_device': 'nrf51422'},
-			'nrf52dk': {'arch': 'cortex-m4', 'jtag_device': 'nrf52840'},
+			'hail': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C'},
+			'imix': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C'},
+			'nrf51dk': {'arch': 'cortex-m0', 'jlink_device': 'nrf51422'},
+			'nrf52dk': {'arch': 'cortex-m4', 'jlink_device': 'nrf52840'},
 			}
 
 	def __init__ (self, args):
@@ -22,7 +22,7 @@ class BoardInterface:
 		self.apps_start_address = getattr(self.args, 'app_address', None)
 		self.board = getattr(self.args, 'board', None)
 		self.arch = getattr(self.args, 'arch', None)
-		self.jtag_device = getattr(self.args, 'jtag_device', None)
+		self.jlink_device = getattr(self.args, 'jlink_device', None)
 
 	def open_link_to_board (self):
 		'''

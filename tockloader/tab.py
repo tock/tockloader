@@ -1,3 +1,4 @@
+import struct
 import tarfile
 import textwrap
 
@@ -87,6 +88,31 @@ class TAB:
 				# Get the TBF header from a binary in the TAB
 				return TBFHeader(binary)
 		return None
+
+	def get_crt0_header_str (self, arch):
+		'''
+		Return a string representation of the crt0 header some apps use for
+		doing PIC fixups. We assume this header is positioned immediately
+		after the TBF header.
+		'''
+		app = self.extract_app(arch)
+		header_size = app.tbfh.get_header_size()
+
+		crt0 = struct.unpack('<IIIIIIIIII', app.binary[header_size:header_size+40])
+
+		out = ''
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('got_sym_start', crt0[0], crt0[0])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('got_start', crt0[1], crt0[1])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('got_size', crt0[2], crt0[2])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('data_sym_start', crt0[3], crt0[3])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('data_start', crt0[4], crt0[4])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('data_size', crt0[5], crt0[5])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('bss_start', crt0[6], crt0[6])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('bss_size', crt0[7], crt0[7])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('reldata_start', crt0[8], crt0[8])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('text_offset', crt0[9], crt0[9])
+
+		return out
 
 	def __str__ (self):
 		out = ''

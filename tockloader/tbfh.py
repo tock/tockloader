@@ -200,6 +200,16 @@ class TBFHeader:
 		'''
 		return self.fields['total_size']
 
+	def get_header_size (self):
+		'''
+		Get the size of the header in bytes. This includes any alignment
+		padding at the end of the header.
+		'''
+		if self.version == 1:
+			return 74
+		else:
+			return self.fields['header_size']
+
 	def get_app_name (self):
 		'''
 		Return the package name if it was encoded in the header, otherwise

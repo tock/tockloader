@@ -15,6 +15,7 @@ import glob
 import os
 import subprocess
 import sys
+import textwrap
 import time
 
 import argcomplete
@@ -252,6 +253,16 @@ def command_inspect_tab (args):
 	print('Inspecting TABs...')
 	for tab in tabs:
 		print(tab)
+
+		# If the user asked for the crt0 header, display that for each
+		# architecture.
+		if args.crt0_header:
+			print('  crt0 header')
+			archs = tab.get_supported_architectures()
+			for arch in archs:
+				print('    {}'.format(arch))
+				print(textwrap.indent(tab.get_crt0_header_str(arch), '      '))
+
 		print('')
 
 
@@ -480,6 +491,9 @@ def main ():
 		parents=[parent],
 		help='Get details about a TAB')
 	inspect_tab.set_defaults(func=command_inspect_tab)
+	inspect_tab.add_argument('--crt0-header',
+		help='Dump crt0 header as well',
+		action='store_true')
 	inspect_tab.add_argument('tab',
 		help='The TAB or TABs to inspect',
 		nargs='*')

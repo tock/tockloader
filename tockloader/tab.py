@@ -98,7 +98,7 @@ class TAB:
 		app = self.extract_app(arch)
 		header_size = app.tbfh.get_header_size()
 
-		crt0 = struct.unpack('<IIIIIIIIII', app.binary[header_size:header_size+40])
+		crt0 = struct.unpack('<IIIIIIIIIII', app.binary[header_size:header_size+44])
 
 		out = ''
 		out += '{:<20}: {:>8} {:>#12x}\n'.format('got_sym_start', crt0[0], crt0[0])
@@ -110,7 +110,8 @@ class TAB:
 		out += '{:<20}: {:>8} {:>#12x}\n'.format('bss_start', crt0[6], crt0[6])
 		out += '{:<20}: {:>8} {:>#12x}\n'.format('bss_size', crt0[7], crt0[7])
 		out += '{:<20}: {:>8} {:>#12x}\n'.format('reldata_start', crt0[8], crt0[8])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('text_offset', crt0[9], crt0[9])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('stack_size', crt0[9], crt0[9])
+		out += '{:<20}: {:>8} {:>#12x}\n'.format('text_offset', crt0[10], crt0[10])
 
 		return out
 

@@ -441,7 +441,10 @@ class TockLoader:
 		# Time the operation
 		then = time.time()
 		try:
-			self.channel.enter_bootloader_mode()
+			if not self.args.no_bootloader_entry:
+				self.channel.enter_bootloader_mode()
+			else:
+				time.sleep(0.2)
 
 			# Now that we have connected to the board and the bootloader
 			# if necessary, make sure we know what kind of board we are

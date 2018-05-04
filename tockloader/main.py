@@ -341,6 +341,9 @@ def main ():
 		default=115200,
 		type=int,
 		help='If using serial, set the target baud rate.')
+	parent_jtag.add_argument('--no-bootloader-entry',
+		action='store_true',
+		help='Tell Tockloader to assume the bootloader is already active.')
 
 	# Support multiple commands for this tool
 	subparser = parser.add_subparsers(

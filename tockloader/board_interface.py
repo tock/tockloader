@@ -9,7 +9,7 @@ class BoardInterface:
 			'hail': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C'},
 			'imix': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C'},
 			'nrf51dk': {'arch': 'cortex-m0', 'jlink_device': 'nrf51422'},
-			'nrf52dk': {'arch': 'cortex-m4', 'jlink_device': 'nrf52840'},
+			'nrf52dk': {'arch': 'cortex-m4', 'jlink_device': 'nrf52', 'appaddr': '0x20000'},
 			}
 
 	def __init__ (self, args):

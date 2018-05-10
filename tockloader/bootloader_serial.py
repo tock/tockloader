@@ -150,6 +150,8 @@ class BootloaderSerial(BoardInterface):
 		self.sp.dtr = 0
 		self.sp.rts = 0
 
+
+
 		# Only one process at a time can talk to a serial port (reliably)
 		# Before connecting, check whether there is another tockloader process
 		# running, if it's a listen, pause listening, otherwise bail out
@@ -217,6 +219,15 @@ class BootloaderSerial(BoardInterface):
 				print('     [Info]: Resuming listening...')
 
 		self.sp.open()
+
+		# Do a delay if we are skipping the bootloader entry process (which
+		# would normally have a delay in it). We need to send a dummy message
+		# because that seems to cause the serial to reset the board, and then
+		# wait to make sure the bootloader is booted and ready.
+		if hasattr(self.args, 'no_bootloader_entry') and self.args.no_bootloader_entry:
+			# Writing a bogus message seems to start the counter.
+			self.sp.write(self.SYNC_MESSAGE)
+			time.sleep(0.1)
 
 	# While tockloader has a serial connection open, it leaves a unix socket
 	# open for other tockloader processes. For most of the time, this will

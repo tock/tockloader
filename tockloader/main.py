@@ -525,7 +525,7 @@ def main ():
 	if hasattr(args, 'jtag') and args.jtag:
 		print('Deprecation Notice! --jtag has been replaced with --jlink.')
 		setattr(args, 'jlink', args.jtag)
-	if hasattr(args, 'jtag_device') and args.jtag_device:
+	if hasattr(args, 'jtag_device') and args.jtag_device != 'cortex-m0':
 		setattr(args, 'jlink_device', args.jtag_device)
 
 	if hasattr(args, 'func'):

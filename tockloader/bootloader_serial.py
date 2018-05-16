@@ -464,11 +464,11 @@ class BootloaderSerial(BoardInterface):
 	def flash_binary (self, address, binary, pad=True):
 		'''
 		Write pages until a binary has been flashed. binary must have a length
-		that is a multiple of 512.
+		that is a multiple of page size.
 		'''
-		# Make sure the binary is a multiple of 512 bytes by padding 0xFFs
-		if len(binary) % 512 != 0:
-			remaining = 512 - (len(binary) % 512)
+		# Make sure the binary is a multiple of the page size by padding 0xFFs
+		if len(binary) % self.page_size != 0:
+			remaining = self.page_size - (len(binary) % self.page_size)
 			if pad:
 				binary += bytes([0xFF]*remaining)
 				print('NOTE: Padding binary with {} 0xFFs.'.format(remaining))
@@ -478,15 +478,15 @@ class BootloaderSerial(BoardInterface):
 				binary += missing
 				print('NOTE: Padding binary with {} bytes already on chip.'.format(remaining))
 
-		# Loop through the binary 512 bytes at a time until it has been flashed
+		# Loop through the binary by pages at a time until it has been flashed
 		# to the chip.
-		for i in range(len(binary) // 512):
+		for i in range(len(binary) // self.page_size):
 			# Create the packet that we send to the bootloader. First four
 			# bytes are the address of the page.
-			pkt = struct.pack('<I', address + (i*512))
+			pkt = struct.pack('<I', address + (i*self.page_size))
 
-			# Next are the 512 bytes that go into the page.
-			pkt += binary[i*512: (i+1)*512]
+			# Next are the bytes that go into the page.
+			pkt += binary[i*self.page_size: (i+1)*self.page_size]
 
 			# Write to bootloader
 			success, ret = self._issue_command(self.COMMAND_WRITE_PAGE, pkt, True, 0, self.RESPONSE_OK)
@@ -494,7 +494,7 @@ class BootloaderSerial(BoardInterface):
 			if not success:
 				print('Error: Error when flashing page')
 				if ret[1] == self.RESPONSE_BADADDR:
-					raise TockLoaderException('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*512)))
+					raise TockLoaderException('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*self.page_size)))
 				elif ret[1] == self.RESPONSE_INTERROR:
 					raise TockLoaderException('Error: RESPONSE_INTERROR: Internal error when writing flash')
 				elif ret[1] == self.RESPONSE_BADARGS:
@@ -644,7 +644,7 @@ class BootloaderSerial(BoardInterface):
 			return None
 
 	def determine_current_board (self):
-		if self.board and self.arch:
+		if self.board and self.arch and self.page_size>0:
 			# These are already set! Yay we are done.
 			return
 
@@ -653,6 +653,7 @@ class BootloaderSerial(BoardInterface):
 			print('Using known arch for known board {}'.format(self.board))
 			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
+			self.page_size = board['page_size']
 			return
 
 		# The primary (only?) way to do this is to look at attributes
@@ -662,6 +663,13 @@ class BootloaderSerial(BoardInterface):
 				self.board = attribute['value']
 			if attribute and attribute['key'] == 'arch' and self.arch == None:
 				self.arch = attribute['value']
+			if attribute and attribute['key'] == 'pagesize' and self.page_size == 0:
+				self.page_size = attribute['value']
+
+		# We might need to fill in the page size
+		if self.page_size==0 and self.board and self.board in self.KNOWN_BOARDS:
+			board = self.KNOWN_BOARDS[self.board]
+			self.page_size = board['page_size']
 
 		# Check that we learned what we needed to learn.
 		if self.board == None:
@@ -669,9 +677,12 @@ class BootloaderSerial(BoardInterface):
 			print('       Please update the bootloader or specify a board; e.g. --board hail')
 		if self.arch == None:
 			print('Error: The bootloader does not have an "arch" attribute.')
-			print('       Please update the bootloader or specify a board; e.g. --arch cortex-m4')
+			print('       Please update the bootloader or specify an arch; e.g. --arch cortex-m4')
+		if self.page_size == 0:
+			print('Error: The bootloader does not have an "pagesize" attribute.')
+			print('       Please update the bootloader or specify a page size for flash; e.g. --page-size 512')
 
-		if self.board == None or self.arch == None:
+		if self.board == None or self.arch == None or self.page_size == 0:
 			raise TockLoaderException('Could not determine the board and/or architecture')
 
 

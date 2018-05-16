@@ -128,7 +128,7 @@ class JLinkExe(BoardInterface):
 		return read
 
 	def erase_page (self, address):
-		binary = bytes([0xFF]*512)
+		binary = bytes([0xFF]*self.page_size)
 		commands = [
 			'r',
 			'loadbin {{binary}}, {address:#x}'.format(address=address),
@@ -139,7 +139,7 @@ class JLinkExe(BoardInterface):
 		self._run_jtag_commands(commands, binary)
 
 	def determine_current_board (self):
-		if self.board and self.arch and self.jlink_device:
+		if self.board and self.arch and self.jlink_device and self.page_size>0:
 			# These are already set! Yay we are done.
 			return
 
@@ -149,6 +149,7 @@ class JLinkExe(BoardInterface):
 			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
 			self.jlink_device = board['jlink_device']
+			self.page_size = board['page_size']
 			return
 
 		# The primary (only?) way to do this is to look at attributes
@@ -160,7 +161,9 @@ class JLinkExe(BoardInterface):
 				self.arch = attribute['value']
 			if attribute and attribute['key'] == 'jldevice':
 				self.jlink_device = attribute['value']
+			if attribute and attribute['key'] == 'pagesize' and self.page_size == 0:
+				self.page_size = attribute['value']
 
 		# Check that we learned what we needed to learn.
-		if self.board == None or self.arch == None or self.jlink_device == 'cortex-m0':
+		if self.board == None or self.arch == None or self.jlink_device == 'cortex-m0' or self.page_size == 0:
 			raise TockLoaderException('Could not determine the current board or arch or jtag device name')

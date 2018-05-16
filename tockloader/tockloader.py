@@ -408,10 +408,11 @@ class TockLoader:
 		Print one page of flash contents.
 		'''
 		with self._start_communication_with_board():
-			address = 512 * page_num
+			page_size = self.channel.get_page_size()
+			address = page_size * page_num
 			print('Page number: {} ({:#08x})'.format(page_num, address))
 
-			flash = self.channel.read_range(address, 512)
+			flash = self.channel.read_range(address, page_size)
 			self._print_flash(address, flash)
 
 

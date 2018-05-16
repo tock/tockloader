@@ -337,6 +337,10 @@ def main ():
 	parent_jtag.add_argument('--arch',
 		default=None,
 		help='Explicitly specify the architecture of the board that is being targeted.')
+	parent_jtag.add_argument('--page-size',
+		default=0,
+		type=int,
+		help='Explicitly specify how many bytes in a flash page.')
 	parent_jtag.add_argument('--baud-rate',
 		default=115200,
 		type=int,

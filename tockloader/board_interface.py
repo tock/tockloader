@@ -6,11 +6,11 @@ class BoardInterface:
 	'''
 
 	KNOWN_BOARDS = {
-			'hail': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C'},
-			'imix': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C'},
-			'nrf51dk': {'arch': 'cortex-m0', 'jlink_device': 'nrf51422'},
-			'nrf52dk': {'arch': 'cortex-m4', 'jlink_device': 'nrf52840'},
-			}
+		'hail': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C', 'page_size': 512},
+		'imix': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C', 'page_size': 512},
+		'nrf51dk': {'arch': 'cortex-m0', 'jlink_device': 'nrf51422', 'page_size': 1024},
+		'nrf52dk': {'arch': 'cortex-m4', 'jlink_device': 'nrf52840', 'page_size': 4096},
+	}
 
 	def __init__ (self, args):
 		self.args = args
@@ -23,6 +23,7 @@ class BoardInterface:
 		self.board = getattr(self.args, 'board', None)
 		self.arch = getattr(self.args, 'arch', None)
 		self.jlink_device = getattr(self.args, 'jlink_device', None)
+		self.page_size = getattr(self.args, 'page_size', 0)
 
 	def open_link_to_board (self):
 		'''
@@ -164,3 +165,9 @@ class BoardInterface:
 		Return the architecture of the board we are connected to.
 		'''
 		return self.arch
+
+	def get_page_size (self):
+		'''
+		Return the size of the page in bytes for the connected board.
+		'''
+		return self.page_size

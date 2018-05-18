@@ -9,7 +9,7 @@ class BoardInterface:
 		'hail': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C', 'page_size': 512},
 		'imix': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C', 'page_size': 512},
 		'nrf51dk': {'arch': 'cortex-m0', 'jlink_device': 'nrf51422', 'page_size': 1024},
-		'nrf52dk': {'arch': 'cortex-m4', 'jlink_device': 'nrf52840', 'page_size': 4096},
+		'nrf52dk': {'arch': 'cortex-m4', 'jlink_device': 'nrf52', 'page_size': 4096},
 	}
 
 	def __init__ (self, args):

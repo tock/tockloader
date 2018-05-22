@@ -5,6 +5,7 @@ Interface with a board over serial that is using the
 
 import atexit
 import crcmod
+import datetime
 import fcntl
 import hashlib
 import json
@@ -692,12 +693,63 @@ class BootloaderSerial(BoardInterface):
 		'''
 		print('Listening for serial output.')
 
+		# Create a custom filter for miniterm that prepends the date.
+		class timestamper(serial.tools.miniterm.Transform):
+			'''Prepend output lines with timestamp'''
+
+			def __init__(self):
+				self.last = None
+
+			def rx(self, text):
+				# Only prepend the date if the last character returned
+				# was a \n.
+				last = self.last
+				self.last = text[-1]
+				if last == '\n' or last == None:
+					return '[{}] {}'.format(datetime.datetime.now(), text)
+				else:
+					return text
+
+		# Create a custom filter for miniterm that prepends the number of
+		# printed messages.
+		class counter(serial.tools.miniterm.Transform):
+			'''Prepend output lines with a message count'''
+
+			def __init__(self):
+				self.last = None
+				self.count = 0
+
+			def rx(self, text):
+				# Only prepend the date if the last character returned
+				# was a \n.
+				last = self.last
+				self.last = text[-1]
+				if last == '\n' or last == None:
+					count = self.count
+					self.count += 1
+					return '[{:>6}] {}'.format(count, text)
+				else:
+					return text
+
+		# Add our custom filter to the list that miniterm knows about
+		serial.tools.miniterm.TRANSFORMATIONS['timestamper'] = timestamper
+		serial.tools.miniterm.TRANSFORMATIONS['counter'] = counter
+
+		# Choose the miniterm filter we want to use. Normally we just use
+		# default, which just prints to terminal, but we can also print
+		# timestamps.
+		filters = ['default']
+		if self.args.timestamp:
+			filters.append('timestamper')
+		if self.args.count:
+			filters.append('counter')
+
 		# Use trusty miniterm
 		self.miniterm = serial.tools.miniterm.Miniterm(
 			self.sp,
 			echo=False,
 			eol='crlf',
-			filters=['default'])
+			filters=filters)
 
 		# Ctrl+c to exit.
 		self.miniterm.exit_character = serial.tools.miniterm.unichr(0x03)

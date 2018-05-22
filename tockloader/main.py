@@ -360,6 +360,12 @@ def main ():
 	listen.add_argument('--wait-to-listen',
 		help='Wait until contacted on server socket to actually listen',
 		action='store_true')
+	listen.add_argument('--timestamp',
+		help='Prepend output with a timestamp',
+		action='store_true')
+	listen.add_argument('--count',
+		help='Prepend output with a message counter',
+		action='store_true')
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',

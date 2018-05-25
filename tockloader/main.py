@@ -45,6 +45,8 @@ def collect_tabs (args):
 	'''
 	Load in Tock Application Bundle (TAB) files. If none are specified, this
 	searches for them in subfolders.
+
+	Also allow downloading apps by name from a server.
 	'''
 
 	tab_names = args.tab
@@ -74,6 +76,20 @@ def collect_tabs (args):
 	# Concatenate the binaries.
 	tabs = []
 	for tab_name in tab_names:
+		# Check if this is a TAB locally, or if we should check for it
+		# on a remote hosting server.
+		if not os.path.exists(tab_name):
+			print('Could not find TAB named "{}" locally.'.format(tab_name))
+			response = helpers.menu(['No', 'Yes'],
+				return_type='index',
+				prompt='Would you like to check the online TAB repository for that app?')
+			if response == 0:
+				# User said no, skip this tab_name.
+				continue
+			else:
+				# User said yes, create that URL and try to load the TAB.
+				tab_name = 'http://localhost:8000/{}.tab'.format(tab_name)
+
 		try:
 			tabs.append(TAB(tab_name))
 		except Exception as e:

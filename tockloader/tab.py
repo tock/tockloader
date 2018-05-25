@@ -1,6 +1,10 @@
+import os
+import shutil
 import struct
 import tarfile
+import tempfile
 import textwrap
+import urllib.request
 
 import pytoml
 
@@ -13,7 +17,19 @@ class TAB:
 	Tock Application Bundle object. This class handles the TAB format.
 	'''
 	def __init__ (self, tab_path):
-		self.tab = tarfile.open(tab_path)
+		if os.path.exists(tab_path):
+			# Fetch it from the local filesystem.
+			self.tab = tarfile.open(tab_path)
+		else:
+			# Otherwise download it as a URL.
+			with urllib.request.urlopen(tab_path) as response:
+				tmp_file = tempfile.TemporaryFile()
+				# Copy the downloaded response to our temporary file.
+				shutil.copyfileobj(response, tmp_file)
+				# Need to seek to the beginning of the file for tarfile
+				# to work.
+				tmp_file.seek(0)
+				self.tab = tarfile.open(fileobj=tmp_file)
 
 	def extract_app (self, arch):
 		'''

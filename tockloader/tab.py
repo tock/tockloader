@@ -36,7 +36,10 @@ class TAB:
 		Return an `App` object from this TAB. You must specify the desired
 		MCU architecture so the correct binary can be retrieved.
 		'''
-		binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
+		try:
+			binary_tarinfo = self.tab.getmember('{}.tbf'.format(arch))
+		except Exception:
+			binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
 		binary = self.tab.extractfile(binary_tarinfo).read()
 
 		# First get the TBF header from the correct binary in the TAB
@@ -87,7 +90,10 @@ class TAB:
 		Return a list of architectures that this TAB has compiled binaries for.
 		'''
 		contained_files = self.tab.getnames()
-		return [i[:-4] for i in contained_files if i[-4:] == '.bin']
+		archs = [i[:-4] for i in contained_files if i[-4:] == '.tbf']
+		if len(archs) == 0:
+			archs = [i[:-4] for i in contained_files if i[-4:] == '.bin']
+		return archs
 
 	def get_tbf_header (self):
 		'''
@@ -95,7 +101,16 @@ class TAB:
 		TBF headers are not architecture specific, so we pull from a random
 		binary if there are multiple architectures supported.
 		'''
-		# Find a .bin file
+		# Find a .tbf file
+		for f in self.tab.getnames():
+			if f[-4:] == '.tbf':
+				binary_tarinfo = self.tab.getmember(f)
+				binary = self.tab.extractfile(binary_tarinfo).read()
+
+				# Get the TBF header from a binary in the TAB
+				return TBFHeader(binary)
+
+		# Fall back to a .bin file
 		for f in self.tab.getnames():
 			if f[-4:] == '.bin':
 				binary_tarinfo = self.tab.getmember(f)

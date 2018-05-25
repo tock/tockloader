@@ -176,6 +176,18 @@ Return the version string of the bootloader. Should return a value
 like `0.5.0`, or `None` if it is unknown.
 
 
+### get\_page\_size
+```py
+
+def get_page_size(self)
+
+```
+
+
+
+Return the size of the page in bytes for the connected board.
+
+
 ### open\_link\_to\_board
 ```py
 

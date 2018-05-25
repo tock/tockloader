@@ -91,7 +91,7 @@ def flash_binary(self, address, binary, pad=True)
 
 
 Write pages until a binary has been flashed. binary must have a length
-that is a multiple of 512.
+that is a multiple of page size.
 
 
 ### get\_all\_attributes
@@ -167,6 +167,18 @@ def get_bootloader_version(self)
 
 Return the version string of the bootloader. Should return a value
 like `0.5.0`, or `None` if it is unknown.
+
+
+### get\_page\_size
+```py
+
+def get_page_size(self)
+
+```
+
+
+
+Return the size of the page in bytes for the connected board.
 
 
 ### open\_link\_to\_board

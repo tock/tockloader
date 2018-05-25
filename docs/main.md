@@ -22,7 +22,7 @@ Checks for a Makefile, and it it exists runs `make`.
 ### collect\_tabs
 ```py
 
-def collect_tabs(args, wait=True)
+def collect_tabs(args)
 
 ```
 
@@ -30,6 +30,8 @@ def collect_tabs(args, wait=True)
 
 Load in Tock Application Bundle (TAB) files. If none are specified, this
 searches for them in subfolders.
+
+Also allow downloading apps by name from a server.
 
 
 ### command\_disable\_app

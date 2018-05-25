@@ -27,6 +27,20 @@ Return an `App` object from this TAB. You must specify the desired
 MCU architecture so the correct binary can be retrieved.
 
 
+### get\_crt0\_header\_str
+```py
+
+def get_crt0_header_str(self, arch)
+
+```
+
+
+
+Return a string representation of the crt0 header some apps use for
+doing PIC fixups. We assume this header is positioned immediately
+after the TBF header.
+
+
 ### get\_supported\_architectures
 ```py
 

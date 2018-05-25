@@ -52,6 +52,19 @@ def get_binary(self)
 Get the TBF header in a bytes array.
 
 
+### get\_header\_size
+```py
+
+def get_header_size(self)
+
+```
+
+
+
+Get the size of the header in bytes. This includes any alignment
+padding at the end of the header.
+
+
 ### is\_enabled
 ```py
 

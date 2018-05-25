@@ -85,6 +85,10 @@ class TockLoader:
 		- `replace` can be either "yes", "no", or "only"
 		- `erase` if true means erase all other apps before installing
 		'''
+		# Check if we have any apps to install. If not, then we can quit early.
+		if len(tabs) == 0:
+			raise TockLoaderException('No TABs to install')
+
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 

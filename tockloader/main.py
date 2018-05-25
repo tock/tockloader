@@ -88,7 +88,7 @@ def collect_tabs (args):
 				continue
 			else:
 				# User said yes, create that URL and try to load the TAB.
-				tab_name = 'http://localhost:8000/{}.tab'.format(tab_name)
+				tab_name = 'https://www.tockos.org/assets/tabs/{}.tab'.format(tab_name)
 
 		try:
 			tabs.append(TAB(tab_name))

@@ -41,7 +41,7 @@ def check_and_run_make (args):
 				print('Error running make.')
 				sys.exit(1)
 
-def collect_tabs (args, wait=True):
+def collect_tabs (args):
 	'''
 	Load in Tock Application Bundle (TAB) files. If none are specified, this
 	searches for them in subfolders.
@@ -70,9 +70,6 @@ def collect_tabs (args, wait=True):
 			raise TockLoaderException('No TAB files found.')
 
 		print('Using: {}'.format(tab_names))
-		if wait:
-			print('Waiting one second before continuing...')
-			time.sleep(1)
 
 	# Concatenate the binaries.
 	tabs = []
@@ -245,7 +242,7 @@ def command_info (args):
 
 
 def command_inspect_tab (args):
-	tabs = collect_tabs(args, wait=False)
+	tabs = collect_tabs(args)
 
 	if len(tabs) == 0:
 		raise TockLoaderException('No TABs found to inspect')

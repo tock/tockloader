@@ -133,6 +133,15 @@ knowing the device type of the MCU on the board.
 
 - `device`: The JLinkExe device identifier.
 
+Tockloader can also do JTAG using OpenOCD. OpenOCD needs to know which config
+file to use. Note: you will likely need an up-to-date version of OpenOCD for
+everything to work. On MacOS you can use `brew install --HEAD openocd` to get
+a version from git.
+
+    tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board]
+
+- `openocd_board`: The `.cfg` file in the board folder in OpenOCD to use.
+
 
 Example Usage
 -------------
@@ -161,6 +170,7 @@ Features
 - Supported communication protocols
   - Serial over USB
   - Segger JLinkExe JTAG support
+  - OpenOCD JTAG support
 
 
 Complete Install Instructions

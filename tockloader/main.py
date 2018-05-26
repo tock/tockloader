@@ -338,12 +338,18 @@ def main ():
 	parent_jtag.add_argument('--jlink',
 		action='store_true',
 		help='Use JLinkExe to flash.')
+	parent_jtag.add_argument('--openocd',
+		action='store_true',
+		help='Use OpenOCD to flash.')
 	parent_jtag.add_argument('--jtag-device',
 		default='cortex-m0',
 		help='The device type to pass to JLinkExe. Useful for initial commissioning. Deprecated. Use --jlink-device instead.')
 	parent_jtag.add_argument('--jlink-device',
 		default='cortex-m0',
 		help='The device type to pass to JLinkExe. Useful for initial commissioning.')
+	parent_jtag.add_argument('--openocd-board',
+		default=None,
+		help='The cfg file in OpenOCD `board` folder.')
 	parent_jtag.add_argument('--board',
 		default=None,
 		help='Explicitly specify the board that is being targeted.')

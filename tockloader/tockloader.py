@@ -18,6 +18,7 @@ from .bootloader_serial import BootloaderSerial
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 from .jlinkexe import JLinkExe
+from .openocd import OpenOCD
 
 class TockLoader:
 	'''
@@ -31,6 +32,8 @@ class TockLoader:
 		# Get an object that allows talking to the board
 		if hasattr(self.args, 'jlink') and self.args.jlink:
 			self.channel = JLinkExe(args)
+		elif hasattr(self.args, 'openocd') and self.args.openocd:
+			self.channel = OpenOCD(args)
 		else:
 			self.channel = BootloaderSerial(args)
 

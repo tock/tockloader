@@ -128,7 +128,16 @@ class JLinkExe(BoardInterface):
 		return read
 
 	def erase_page (self, address):
-		binary = bytes([0xFF]*self.page_size)
+		if self.args.debug:
+			print('Erasing page at address {:#0x}'.format(address))
+
+		# For some reason on the nRF52840DK erasing an entire page causes
+		# previous flash to be reset to 0xFF. This doesn't seem to happen
+		# if the binary we write is 512 bytes, so let's just do that. Since
+		# we only use erase_page to end the linked-list of apps this will be
+		# ok. If we ever actually need to reset an entire page exactly we will
+		# have to revisit this.
+		binary = bytes([0xFF]*512)
 		commands = [
 			'r',
 			'loadbin {{binary}}, {address:#x}'.format(address=address),

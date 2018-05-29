@@ -26,6 +26,7 @@ class BoardInterface:
 		self.board = getattr(self.args, 'board', None)
 		self.arch = getattr(self.args, 'arch', None)
 		self.jlink_device = getattr(self.args, 'jlink_device', None)
+		self.openocd_board = getattr(self.args, 'openocd_board', None)
 		self.page_size = getattr(self.args, 'page_size', 0)
 
 	def open_link_to_board (self):

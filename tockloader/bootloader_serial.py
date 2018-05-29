@@ -390,13 +390,17 @@ class BootloaderSerial(BoardInterface):
 		'''
 		Setup a command to send to the bootloader and handle the response.
 		'''
-		if sync:
-			self.sp.write(self.SYNC_MESSAGE)
-			time.sleep(0.0001)
 
 		# Generate the message to send to the bootloader
 		escaped_message = message.replace(bytes([self.ESCAPE_CHAR]), bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]))
 		pkt = escaped_message + bytes([self.ESCAPE_CHAR, command])
+
+		# If there should be a sync/reset message, prepend the outgoing message
+		# with it.
+		if sync:
+			pkt = self.SYNC_MESSAGE + pkt
+
+		# Write the command message.
 		self.sp.write(pkt)
 
 		# Response has a two byte header, then response_len bytes. Keeping in

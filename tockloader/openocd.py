@@ -33,7 +33,7 @@ class OpenOCD(BoardInterface):
 			commands = commands.format(binary=temp_bin.name)
 
 		# Create the actual openocd command and run it.
-		openocd_command = 'openocd -c "source [find board/{}]; {}"'.format(self.openocd_board, commands)
+		openocd_command = 'openocd -c "set WORKAREASIZE 0; source [find board/{}]; {}"'.format(self.openocd_board, commands)
 
 		if self.args.debug:
 			print('Running "{}".'.format(openocd_command))

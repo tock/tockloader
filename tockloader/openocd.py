@@ -39,15 +39,21 @@ class OpenOCD(BoardInterface):
 			print('Running "{}".'.format(openocd_command))
 
 		def print_output (subp):
+			response = ''
 			if subp.stdout:
-				print(subp.stdout.decode('utf-8'))
+				response += subp.stdout.decode('utf-8')
 			if subp.stderr:
-				print(subp.stderr.decode('utf-8'))
+				response += subp.stderr.decode('utf-8')
+			print(response)
+			return response
 
 		p = subprocess.run(shlex.split(openocd_command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		if p.returncode != 0:
 			print('ERROR: openocd returned with error code ' + str(p.returncode))
-			print_output(p)
+			out = print_output(p)
+			if 'Can\'t find board/' in out:
+				raise TockLoaderException('ERROR: Cannot find the board configuration file. \
+You may need to update OpenOCD to the version in latest git master.')
 			raise TockLoaderException('openocd error')
 		elif self.args.debug:
 			print_output(p)

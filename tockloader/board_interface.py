@@ -184,3 +184,9 @@ class BoardInterface:
 		Return the size of the page in bytes for the connected board.
 		'''
 		return self.page_size
+
+	def print_known_boards (self):
+		'''
+		Display the boards that have settings configured in tockloader.
+		'''
+		print('Known boards: {}'.format(', '.join(self.KNOWN_BOARDS.keys())))

@@ -286,6 +286,11 @@ def command_dump_flash_page (args):
 	print('Getting page of flash...')
 	tock_loader.dump_flash_page(args.page)
 
+
+def command_list_known_boards (args):
+	tock_loader = TockLoader(args)
+	tock_loader.print_known_boards()
+
 ################################################################################
 ## Setup and parse command line arguments
 ################################################################################
@@ -537,6 +542,10 @@ def main ():
 	dump_flash_page.add_argument('page',
 		help='The number of the page to read',
 		type=lambda x: int(x, 0))
+
+	list_known_boards = subparser.add_parser('list-known-boards',
+		help='List the boards that Tockloader explicitly knows about')
+	list_known_boards.set_defaults(func=command_list_known_boards)
 
 	argcomplete.autocomplete(parser)
 	args = parser.parse_args()

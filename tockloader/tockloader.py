@@ -432,6 +432,14 @@ class TockLoader:
 			self._print_flash(address, flash)
 
 
+	def print_known_boards (self):
+		'''
+		Simple function to print to console the boards that are hardcoded
+		into Tockloader to make them easier to use.
+		'''
+		self.channel.print_known_boards()
+
+
 	############################################################################
 	## Internal Helper Functions for Communicating with Boards
 	############################################################################

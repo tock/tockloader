@@ -112,6 +112,10 @@ Show the contents of a page of flash.
 
 Read arbitrary flash memory from the board.
 
+#### `tockloader list-known-boards`
+
+Print which boards tockloader has default settings for built-in.
+
 Specifying the Board
 --------------------
 

@@ -8,11 +8,19 @@ class BoardInterface:
 	KNOWN_BOARDS = {
 		'hail': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C', 'page_size': 512},
 		'imix': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C', 'page_size': 512},
-		'nrf51dk': {'arch': 'cortex-m0', 'jlink_device': 'nrf51422', 'page_size': 1024},
+		'nrf51dk': {'arch': 'cortex-m0',
+		            'jlink_device': 'nrf51422',
+		            'page_size': 1024,
+		            'openocd': 'nordic_nrf51_dk.cfg',
+		            'openocd_options': ['workareazero']},
 		'nrf52dk': {'arch': 'cortex-m4',
 		            'jlink_device': 'nrf52',
 		            'page_size': 4096,
 		            'openocd': 'nordic_nrf52_dk.cfg'},
+		'launchxl-cc26x2r1': {'arch': 'cortex-m4',
+		                      'page_size': 512,
+		                      'openocd': 'ti_cc26x2_launchpad.cfg',
+		                      'openocd_options': ['noreset']},
 	}
 
 	def __init__ (self, args):
@@ -27,6 +35,7 @@ class BoardInterface:
 		self.arch = getattr(self.args, 'arch', None)
 		self.jlink_device = getattr(self.args, 'jlink_device', None)
 		self.openocd_board = getattr(self.args, 'openocd_board', None)
+		self.openocd_options = getattr(self.args, 'openocd_options', [])
 		self.page_size = getattr(self.args, 'page_size', 0)
 
 	def open_link_to_board (self):

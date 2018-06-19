@@ -1,5 +1,11 @@
 '''
 Interface for boards using OpenOCD.
+
+This interface has a special option called `openocd_options` which is just a
+list of strings that are interpreted as flags to the OpenOCD class in this file.
+These allow individual boards to have custom operations in a semi-reasonable
+way. Note, I just made up the string (flag) names; they are not passed to
+OpenOCD directly.
 '''
 
 import shlex
@@ -33,7 +39,11 @@ class OpenOCD(BoardInterface):
 			commands = commands.format(binary=temp_bin.name)
 
 		# Create the actual openocd command and run it.
-		openocd_command = 'openocd -c "source [find board/{}]; {}"'.format(self.openocd_board, commands)
+		prefix = 'set WORKAREASIZE 0; ' if 'workareazero' in self.openocd_options else ''
+		cmd_prefix = 'init; halt;' if 'noreset' in self.openocd_options else 'init; reset init; halt;'
+
+		openocd_command = 'openocd -c "{prefix}source [find board/{board}]; {cmd_prefix} {cmd} exit"'.format(
+			board=self.openocd_board, cmd=commands, prefix=prefix, cmd_prefix=cmd_prefix)
 
 		if self.args.debug:
 			print('Running "{}".'.format(openocd_command))
@@ -72,11 +82,14 @@ You may need to update OpenOCD to the version in latest git master.')
 		'''
 		Write using openocd `program` command.
 		'''
-		command = 'init; reset init; halt; program {{binary}} verify {address:#x}; reset; exit'.format(address=address)
+		if 'noreset' in self.openocd_options:
+			command = 'flash write_image erase {{binary}} {address:#x}; verify_image {{binary}} {address:#x};'.format(address=address)
+		else:
+			command = 'program {{binary}} verify {address:#x};'.format(address=address)
 		self._run_openocd_commands(command, binary)
 
 	def read_range (self, address, length):
-		command = 'init; reset init; halt; dump_image {{binary}} {address:#x} {length}; reset; exit'.format(address=address, length=length)
+		command = 'dump_image {{binary}} {address:#x} {length};'.format(address=address, length=length)
 
 		# Always return a valid byte array (like the serial version does)
 		read = bytes()
@@ -100,7 +113,7 @@ You may need to update OpenOCD to the version in latest git master.')
 		# we only use erase_page to end the linked-list of apps this will be
 		# ok. If we ever actually need to reset an entire page exactly we will
 		# have to revisit this.
-		command = 'init; reset init; halt; flash fillb {address:#x} 0xff 512; reset; exit'.format(address=address)
+		command = 'flash fillb {address:#x} 0xff 512;'.format(address=address)
 		self._run_openocd_commands(command, None)
 
 	def determine_current_board (self):
@@ -114,6 +127,8 @@ You may need to update OpenOCD to the version in latest git master.')
 			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
 			self.openocd_board = board['openocd']
+			if 'openocd_options' in board:
+				self.openocd_options = board['openocd_options']
 			self.page_size = board['page_size']
 			return
 

@@ -17,6 +17,7 @@ import subprocess
 import sys
 import textwrap
 import time
+import urllib.parse
 
 import argcomplete
 import crcmod
@@ -78,7 +79,7 @@ def collect_tabs (args):
 	for tab_name in tab_names:
 		# Check if this is a TAB locally, or if we should check for it
 		# on a remote hosting server.
-		if not os.path.exists(tab_name):
+		if not urllib.parse.urlparse(tab_name).scheme and not os.path.exists(tab_name):
 			print('Could not find TAB named "{}" locally.'.format(tab_name))
 			response = helpers.menu(['No', 'Yes'],
 				return_type='index',

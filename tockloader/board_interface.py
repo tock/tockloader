@@ -21,6 +21,9 @@ class BoardInterface:
 		                      'page_size': 512,
 		                      'openocd': 'ti_cc26x2_launchpad.cfg',
 		                      'openocd_options': ['noreset']},
+		'ek-tm4c1294xl': {'arch': 'cortex-m4',
+		                  'page_size': 512,
+		                  'openocd': 'ek-tm4c1294xl.cfg'},
 	}
 
 	def __init__ (self, args):

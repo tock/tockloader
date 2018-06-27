@@ -196,6 +196,18 @@ Also sets up a local port for determining when two Tockloader instances
 are running simultaneously.
 
 
+### print\_known\_boards
+```py
+
+def print_known_boards(self)
+
+```
+
+
+
+Display the boards that have settings configured in tockloader.
+
+
 ### read\_range
 ```py
 

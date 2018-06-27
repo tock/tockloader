@@ -128,6 +128,19 @@ For the bootloader, this means opening a serial port. For JTAG, not much
 needs to be done.
 
 
+### print\_known\_boards
+```py
+
+def print_known_boards(self)
+
+```
+
+
+
+Simple function to print to console the boards that are hardcoded
+into Tockloader to make them easier to use.
+
+
 ### read\_flash
 ```py
 

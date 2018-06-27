@@ -188,6 +188,18 @@ def open_link_to_board(self)
 Open a connection to the board.
 
 
+### print\_known\_boards
+```py
+
+def print_known_boards(self)
+
+```
+
+
+
+Display the boards that have settings configured in tockloader.
+
+
 ### read\_range
 ```py
 

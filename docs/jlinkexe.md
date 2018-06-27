@@ -1,7 +1,7 @@
 # Package tockloader.jlinkexe Documentation
 
 
-Interface for boards using Seggger's JLinkExe program.
+Interface for boards using Segger's JLinkExe program.
 
 All communication with the board is done using JLinkExe commands and scripts.
 
@@ -200,6 +200,18 @@ def open_link_to_board(self)
 Open a connection to the board.
 
 
+### print\_known\_boards
+```py
+
+def print_known_boards(self)
+
+```
+
+
+
+Display the boards that have settings configured in tockloader.
+
+
 ### read\_range
 ```py
 
@@ -210,6 +222,18 @@ def read_range(self, address, length)
 
 
 Read a specific range of flash.
+
+
+### run\_terminal
+```py
+
+def run_terminal(self)
+
+```
+
+
+
+Use JLinkRTTClient to listen for RTT messages.
 
 
 ### set\_attribute

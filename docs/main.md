@@ -124,6 +124,15 @@ def command_list_attributes(args)
 
 
 
+### command\_list\_known\_boards
+```py
+
+def command_list_known_boards(args)
+
+```
+
+
+
 ### command\_listen
 ```py
 

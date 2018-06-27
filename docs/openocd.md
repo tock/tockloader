@@ -3,6 +3,12 @@
 
 Interface for boards using OpenOCD.
 
+This interface has a special option called `openocd_options` which is just a
+list of strings that are interpreted as flags to the OpenOCD class in this file.
+These allow individual boards to have custom operations in a semi-reasonable
+way. Note, I just made up the string (flag) names; they are not passed to
+OpenOCD directly.
+
 ## Class OpenOCD
 Base class for interacting with hardware boards. All of the class functions
 should be overridden to support a new method of interacting with a board.
@@ -189,6 +195,18 @@ def open_link_to_board(self)
 
 
 Open a connection to the board.
+
+
+### print\_known\_boards
+```py
+
+def print_known_boards(self)
+
+```
+
+
+
+Display the boards that have settings configured in tockloader.
 
 
 ### read\_range

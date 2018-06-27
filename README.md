@@ -58,7 +58,8 @@ These provide other helpful features.
 
 #### `tockloader listen`
 
-Listen to UART `printf()` data from a board.
+Listen to UART `printf()` data from a board. Use the option `--jlink` to use
+Segger's RTT listener instead of using a serial port.
 
 
 ### Other Commands
@@ -175,6 +176,7 @@ Features
   - Serial over USB
   - Segger JLinkExe JTAG support
   - OpenOCD JTAG support
+- JLink RTT listener
 
 
 Complete Install Instructions

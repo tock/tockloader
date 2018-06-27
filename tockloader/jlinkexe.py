@@ -1,5 +1,5 @@
 '''
-Interface for boards using Seggger's JLinkExe program.
+Interface for boards using Segger's JLinkExe program.
 
 All communication with the board is done using JLinkExe commands and scripts.
 
@@ -13,6 +13,7 @@ correct command line argument for future communication.
 
 import subprocess
 import tempfile
+import time
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
@@ -176,3 +177,32 @@ class JLinkExe(BoardInterface):
 		# Check that we learned what we needed to learn.
 		if self.board == None or self.arch == None or self.jlink_device == 'cortex-m0' or self.page_size == 0:
 			raise TockLoaderException('Could not determine the current board or arch or jtag device name')
+
+	def run_terminal (self):
+		'''
+		Use JLinkRTTClient to listen for RTT messages.
+		'''
+		# Do a mini `determine_current_board` here so we know what to pass to
+		# JLinkExe. We don't bother trying to find this all automatically, for
+		# now it will just have to be passed in.
+		if self.jlink_device == None and self.board and self.board in self.KNOWN_BOARDS:
+			self.jlink_device = self.KNOWN_BOARDS[self.board]['jlink_device']
+
+		if self.jlink_device == None:
+			print('Unknown jlink_device. Use the --board or --jlink-device options.')
+			return
+
+		print('Starting JLinkExe JTAG connection.')
+		jtag_p = subprocess.Popen('JLinkExe -device {} -if swd -speed 1000 -autoconnect 1'.format(self.jlink_device).split(),
+			stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+		# Delay to give the JLinkExe JTAG connection time to start before running
+		# the RTT listener.
+		time.sleep(1)
+
+		print('Starting JLinkRTTClient to listen for messages.')
+		p = subprocess.Popen('JLinkRTTClient', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		for stdout_line in iter(p.stdout.readline, ""):
+			l = stdout_line.decode("utf-8")
+			if not l.startswith('###RTT Client: *'):
+				print(l, end='')

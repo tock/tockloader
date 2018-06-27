@@ -391,6 +391,15 @@ def main ():
 	listen.add_argument('--count',
 		help='Prepend output with a message counter',
 		action='store_true')
+	listen.add_argument('--jlink',
+		action='store_true',
+		help='Use Segger RTT to listen.')
+	listen.add_argument('--board',
+		default=None,
+		help='Specify the board that is being read from. Only used with --jlink.')
+	listen.add_argument('--jlink-device',
+		default=None,
+		help='The device type to pass to JLinkExe. Only used with --jlink.')
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',

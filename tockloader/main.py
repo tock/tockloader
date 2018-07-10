@@ -353,6 +353,12 @@ def main ():
 	parent_jtag.add_argument('--jlink-device',
 		default='cortex-m0',
 		help='The device type to pass to JLinkExe. Useful for initial commissioning.')
+	parent_jtag.add_argument('--jlink-speed',
+		default=1200,
+		help='The device type to pass to JLinkExe. Useful for initial commissioning.')
+	parent_jtag.add_argument('--jlink-if',
+		default='swd',
+		help='The device type to pass to JLinkExe. Useful for initial commissioning.')
 	parent_jtag.add_argument('--openocd-board',
 		default=None,
 		help='The cfg file in OpenOCD `board` folder.')

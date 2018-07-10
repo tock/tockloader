@@ -19,6 +19,9 @@ class BoardInterface:
 		            'openocd': 'nordic_nrf52_dk.cfg'},
 		'launchxl-cc26x2r1': {'arch': 'cortex-m4',
 		                      'page_size': 512,
+                                      'jlink_device': 'cc2652r1f',
+                                      'jlink_speed': 4000,
+                                      'jlink_if': 'jtag',
 		                      'openocd': 'ti_cc26x2_launchpad.cfg',
 		                      'openocd_options': ['noreset']},
 		'ek-tm4c1294xl': {'arch': 'cortex-m4',
@@ -37,6 +40,8 @@ class BoardInterface:
 		self.board = getattr(self.args, 'board', None)
 		self.arch = getattr(self.args, 'arch', None)
 		self.jlink_device = getattr(self.args, 'jlink_device', None)
+		self.jlink_speed = getattr(self.args, 'jlink_speed', None)
+		self.jlink_if = getattr(self.args, 'jlink_if', None)
 		self.openocd_board = getattr(self.args, 'openocd_board', None)
 		self.openocd_options = getattr(self.args, 'openocd_options', [])
 		self.page_size = getattr(self.args, 'page_size', 0)

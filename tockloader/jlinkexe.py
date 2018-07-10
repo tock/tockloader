@@ -160,8 +160,10 @@ class JLinkExe(BoardInterface):
 			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
 			self.jlink_device = board['jlink_device']
-			self.jlink_speed = board['jlink_speed']
-			self.jlink_if = board['jlink_if']
+			if 'jlink_speed' in board:
+				self.jlink_speed = board['jlink_speed']
+			if 'jlink_if' in board:
+				self.jlink_if = board['jlink_if']
 			self.page_size = board['page_size']
 			return
 

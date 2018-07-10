@@ -48,7 +48,8 @@ class JLinkExe(BoardInterface):
 
 			jlink_file.flush()
 
-			jlink_command = 'JLinkExe -device {} -if swd -speed 1200 -AutoConnect 1 {}'.format(self.jlink_device, jlink_file.name)
+			jlink_command = 'JLinkExe -device {} -if {} -speed {} -AutoConnect 1 -jtagconf -1,-1 {}'.format(
+                                self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
 
 			if self.args.debug:
 				print('Running "{}".'.format(jlink_command))
@@ -86,10 +87,10 @@ class JLinkExe(BoardInterface):
 		Write using JTAG
 		'''
 		commands = [
-			'r',
+			'h\nr',
 			'loadbin {{binary}}, {address:#x}'.format(address=address),
 			'verifybin {{binary}}, {address:#x}'.format(address=address),
-			'r\ng\nq'
+			'r\nh\ng\nq'
 		]
 
 		self._run_jtag_commands(commands, binary)
@@ -111,9 +112,9 @@ class JLinkExe(BoardInterface):
 			# We already know the specific jtag device we are
 			# connected to. This means we can reset and run code.
 			commands = [
-				'r',
+                                'h\nr',
 				'savebin {{binary}}, {address:#x} {length}'.format(address=address, length=length),
-				'r\ng\nq'
+				'r\nh\ng\nq'
 			]
 
 		# Always return a valid byte array (like the serial version does)
@@ -140,10 +141,10 @@ class JLinkExe(BoardInterface):
 		# have to revisit this.
 		binary = bytes([0xFF]*512)
 		commands = [
-			'r',
+			'h\nr',
 			'loadbin {{binary}}, {address:#x}'.format(address=address),
 			'verifybin {{binary}}, {address:#x}'.format(address=address),
-			'r\ng\nq'
+			'r\nh\ng\nq'
 		]
 
 		self._run_jtag_commands(commands, binary)
@@ -159,6 +160,10 @@ class JLinkExe(BoardInterface):
 			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
 			self.jlink_device = board['jlink_device']
+			if 'jlink_speed' in board:
+				self.jlink_speed = board['jlink_speed']
+			if 'jlink_if' in board:
+				self.jlink_if = board['jlink_if']
 			self.page_size = board['page_size']
 			return
 
@@ -193,7 +198,8 @@ class JLinkExe(BoardInterface):
 			return
 
 		print('Starting JLinkExe JTAG connection.')
-		jtag_p = subprocess.Popen('JLinkExe -device {} -if swd -speed 1000 -autoconnect 1'.format(self.jlink_device).split(),
+		jtag_p = subprocess.Popen('JLinkExe -device {} -if {} -speed {} -autoconnect 1 -jtagconf -1,-1'.format(
+                    self.jlink_device, self.jlink_if, self.jlink_speed).split(),
 			stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 		# Delay to give the JLinkExe JTAG connection time to start before running

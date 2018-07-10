@@ -493,7 +493,7 @@ class TockLoader:
 		address = 0x400
 		length = 14
 		flag = self.channel.read_range(address, length)
-		flag_str = flag.decode('utf-8')
+		flag_str = flag.decode('utf-8', 'ignore')
 		if self.args.debug:
 			print('Read from flags location: {}'.format(flag_str))
 		return flag_str == 'TOCKBOOTLOADER'

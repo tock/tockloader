@@ -191,7 +191,12 @@ class JLinkExe(BoardInterface):
 		# JLinkExe. We don't bother trying to find this all automatically, for
 		# now it will just have to be passed in.
 		if self.jlink_device == None and self.board and self.board in self.KNOWN_BOARDS:
-			self.jlink_device = self.KNOWN_BOARDS[self.board]['jlink_device']
+			board = self.KNOWN_BOARDS[self.board]
+			self.jlink_device = board['jlink_device']
+			if 'jlink_speed' in board:
+				self.jlink_speed = board['jlink_speed']
+			if 'jlink_if' in board:
+				self.jlink_if = board['jlink_if']
 
 		if self.jlink_device == None:
 			print('Unknown jlink_device. Use the --board or --jlink-device options.')

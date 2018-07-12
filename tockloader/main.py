@@ -406,6 +406,12 @@ def main ():
 	listen.add_argument('--jlink-device',
 		default=None,
 		help='The device type to pass to JLinkExe. Only used with --jlink.')
+	listen.add_argument('--jlink-speed',
+		default=1200,
+		help='The JLink speed to pass to JLinkExe. Only used with --jlink.')
+	listen.add_argument('--jlink-if',
+		default='swd',
+		help='The interface type to pass to JLinkExe. Only used with --jlink.')
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',

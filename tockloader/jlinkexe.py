@@ -48,7 +48,7 @@ class JLinkExe(BoardInterface):
 
 			jlink_file.flush()
 
-			jlink_command = 'JLinkExe -device {} -if swd -speed 1200 -AutoConnect 1 {}'.format(self.jlink_device, jlink_file.name)
+			jlink_command = 'JLinkExe -device {} -if {} -speed {} -AutoConnect 1 -jtagconf -1,-1 {}'.format(self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
 
 			if self.args.debug:
 				print('Running "{}".'.format(jlink_command))

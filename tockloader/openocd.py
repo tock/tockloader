@@ -42,8 +42,10 @@ class OpenOCD(BoardInterface):
 		prefix = 'set WORKAREASIZE 0; ' if 'workareazero' in self.openocd_options else ''
 		cmd_prefix = 'init; halt;' if 'noreset' in self.openocd_options else 'init; reset init; halt;'
 
-		openocd_command = 'openocd -c "{prefix}source [find board/{board}]; {cmd_prefix} {cmd} exit"'.format(
-			board=self.openocd_board, cmd=commands, prefix=prefix, cmd_prefix=cmd_prefix)
+		cmd_suffix = 'soft_reset_halt; resume;' if 'resume' else ''
+
+		openocd_command = 'openocd -c "{prefix}source [find board/{board}]; {cmd_prefix} {cmd} {cmd_suffix} exit"'.format(
+			board=self.openocd_board, cmd=commands, prefix=prefix, cmd_prefix=cmd_prefix, cmd_suffix=cmd_suffix)
 
 		if self.args.debug:
 			print('Running "{}".'.format(openocd_command))

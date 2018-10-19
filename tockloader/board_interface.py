@@ -23,7 +23,7 @@ class BoardInterface:
 		                      'jlink_speed': 4000,
 		                      'jlink_if': 'jtag',
 		                      'openocd': 'ti_cc26x2_launchpad.cfg',
-		                      'openocd_options': ['noreset']},
+		                      'openocd_options': ['noreset', 'resume']},
 		'ek-tm4c1294xl': {'arch': 'cortex-m4',
 		                  'page_size': 512,
 		                  'openocd': 'ek-tm4c1294xl.cfg'},

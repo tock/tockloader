@@ -8,6 +8,7 @@ way. Note, I just made up the string (flag) names; they are not passed to
 OpenOCD directly.
 '''
 
+import platform
 import shlex
 import subprocess
 import tempfile
@@ -34,8 +35,11 @@ class OpenOCD(BoardInterface):
 				temp_bin.write(binary)
 
 			temp_bin.flush()
-			# For Windows, forward slashes need to be escaped
-			temp_bin = temp_bin.name.replace('\\', '\\\\'))
+
+			if platform.system() == 'Windows':
+				# For Windows, forward slashes need to be escaped
+				temp_bin = temp_bin.name.replace('\\', '\\\\')
+
 			# Update the command with the name of the binary file
 			commands = commands.format(binary=temp_bin.name)
 

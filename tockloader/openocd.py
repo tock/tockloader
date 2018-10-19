@@ -34,7 +34,8 @@ class OpenOCD(BoardInterface):
 				temp_bin.write(binary)
 
 			temp_bin.flush()
-
+			# For Windows, forward slashes need to be escaped
+			temp_bin = temp_bin.name.replace('\\', '\\\\'))
 			# Update the command with the name of the binary file
 			commands = commands.format(binary=temp_bin.name)
 

@@ -6,15 +6,22 @@ Interface with a board over serial that is using the
 import atexit
 import crcmod
 import datetime
-import fcntl
 import hashlib
 import json
 import os
+import platform
 import socket
 import struct
 import sys
 import time
 import threading
+
+'''
+Although Windows is not supported actively, this allow features that "just work" to work
+'''
+if platform.system() != 'Windows':
+	import fcntl
+
 
 import serial
 import serial.tools.list_ports

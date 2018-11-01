@@ -8,6 +8,8 @@ channel specific code is in other files.
 import binascii
 import contextlib
 import copy
+import os
+import platform
 import string
 import textwrap
 import time
@@ -18,7 +20,7 @@ from .bootloader_serial import BootloaderSerial
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 from .jlinkexe import JLinkExe
-from .openocd import OpenOCD
+from .openocd import OpenOCD, collect_temp_files
 
 class TockLoader:
 	'''
@@ -468,6 +470,11 @@ class TockLoader:
 			self.channel.determine_current_board()
 
 			yield
+
+			if platform.system() == 'Windows':
+				for file in collect_temp_files:
+					os.remove(file)
+
 
 			now = time.time()
 			print('Finished in {:0.3f} seconds'.format(now-then))

@@ -16,7 +16,11 @@ import tempfile
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
 
+# global static variable for collecting temp files for Windows
+collect_temp_files = []
+
 class OpenOCD(BoardInterface):
+
 	def _run_openocd_commands (self, commands, binary, write=True):
 		'''
 		- `commands`: String of openocd commands. Use {binary} for where the name
@@ -25,7 +29,9 @@ class OpenOCD(BoardInterface):
 		- `write`: Set to true if the command writes binaries to the board. Set
 		  to false if the command will read bits from the board.
 		'''
-		delete = True
+
+		# in Windows, you can't mark delete bc they delete too fast
+		delete = platform.system() != 'Windows'
 		if self.args.debug:
 			delete = False
 
@@ -38,7 +44,10 @@ class OpenOCD(BoardInterface):
 
 			if platform.system() == 'Windows':
 				# For Windows, forward slashes need to be escaped
-				temp_bin = temp_bin.name.replace('\\', '\\\\')
+				temp_bin.name = temp_bin.name.replace('\\', '\\\\\\')
+				# For Windows, files need to be manually deleted
+				global collect_temp_files
+				collect_temp_files += [temp_bin.name]
 
 			# Update the command with the name of the binary file
 			commands = commands.format(binary=temp_bin.name)

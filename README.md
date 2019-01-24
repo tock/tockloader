@@ -143,9 +143,13 @@ file to use. Note: you will likely need an up-to-date version of OpenOCD for
 everything to work. On MacOS you can use `brew install --HEAD openocd` to get
 a version from git.
 
-    tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board]
+    tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board] --openocd-options [openocd_options]
 
 - `openocd_board`: The `.cfg` file in the board folder in OpenOCD to use.
+- `openocd_options`: Its a list composed of `noreset`, `workareazero` and `resume`:
+  - `noreset`: command `reset init;` is removed from openocd commands when this option is included
+  - `workareazero`: command `set WORKAREASIZE 0;` is added to openocd commands when this option is included
+  - `resume`: commands `soft_reset_halt; resume;` are added to openocd commands when this option is included
 
 
 Example Usage

@@ -362,6 +362,10 @@ def main ():
 	parent_jtag.add_argument('--openocd-board',
 		default=None,
 		help='The cfg file in OpenOCD `board` folder.')
+	parent_jtag.add_argument('--openocd-options',
+		default=[],
+		help='Special flags to handle OpenOCD. Available options are: noreset resume workareazero. These are not passed to OpenOCD directly since they are custom Tockloader flags.',
+		nargs='*')
 	parent_jtag.add_argument('--board',
 		default=None,
 		help='Explicitly specify the board that is being targeted.')

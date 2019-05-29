@@ -52,14 +52,31 @@ class OpenOCD(BoardInterface):
 			# Update the command with the name of the binary file
 			commands = commands.format(binary=temp_bin.name)
 
-		# Create the actual openocd command and run it.
-		prefix = 'set WORKAREASIZE 0; ' if 'workareazero' in self.openocd_options else ''
-		cmd_prefix = 'init; halt;' if 'noreset' in self.openocd_options else 'init; reset init; halt;'
+		# Create the actual openocd command and run it. All of this can be
+		# customized if needed for an unusual board.
 
-		cmd_suffix = 'soft_reset_halt; resume;' if 'resume' else ''
+		# Defaults.
+		prefix = ''
+		source = 'source [find board/{board}];'.format(board=self.openocd_board)
+		cmd_prefix = 'init; reset init; halt;'
+		cmd_suffix = ''
 
-		openocd_command = 'openocd -c "{prefix}source [find board/{board}]; {cmd_prefix} {cmd} {cmd_suffix} exit"'.format(
-			board=self.openocd_board, cmd=commands, prefix=prefix, cmd_prefix=cmd_prefix, cmd_suffix=cmd_suffix)
+		# Do the customizations
+		if 'workareazero' in self.openocd_options:
+			prefix = 'set WORKAREASIZE 0;'
+		if self.openocd_prefix:
+			prefix = self.openocd_prefix
+		if self.openocd_board == None:
+			source = ''
+		if 'noreset' in self.openocd_options:
+			cmd_prefix = 'init; halt;'
+		if 'nocmdprefix' in self.openocd_options:
+			cmd_prefix = ''
+		if 'resume' in self.openocd_options:
+			cmd_suffix = 'soft_reset_halt; resume;'
+
+		openocd_command = 'openocd -c "{prefix} {source} {cmd_prefix} {cmd} {cmd_suffix} exit"'.format(
+			prefix=prefix, source=source, cmd_prefix=cmd_prefix, cmd=commands, cmd_suffix=cmd_suffix)
 
 		if self.args.debug:
 			print('Running "{}".'.format(openocd_command))
@@ -98,14 +115,27 @@ You may need to update OpenOCD to the version in latest git master.')
 		'''
 		Write using openocd `program` command.
 		'''
-		if 'noreset' in self.openocd_options:
-			command = 'flash write_image erase {{binary}} {address:#x}; verify_image {{binary}} {address:#x};'.format(address=address)
-		else:
-			command = 'program {{binary}} verify {address:#x};'.format(address=address)
+		# The "normal" flash command uses `program`.
+		command = 'program {{binary}} verify {address:#x};'
+
+		# Check if the configuration wants to override the default program command.
+		if 'program' in self.openocd_commands:
+			command = self.openocd_commands['program']
+
+		# Substitute the key arguments.
+		command = command.format(address=address)
 		self._run_openocd_commands(command, binary)
 
 	def read_range (self, address, length):
-		command = 'dump_image {{binary}} {address:#x} {length};'.format(address=address, length=length)
+		# The normal read command uses `dump_image`.
+		command = 'dump_image {{binary}} {address:#x} {length};'
+
+		# Check if the configuration wants to override the default read command.
+		if 'read' in self.openocd_commands:
+			command = self.openocd_commands['read']
+
+		# Substitute the key arguments.
+		command = command.format(address=address, length=length)
 
 		# Always return a valid byte array (like the serial version does)
 		read = bytes()
@@ -130,6 +160,13 @@ You may need to update OpenOCD to the version in latest git master.')
 		# ok. If we ever actually need to reset an entire page exactly we will
 		# have to revisit this.
 		command = 'flash fillb {address:#x} 0xff 512;'.format(address=address)
+
+		# Check if the configuration wants to override the default erase command.
+		if 'erase' in self.openocd_commands:
+			command = self.openocd_commands['erase']
+
+		# Substitute the key arguments.
+		command = command.format(address=address)
 		self._run_openocd_commands(command, None)
 
 	def determine_current_board (self):
@@ -145,6 +182,10 @@ You may need to update OpenOCD to the version in latest git master.')
 			self.openocd_board = board['openocd']
 			if 'openocd_options' in board:
 				self.openocd_options = board['openocd_options']
+			if 'openocd_prefix' in board:
+				self.openocd_prefix = board['openocd_prefix']
+			if 'openocd_commands' in board:
+				self.openocd_commands = board['openocd_commands']
 			self.page_size = board['page_size']
 			return
 

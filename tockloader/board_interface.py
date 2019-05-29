@@ -1,4 +1,6 @@
 
+import os
+
 class BoardInterface:
 	'''
 	Base class for interacting with hardware boards. All of the class functions
@@ -23,10 +25,34 @@ class BoardInterface:
 		                      'jlink_speed': 4000,
 		                      'jlink_if': 'jtag',
 		                      'openocd': 'ti_cc26x2_launchpad.cfg',
-		                      'openocd_options': ['noreset', 'resume']},
+		                      'openocd_options': ['noreset', 'resume'],
+		                      'openocd_commands': {'program': 'flash write_image erase {{binary}} {address:#x};\
+		                                                       verify_image {{binary}} {address:#x};'}},
 		'ek-tm4c1294xl': {'arch': 'cortex-m4',
 		                  'page_size': 512,
 		                  'openocd': 'ek-tm4c1294xl.cfg'},
+		'arty': {'arch': 'riscv',
+		         'page_size': 512,
+		         'openocd': None, # No supported board in openocd proper
+		         'openocd_options': ['nocmdprefix'],
+		         'openocd_prefix': 'source [find interface/ftdi/digilent-hs1.cfg];\
+		                            ftdi_device_desc \\"Digilent USB Device\\";\
+		                            adapter_khz 10000;\
+		                            transport select jtag;\
+		                            source [find cpld/xilinx-xc7.cfg];\
+		                            source [find cpld/jtagspi.cfg];\
+		                            proc jtagspi_read {{fname offset len}} {{\
+	                                  global _FLASHNAME;\
+	                                  flash read_bank $_FLASHNAME $fname $offset $len;\
+                                    }};\
+                                    init;\
+                                    jtagspi_init 0 {bitfile};'
+                                    .format(bitfile=os.path.join( # Need path to bscan_spi_xc7a35t.bit
+                                    	os.path.dirname(os.path.realpath(__file__)),
+                    	                '..', 'bitfiles', 'bscan_spi_xc7a35t.bit')),
+		         'openocd_commands': {'program': 'jtagspi_program {{binary}} {address:#x};',
+		                              'read': 'jtagspi_read {{binary}} {address:#x} {length};',
+		                              'erase': 'flash erase_address pad {address:#x} 256;'}}
 	}
 
 	def __init__ (self, args):
@@ -44,6 +70,8 @@ class BoardInterface:
 		self.jlink_if = getattr(self.args, 'jlink_if', None)
 		self.openocd_board = getattr(self.args, 'openocd_board', None)
 		self.openocd_options = getattr(self.args, 'openocd_options', [])
+		self.openocd_prefix = getattr(self.args, 'openocd_prefix', '')
+		self.openocd_commands = getattr(self.args, 'openocd_commands', {})
 		self.page_size = getattr(self.args, 'page_size', 0)
 
 	def open_link_to_board (self):

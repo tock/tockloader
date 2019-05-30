@@ -31,7 +31,7 @@ class BoardInterface:
 		'ek-tm4c1294xl': {'arch': 'cortex-m4',
 		                  'page_size': 512,
 		                  'openocd': 'ek-tm4c1294xl.cfg'},
-		'arty': {'arch': 'riscv',
+		'arty': {'arch': 'rv32imac',
 		         'page_size': 512,
 		         'openocd': None, # No supported board in openocd proper
 		         'openocd_options': ['nocmdprefix'],
@@ -52,7 +52,7 @@ class BoardInterface:
                     	                '..', 'bitfiles', 'bscan_spi_xc7a35t.bit')),
 		         'openocd_commands': {'program': 'jtagspi_program {{binary}} {address:#x};',
 		                              'read': 'jtagspi_read {{binary}} {address:#x} {length};',
-		                              'erase': 'flash erase_address pad {address:#x} 256;'}}
+		                              'erase': 'flash fillb {address:#x} 0x00 512;'}}
 	}
 
 	def __init__ (self, args):

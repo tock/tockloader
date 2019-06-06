@@ -52,7 +52,10 @@ class BoardInterface:
                     	                '..', 'bitfiles', 'bscan_spi_xc7a35t.bit')),
 		         'openocd_commands': {'program': 'jtagspi_program {{binary}} {address:#x};',
 		                              'read': 'jtagspi_read {{binary}} {address:#x} {length};',
-		                              'erase': 'flash fillb {address:#x} 0x00 512;'}}
+		                              'erase': 'flash fillb {address:#x} 0x00 512;'}},
+		'hifive1': {'arch': 'rv32imac',
+		            'page_size': 512,
+		            'openocd': 'sifive-hifive1.cfg'},
 	}
 
 	def __init__ (self, args):

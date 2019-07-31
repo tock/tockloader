@@ -742,14 +742,39 @@ class BootloaderSerial(BoardInterface):
 				else:
 					return text
 
+		class console_mux(serial.tools.miniterm.Transform):
+			def __init__(self):
+				self.outgoing = ''
+
+			def tx(self, text):
+				self.outgoing += text
+				if self.outgoing[-1] == '\r':
+					print('rr {}'.format(self.outgoing))
+				if self.outgoing[-1] == '\n':
+					print('tx {}'.format(self.outgoing))
+					out = self.outgoing.strip()
+					self.outgoing = ''
+					return out
+				else:
+					return ''
+
+			def rx(self, text):
+				# print('rx {}'.format(text))
+				return text
+
+			def echo(self, text):
+				# print('ttt {}'.format(text))
+				return text
+
 		# Add our custom filter to the list that miniterm knows about
 		serial.tools.miniterm.TRANSFORMATIONS['timestamper'] = timestamper
 		serial.tools.miniterm.TRANSFORMATIONS['counter'] = counter
+		serial.tools.miniterm.TRANSFORMATIONS['console_mux'] = console_mux
 
 		# Choose the miniterm filter we want to use. Normally we just use
 		# default, which just prints to terminal, but we can also print
 		# timestamps.
-		filters = ['default']
+		filters = ['console_mux']
 		if self.args.timestamp:
 			filters.append('timestamper')
 		if self.args.count:
@@ -766,6 +791,34 @@ class BootloaderSerial(BoardInterface):
 		self.miniterm.exit_character = serial.tools.miniterm.unichr(0x03)
 		self.miniterm.set_rx_encoding('UTF-8')
 		self.miniterm.set_tx_encoding('UTF-8')
+
+		k = self.miniterm.tx_encoder
+		l = self.sp.write
+		print(k)
+		print(self.sp.write)
+
+		def my_write(b):
+			print(b)
+			if isinstance(b, list):
+				print('YAY')
+				for byte_array in b:
+					l(byte_array)
+					time.sleep(0.1)
+			else:
+				print('ONE')
+				l(b)
+
+		self.sp.write = my_write
+
+		class my_tx_encoder():
+			def encode(self, text):
+				e = k.encode(text)
+				if len(e) > 0:
+					return [struct.pack('>hB', len(e)+1, 0), e]
+				else:
+					return e
+
+		self.miniterm.tx_encoder = my_tx_encoder()
 
 		self.miniterm.start()
 		try:

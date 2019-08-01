@@ -745,11 +745,12 @@ class BootloaderSerial(BoardInterface):
 		class console_mux(serial.tools.miniterm.Transform):
 			def __init__(self):
 				self.outgoing = ''
+				self.incoming = bytes([])
 
 			def tx(self, text):
 				self.outgoing += text
-				if self.outgoing[-1] == '\r':
-					print('rr {}'.format(self.outgoing))
+				# if self.outgoing[-1] == '\r':
+				# 	print('rr {}'.format(self.outgoing))
 				if self.outgoing[-1] == '\n':
 					print('tx {}'.format(self.outgoing))
 					out = self.outgoing.strip()
@@ -759,8 +760,62 @@ class BootloaderSerial(BoardInterface):
 					return ''
 
 			def rx(self, text):
-				# print('rx {}'.format(text))
-				return text
+				self.incoming += text
+
+				# Get the length of the received buffer up to a max of the
+				# header size, which is 3.
+				start_len = 3 if len(self.incoming) >= 3 else len(self.incoming)
+
+				# Do a really rough check to see if this is just a normal
+				# debug message or a console_mux message with a header.
+				console_mux_msg = False
+				for c in self.incoming[0:start_len]:
+					if c < 32 or c >= 128:
+						console_mux_msg = True
+						break
+
+				if console_mux_msg:
+					# This looks like a console_mux message. Make sure we
+					# get the whole thing and then handle it.
+					if len(self.incoming) > 3:
+						msg_len, id = struct.unpack('>hB', self.incoming[0:3])
+						# print(msg_len)
+						# print(id)
+
+						if len(self.incoming) == msg_len+2:
+
+							out = mt_rx_encoder.decode(self.incoming[3:])
+							self.incoming = bytes([])
+
+
+
+							if id == 0:
+								# Special message from the console_mux itself.
+								return '[CONSOLE_MUX]: {}'.format(out)
+
+
+							else:
+
+
+								return '[OTHER] {}: {}\n'.format(id, out)
+
+
+
+
+
+
+				else:
+					print('[DEBUG]')
+					# Just display this message
+					out = mt_rx_encoder.decode(self.incoming)
+					self.incoming = bytes([])
+					return out
+
+
+				return ''
+
+
+
 
 			def echo(self, text):
 				# print('ttt {}'.format(text))
@@ -783,7 +838,7 @@ class BootloaderSerial(BoardInterface):
 		# Use trusty miniterm
 		self.miniterm = serial.tools.miniterm.Miniterm(
 			self.sp,
-			echo=False,
+			echo=True,
 			eol='crlf',
 			filters=filters)
 
@@ -792,35 +847,67 @@ class BootloaderSerial(BoardInterface):
 		self.miniterm.set_rx_encoding('UTF-8')
 		self.miniterm.set_tx_encoding('UTF-8')
 
-		k = self.miniterm.tx_encoder
+		# # Want raw for this new console mux
+		# self.miniterm.raw = True
+
+		mt_tx_encoder = self.miniterm.tx_encoder
+		mt_rx_encoder = self.miniterm.rx_decoder
 		l = self.sp.write
-		print(k)
 		print(self.sp.write)
 
 		def my_write(b):
-			print(b)
+			# print(b)
 			if isinstance(b, list):
-				print('YAY')
+				# print('YAY')
 				for byte_array in b:
 					l(byte_array)
 					time.sleep(0.1)
 			else:
-				print('ONE')
+				# print('ONE')
 				l(b)
 
 		self.sp.write = my_write
 
-		class my_tx_encoder():
+		class tockloader_tx_encoder():
 			def encode(self, text):
-				e = k.encode(text)
+				e = mt_tx_encoder.encode(text)
 				if len(e) > 0:
 					return [struct.pack('>hB', len(e)+1, 0), e]
 				else:
 					return e
 
-		self.miniterm.tx_encoder = my_tx_encoder()
+		class tockloader_rx_encoder():
+			def decode(self, text):
+				return text
+				# header = text[0:3]
+				# print(header)
+				# return mt_rx_encoder.decode(text[3:])
+
+
+		self.miniterm.tx_encoder = tockloader_tx_encoder()
+		self.miniterm.rx_decoder = tockloader_rx_encoder()
 
 		self.miniterm.start()
+
+		# Wait for board to boot, then send the `list` command.
+		time.sleep(0.8)
+		e = mt_tx_encoder.encode('list')
+		self.sp.write(struct.pack('>hB', len(e)+1, 0))
+		time.sleep(0.1)
+		self.sp.write(e)
+
+
+
+
+		time.sleep(2)
+		print('GOGO')
+		e = mt_tx_encoder.encode('help')
+		self.sp.write(struct.pack('>hB', len(e)+1, 2))
+		time.sleep(0.1)
+		self.sp.write(e)
+
+
+
 		try:
 			self.miniterm.join(True)
 		except KeyboardInterrupt:

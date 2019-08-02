@@ -749,10 +749,19 @@ class BootloaderSerial(BoardInterface):
 
 			def tx(self, text):
 				self.outgoing += text
+
+				# Since miniterm does echo after handling TX it's possible
+				# the device sends back text before the echo happens. Therefore
+				# we echo here to ensure that the echo happens first (since this
+				# function controls when bytes are actually sent to the board).
+				sys.stdout.write(text)
+				sys.stdout.flush()
+
+
 				# if self.outgoing[-1] == '\r':
 				# 	print('rr {}'.format(self.outgoing))
 				if self.outgoing[-1] == '\n':
-					print('tx {}'.format(self.outgoing))
+					# print('tx {}'.format(self.outgoing))
 					out = self.outgoing.strip()
 					self.outgoing = ''
 					return out
@@ -760,66 +769,112 @@ class BootloaderSerial(BoardInterface):
 					return ''
 
 			def rx(self, text):
+				# print('RR: {}'.format(text))
 				self.incoming += text
 
-				# Get the length of the received buffer up to a max of the
-				# header size, which is 3.
-				start_len = 3 if len(self.incoming) >= 3 else len(self.incoming)
+				# Message to send to the terminal that we are going to create
+				# from the buffered received bytes.
+				out = ''
 
-				# Do a really rough check to see if this is just a normal
-				# debug message or a console_mux message with a header.
-				console_mux_msg = False
-				for c in self.incoming[0:start_len]:
-					if c < 32 or c >= 128:
-						console_mux_msg = True
+				# Need to loop in case multiple messages got concatenated.
+				while True:
+
+					# Get the length of the received buffer up to a max of the
+					# header size, which is 3.
+					start_len = 3 if len(self.incoming) >= 3 else len(self.incoming)
+
+					# Check if the buffer is empty and there is nothing left
+					# to check for.
+					if start_len == 0:
 						break
 
-				if console_mux_msg:
-					# This looks like a console_mux message. Make sure we
-					# get the whole thing and then handle it.
-					if len(self.incoming) > 3:
-						msg_len, id = struct.unpack('>hB', self.incoming[0:3])
-						# print(msg_len)
-						# print(id)
+					# Do a really rough check to see if this is just a normal
+					# debug message or a console_mux message with a header.
+					console_mux_msg = False
+					for c in self.incoming[0:start_len]:
+						if c < 32 or c >= 128:
+							console_mux_msg = True
+							break
 
-						if len(self.incoming) == msg_len+2:
+					if console_mux_msg:
+						# This looks like a console_mux message. Make sure we
+						# get the whole thing and then handle it.
+						if len(self.incoming) > 3:
+							msg_len, id = struct.unpack('>hB', self.incoming[0:3])
+							# print(msg_len)
+							# print(id)
 
-							out = mt_rx_encoder.decode(self.incoming[3:])
-							self.incoming = bytes([])
+							# # Strip the now parsed header.
+							# self.incoming = self.incoming[3:]
+							# Length includes the id byte. Subtract that out
+							msg_len -= 1
 
+							# Check if we have received all of this message
+							# yet. We may have received more than just this
+							# message.
+							if len(self.incoming) >= msg_len+3:
+								# Now that we know we have it all, we can
+								# discard the header.
+								self.incoming = self.incoming[3:]
 
+								# Parse the message as UTF-8.
+								decoded = mt_rx_encoder.decode(self.incoming[0:msg_len])
+								self.incoming = self.incoming[msg_len:]
 
-							if id == 0:
-								# Special message from the console_mux itself.
-								return '[CONSOLE_MUX]: {}'.format(out)
+								# print('REMAIN {}: {}'.format(len(self.incoming), self.incoming))
 
+								if id == 0:
+									# Special message from the console_mux itself.
+									out += '[CONSOLE_MUX]: {}\r\n'.format(decoded)
+
+								elif id == 1:
+									# This a kernel debug message.
+									out += '[DEBUG]: {}\r\n'.format(decoded)
+
+								elif id == active_console_id:
+									# If this is the console we are currently
+									# interacting with, go ahead and display
+									# this.
+									out += '{}\r\n'.format(decoded)
+
+								elif id >= 128:
+									out += '[APP]({}): {}'.format(id, decoded)
+
+								else:
+									out += '[HIDDEN]({}): {}\r\n'.format(id, decoded)
 
 							else:
+								break
 
-
-								return '[OTHER] {}: {}\n'.format(id, out)
-
-
-
-
-
-
-				else:
-					print('[DEBUG]')
-					# Just display this message
-					out = mt_rx_encoder.decode(self.incoming)
-					self.incoming = bytes([])
-					return out
-
-
-				return ''
+						else:
+							break
 
 
 
 
-			def echo(self, text):
-				# print('ttt {}'.format(text))
-				return text
+
+
+
+
+					else:
+						print('[DEBUG]')
+						# Just display this message
+						out += mt_rx_encoder.decode(self.incoming)
+						self.incoming = bytes([])
+						break
+
+
+				return out
+
+
+
+
+			# def echo(self, text):
+			# 	# print('ttt {}'.format(text))
+			# 	# return text
+			# 	return 'E:{}'.format(text)
+
+		active_console_id = 3
 
 		# Add our custom filter to the list that miniterm knows about
 		serial.tools.miniterm.TRANSFORMATIONS['timestamper'] = timestamper
@@ -838,7 +893,7 @@ class BootloaderSerial(BoardInterface):
 		# Use trusty miniterm
 		self.miniterm = serial.tools.miniterm.Miniterm(
 			self.sp,
-			echo=True,
+			echo=False,
 			eol='crlf',
 			filters=filters)
 
@@ -872,7 +927,7 @@ class BootloaderSerial(BoardInterface):
 			def encode(self, text):
 				e = mt_tx_encoder.encode(text)
 				if len(e) > 0:
-					return [struct.pack('>hB', len(e)+1, 0), e]
+					return [struct.pack('>hB', len(e)+1, active_console_id), e]
 				else:
 					return e
 
@@ -899,12 +954,12 @@ class BootloaderSerial(BoardInterface):
 
 
 
-		time.sleep(2)
-		print('GOGO')
-		e = mt_tx_encoder.encode('help')
-		self.sp.write(struct.pack('>hB', len(e)+1, 2))
-		time.sleep(0.1)
-		self.sp.write(e)
+		# time.sleep(2)
+		# print('GOGO')
+		# e = mt_tx_encoder.encode('help')
+		# self.sp.write(struct.pack('>hB', len(e)+1, 3))
+		# time.sleep(0.1)
+		# self.sp.write(e)
 
 
 

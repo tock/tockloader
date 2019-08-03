@@ -754,19 +754,24 @@ class BootloaderSerial(BoardInterface):
 				# the device sends back text before the echo happens. Therefore
 				# we echo here to ensure that the echo happens first (since this
 				# function controls when bytes are actually sent to the board).
-				sys.stdout.write(text)
+				if text.encode('utf-8')[0] == 8:
+					# Handle backspace
+					sys.stdout.write(bytes([8, 32, 8]).decode('utf-8'))
+				else:
+					sys.stdout.write(text)
 				sys.stdout.flush()
 
+				if self.outgoing[-1].encode('utf-8')[0] == 8:
+					# backspace
+					self.outgoing = self.outgoing[0:-2]
 
-				# if self.outgoing[-1] == '\r':
-				# 	print('rr {}'.format(self.outgoing))
-				if self.outgoing[-1] == '\n':
-					# print('tx {}'.format(self.outgoing))
+				elif self.outgoing[-1] == '\n':
+					# print('tx {}'.format(self.outgoing.encode('utf-8')))
 					out = self.outgoing.strip()
 					self.outgoing = ''
 					return out
-				else:
-					return ''
+
+				return ''
 
 			def rx(self, text):
 				# print('RR: {}'.format(text))

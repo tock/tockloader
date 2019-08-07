@@ -746,6 +746,8 @@ class BootloaderSerial(BoardInterface):
 			def __init__(self):
 				self.outgoing = ''
 				self.incoming = bytes([])
+				self.active_console_id = None
+				self.known_consoles = None
 
 			def tx(self, text):
 				self.outgoing += text
@@ -767,11 +769,15 @@ class BootloaderSerial(BoardInterface):
 
 				elif self.outgoing[-1] == '\n':
 					# print('tx {}'.format(self.outgoing.encode('utf-8')))
-					out = self.outgoing.strip()
+					out = self.outgoing.strip().encode('utf-8')
 					self.outgoing = ''
-					return out
 
-				return ''
+					if self.active_console_id == None:
+						print('No active console, cannot send.')
+					else:
+						return [struct.pack('>hB', len(out)+1, self.active_console_id), out]
+
+				return []
 
 			def rx(self, text):
 				# print('RR: {}'.format(text))
@@ -822,30 +828,61 @@ class BootloaderSerial(BoardInterface):
 								# discard the header.
 								self.incoming = self.incoming[3:]
 
-								# Parse the message as UTF-8.
-								decoded = mt_rx_encoder.decode(self.incoming[0:msg_len])
+								# Slice off just the part that is this message.
+								received = self.incoming[0:msg_len]
 								self.incoming = self.incoming[msg_len:]
 
 								# print('REMAIN {}: {}'.format(len(self.incoming), self.incoming))
 
+								#
+								# Interpret messages from the board
+								#
+
 								if id == 0:
 									# Special message from the console_mux itself.
-									out += '[CONSOLE_MUX]: {}\r\n'.format(decoded)
+
+									# Split on '\0'. That separates portions
+									# of the console mux messages.
+									chunks = received.split(bytes([0]))
+
+									# First chunk is the message type.
+									if chunks[0].decode('utf-8') == 'list':
+										# This is a response to our list command.
+										# Each remaining chunk is a console id
+										# then the console name
+										self.known_consoles = {}
+										for chunk in chunks[1:]:
+											if len(chunk) > 1:
+												console_id = chunk[0]
+												console_name = chunk[1:].decode('utf-8')
+												self.known_consoles[console_id] = console_name
+
+										out += '[KNOWN CONSOLES]\r\n'
+										for id,name in sorted(self.known_consoles.items()):
+											out += '{:<3}: {}\r\n'.format(id, name)
+
+									else:
+										decoded = received.decode('utf-8')
+										out += '[CONSOLE_MUX]: {}\r\n'.format(decoded)
 
 								elif id == 1:
 									# This a kernel debug message.
+									decoded = received.decode('utf-8')
 									out += '[DEBUG]: {}\r\n'.format(decoded)
 
 								elif id == active_console_id:
 									# If this is the console we are currently
 									# interacting with, go ahead and display
 									# this.
+									decoded = received.decode('utf-8')
 									out += '{}\r\n'.format(decoded)
 
 								elif id >= 128:
+									decoded = received.decode('utf-8')
 									out += '[APP]({}): {}'.format(id, decoded)
 
 								else:
+									decoded = received.decode('utf-8')
 									out += '[HIDDEN]({}): {}\r\n'.format(id, decoded)
 
 							else:
@@ -864,7 +901,7 @@ class BootloaderSerial(BoardInterface):
 					else:
 						print('[DEBUG]')
 						# Just display this message
-						out += mt_rx_encoder.decode(self.incoming)
+						out += self.incoming.decode('utf-8')
 						self.incoming = bytes([])
 						break
 
@@ -904,68 +941,41 @@ class BootloaderSerial(BoardInterface):
 
 		# Ctrl+c to exit.
 		self.miniterm.exit_character = serial.tools.miniterm.unichr(0x03)
-		self.miniterm.set_rx_encoding('UTF-8')
-		self.miniterm.set_tx_encoding('UTF-8')
 
-		# # Want raw for this new console mux
-		# self.miniterm.raw = True
-
-		mt_tx_encoder = self.miniterm.tx_encoder
-		mt_rx_encoder = self.miniterm.rx_decoder
-		l = self.sp.write
-		print(self.sp.write)
-
-		def my_write(b):
-			# print(b)
-			if isinstance(b, list):
-				# print('YAY')
-				for byte_array in b:
-					l(byte_array)
-					time.sleep(0.1)
-			else:
-				# print('ONE')
-				l(b)
-
-		self.sp.write = my_write
-
-		class tockloader_tx_encoder():
+		# Need to turn off miniterm's decoding/encoding by inserting our
+		# own null encode/decode. We will be using UTF-8, but since we have
+		# a header we need to manage this ourself.
+		class tockloader_null_encoder():
 			def encode(self, text):
-				e = mt_tx_encoder.encode(text)
-				if len(e) > 0:
-					return [struct.pack('>hB', len(e)+1, active_console_id), e]
-				else:
-					return e
-
-		class tockloader_rx_encoder():
+				return text
 			def decode(self, text):
 				return text
-				# header = text[0:3]
-				# print(header)
-				# return mt_rx_encoder.decode(text[3:])
+		null_encoder = tockloader_null_encoder()
+		self.miniterm.tx_encoder = null_encoder
+		self.miniterm.rx_decoder = null_encoder
+
+		# Need to hack the serial write output. We sometimes want to send
+		# separate binary buffers separated by small amounts of time, and that
+		# isn't supported directly. So, we have a small wrapper around
+		# serial.write().
+		def create_iterated_write(fn):
+			def iterated_write(buffer_list):
+				for byte_array in buffer_list:
+					fn(byte_array)
+					time.sleep(0.1)
+			return iterated_write
+		self.sp.write = create_iterated_write(self.sp.write)
 
 
-		self.miniterm.tx_encoder = tockloader_tx_encoder()
-		self.miniterm.rx_decoder = tockloader_rx_encoder()
+
+
 
 		self.miniterm.start()
 
 		# Wait for board to boot, then send the `list` command.
 		time.sleep(0.8)
-		e = mt_tx_encoder.encode('list')
-		self.sp.write(struct.pack('>hB', len(e)+1, 0))
-		time.sleep(0.1)
-		self.sp.write(e)
-
-
-
-
-		# time.sleep(2)
-		# print('GOGO')
-		# e = mt_tx_encoder.encode('help')
-		# self.sp.write(struct.pack('>hB', len(e)+1, 3))
-		# time.sleep(0.1)
-		# self.sp.write(e)
-
+		e = 'list'.encode('utf-8')
+		self.sp.write([struct.pack('>hB', len(e)+1, 0), e])
 
 
 		try:

@@ -28,7 +28,7 @@ setup(name='tockloader',
           'tockloader = tockloader.main:main'
         ]
       },
-      data_files=[('bitfiles', ['static/bscan_spi_xc7a35t.bit'])],
+      data_files=[('bitfiles', ['static/bscan_spi_xc7a100t.bit'])],
       install_requires=[
           "argcomplete >= 1.8.2",
           "colorama >= 0.3.7",

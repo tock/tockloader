@@ -42,14 +42,14 @@ class BoardInterface:
 		                            source [find cpld/xilinx-xc7.cfg];\
 		                            source [find cpld/jtagspi.cfg];\
 		                            proc jtagspi_read {{fname offset len}} {{\
-	                                  global _FLASHNAME;\
-	                                  flash read_bank $_FLASHNAME $fname $offset $len;\
-                                    }};\
-                                    init;\
-                                    jtagspi_init 0 {bitfile};'
-                                    .format(bitfile=os.path.join( # Need path to bscan_spi_xc7a35t.bit
-                                    	os.path.dirname(os.path.realpath(__file__)),
-                    	                '..', 'bitfiles', 'bscan_spi_xc7a35t.bit')),
+		                              global _FLASHNAME;\
+		                              flash read_bank $_FLASHNAME $fname $offset $len;\
+		                            }};\
+		                            init;\
+		                            jtagspi_init 0 {bitfile};'
+		                            .format(bitfile=os.path.join( # Need path to bscan_spi_xc7a35t.bit
+		                            	os.path.dirname(os.path.realpath(__file__)),
+		            	                '..', 'bitfiles', 'bscan_spi_xc7a100t.bit')),
 		         'openocd_commands': {'program': 'jtagspi_program {{binary}} {address:#x};',
 		                              'read': 'jtagspi_read {{binary}} {address:#x} {length};',
 		                              'erase': 'flash fillb {address:#x} 0x00 512;'}},

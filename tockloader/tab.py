@@ -1,3 +1,4 @@
+import argparse
 import os
 import shutil
 import struct
@@ -16,20 +17,31 @@ class TAB:
 	'''
 	Tock Application Bundle object. This class handles the TAB format.
 	'''
-	def __init__ (self, tab_path):
+	def __init__ (self, tab_path, args=argparse.Namespace()):
+		self.args = args
+
 		if os.path.exists(tab_path):
 			# Fetch it from the local filesystem.
 			self.tab = tarfile.open(tab_path)
 		else:
-			# Otherwise download it as a URL.
-			with urllib.request.urlopen(tab_path) as response:
-				tmp_file = tempfile.TemporaryFile()
-				# Copy the downloaded response to our temporary file.
-				shutil.copyfileobj(response, tmp_file)
-				# Need to seek to the beginning of the file for tarfile
-				# to work.
-				tmp_file.seek(0)
-				self.tab = tarfile.open(fileobj=tmp_file)
+			try:
+				# Otherwise download it as a URL.
+				with urllib.request.urlopen(tab_path) as response:
+					tmp_file = tempfile.TemporaryFile()
+					# Copy the downloaded response to our temporary file.
+					shutil.copyfileobj(response, tmp_file)
+					# Need to seek to the beginning of the file for tarfile
+					# to work.
+					tmp_file.seek(0)
+					self.tab = tarfile.open(fileobj=tmp_file)
+			except Exception as e:
+				if self.args.debug:
+					print('Could not download .tab file. This may have happened because:')
+					print('  - An HTTPS connection could not be established.')
+					print('  - A temporary file could not be created.')
+					print('  - Untarring the TAB failed.')
+					print('Exception: {}'.format(e))
+				raise TockLoaderException('Could not download .tab file.')
 
 	def extract_app (self, arch):
 		'''

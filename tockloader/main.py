@@ -83,7 +83,7 @@ def collect_tabs (args):
 			print('Could not find TAB named "{}" locally.'.format(tab_name))
 			response = helpers.menu(['No', 'Yes'],
 				return_type='index',
-				prompt='Would you like to check the online TAB repository for that app?')
+				prompt='Would you like to check the online TAB repository for that app? ')
 			if response == 0:
 				# User said no, skip this tab_name.
 				continue
@@ -92,8 +92,10 @@ def collect_tabs (args):
 				tab_name = 'https://www.tockos.org/assets/tabs/{}.tab'.format(tab_name)
 
 		try:
-			tabs.append(TAB(tab_name))
+			tabs.append(TAB(tab_name, args))
 		except Exception as e:
+			if args.debug:
+				print('Exception: {}'.format(e))
 			print('Error opening and reading "{}"'.format(tab_name))
 
 	return tabs

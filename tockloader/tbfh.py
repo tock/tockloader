@@ -75,7 +75,6 @@ class TBFHeader:
 				if remaining > 0 and len(buffer) >= remaining:
 					# This is an application. That means we need more parsing.
 					self.is_app = True
-					self.writeable_flash_regions = []
 
 					def roundup (x, to):
 						return x if x % to == 0 else x + to - x % to
@@ -96,6 +95,7 @@ class TBFHeader:
 								self.fields['minimum_ram_size'] = base[2]
 
 						elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
+							self.writeable_flash_regions = []
 							if remaining >= length:
 								for i in range(0, int(length / 8)):
 									base = struct.unpack('<II', buffer[i*8:(i+1)*8])

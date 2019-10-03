@@ -28,8 +28,48 @@ class TockLoader:
 	is contained here.
 	'''
 
+	# Tockloader includes built-in settings for known Tock boards to make the
+	# overall user experience easier. As new boards support Tock, board-specific
+	# options can be include in the Tockloader source to make it easier for
+	# users.
+	#
+	# There are two levels of board-specific configurations: communication
+	# details and application details.
+	#
+	# - Communication details: These are specifics about how Tockloader should
+	#   communicate with the board and what specific commands are needed to
+	#   program the device.
+	#
+	# - Application details: These are specifics about how applications should
+	#   be situated in flash for a particular board. For instance, MPU rules may
+	#   dictate where an application can be placed to properly protect its
+	#   memory.
+	#
+	# Here, we set the application details that are board specific. See
+	# `board_interface.py` for the board-specific communication details.
+	#
+	# Options
+	# -------
+	# - `order`:        How apps should be sorted when flashed onto the board.
+	#                   Supported values: size_descending
+	# - `size`:         Valid sizes for the entire application.
+	#                   Supported values: powers_of_two
+	# - `size_minimum`: Minimum valid size for each application. This size is
+	#                   the entire size of the application. In bytes.
+	BOARDS_APP_DETAILS = {
+	    'default': {'order': 'size_descending',
+	                'size': 'powers_of_two',
+	                'size_minimum': 0},
+	    'nrf52dk': {'size_minimum': 4096}
+	}
+
+
 	def __init__ (self, args):
 		self.args = args
+
+		# These are customized once we have a connection to the board and know
+		# what board we are talking to.
+		self.app_options = self.BOARDS_APP_DETAILS['default']
 
 		# Get an object that allows talking to the board
 		if hasattr(self.args, 'jlink') and self.args.jlink:
@@ -469,6 +509,9 @@ class TockLoader:
 			# talking to.
 			self.channel.determine_current_board()
 
+			# Set any board-specific options that tockloader needs to use.
+			self._update_board_specific_options()
+
 			yield
 
 			if platform.system() == 'Windows':
@@ -505,6 +548,16 @@ class TockLoader:
 			print('Read from flags location: {}'.format(flag_str))
 		return flag_str == 'TOCKBOOTLOADER'
 
+	def _update_board_specific_options (self):
+		'''
+		This uses the name of the board to update any options about how apps
+		should be loaded on this board that are hardcoded in Tockloader.
+		'''
+
+		# Configure app options for the board (if needed)
+		board = self.channel.get_board_name()
+		if board and board in self.BOARDS_APP_DETAILS:
+			self.app_options.update(self.BOARDS_APP_DETAILS[board])
 
 	############################################################################
 	## Helper Functions for Manipulating Binaries and TBF
@@ -531,8 +584,9 @@ class TockLoader:
 				# flash and save it to be moved, as well as update the address.
 				# However, we may have a new binary to use, so we don't need to
 				# fetch it.
-				if not app.has_binary():
-					app.set_binary(self.channel.read_range(app.address, app.get_size()))
+				if not app.has_app_binary():
+					entire_app = self.channel.read_range(app.address, app.get_size())
+					app.set_app_binary(entire_app[app.get_header_size():])
 
 				# Either way save the new address.
 				app.set_address(start_address)
@@ -543,8 +597,8 @@ class TockLoader:
 		# binary indicates that they are new or moved.
 		end = address
 		for app in apps:
-			if app.has_binary():
-				self.channel.flash_binary(app.address, app.binary)
+			if app.has_app_binary():
+				self.channel.flash_binary(app.address, app.get_binary())
 			end = app.address + app.get_size()
 
 		# Then erase the next page. This ensures that flash is clean at the
@@ -600,7 +654,7 @@ class TockLoader:
 		anything annoying like that.
 		'''
 		for app in apps:
-			if app.has_binary():
+			if app.has_app_binary():
 				raise TockLoaderException('App headers should not have binaries! That would imply the app has changed!')
 
 			self.channel.flash_binary(app.address, app.get_header_binary(), pad=False)
@@ -616,7 +670,12 @@ class TockLoader:
 
 		for tab in tabs:
 			if self.args.force or tab.is_compatible_with_board(self.channel.get_board_name()):
-				apps.append(tab.extract_app(arch))
+				app = tab.extract_app(arch)
+				# Enforce the minimum app size here.
+				if app.get_size() < self.app_options['size_minimum']:
+					app.set_size(self.app_options['size_minimum'])
+
+				apps.append(app)
 
 		if len(apps) == 0:
 			raise TockLoaderException('No valid apps for this board were provided. Use --force to override.')

@@ -5,11 +5,11 @@ class App:
 	Representation of a Tock app stored on a board.
 	'''
 
-	def __init__ (self, tbfh, address, name, binary=None):
-		self.tbfh = tbfh
-		self.address = address
-		self.name = name
-		self.binary = binary
+	def __init__ (self, tbfh, address, name, app_binary=None):
+		self.tbfh = tbfh             # A `tbfh` object representing this app's header.
+		self.address = address       # Where on the board this app currently is.
+		self.name = name             # A copy of the application name.
+		self.app_binary = app_binary # A binary array of the app _after_ the header.
 
 	def is_sticky (self):
 		'''
@@ -24,18 +24,36 @@ class App:
 		'''
 		return self.tbfh.get_app_size()
 
+	def set_size (self, size):
+		'''
+		Force the entire app to be a certain size. If `size` is smaller than the
+		actual app an error will be thrown.
+		'''
+		header_size = self.tbfh.get_header_size()
+		binary_size = len(self.app_binary)
+		current_size = header_size + binary_size
+		if size < current_size:
+			raise TockLoaderException('Cannot make app smaller. Current size: {} bytes'.format(current_size))
+		self.tbfh.set_app_size(size)
+
+	def get_header_size (self):
+		'''
+		Return the size of the TBF header in bytes.
+		'''
+		return self.tbfh.get_header_size()
+
 	def get_header_binary (self):
 		'''
 		Get the TBF header as a bytes array.
 		'''
 		return self.tbfh.get_binary()
 
-	def set_binary (self, binary):
+	def set_app_binary (self, app_binary):
 		'''
 		Update the application binary. Likely this binary would come from the
 		existing contents of flash on a board.
 		'''
-		self.binary = binary
+		self.app_binary = app_binary
 
 	def set_address (self, address):
 		'''
@@ -43,11 +61,29 @@ class App:
 		'''
 		self.address = address
 
-	def has_binary (self):
+	def has_app_binary (self):
 		'''
 		Whether we have the actually application binary for this app.
 		'''
-		return self.binary != None
+		return self.app_binary != None
+
+	def get_binary (self):
+		'''
+		Return the binary array comprising the entire application.
+		'''
+		binary = self.tbfh.get_binary() + self.app_binary
+
+		# Check that the binary is not longer than it is supposed to be. This
+		# might happen if the size was changed, but any code using this binary
+		# has no way to check. If the binary is too long, we truncate the actual
+		# binary blob (which should just be padding) to the correct length. If
+		# it is too short it is ok, since the board shouldn't care what is in
+		# the flash memory the app is not using.
+		size = self.get_size()
+		if len(binary) > size:
+			binary = binary[0:size]
+
+		return binary
 
 	def info (self, verbose=False):
 		'''

@@ -200,6 +200,15 @@ class TBFHeader:
 		'''
 		return self.fields['total_size']
 
+	def set_app_size (self, size):
+		'''
+		Set the total size the app takes in bytes in the flash of the chip.
+
+		Since this does not change the header size we do not need to update
+		any other fields in the header.
+		'''
+		self.fields['total_size'] = size
+
 	def get_header_size (self):
 		'''
 		Get the size of the header in bytes. This includes any alignment

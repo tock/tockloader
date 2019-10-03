@@ -5,7 +5,7 @@ Tock Application Bundle object. This class handles the TAB format.
 ### \_\_init\_\_
 ```py
 
-def __init__(self, tab_path)
+def __init__(self, tab_path, args=Namespace())
 
 ```
 

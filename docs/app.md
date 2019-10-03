@@ -5,13 +5,25 @@ Representation of a Tock app stored on a board.
 ### \_\_init\_\_
 ```py
 
-def __init__(self, tbfh, address, name, binary=None)
+def __init__(self, tbfh, address, name, app_binary=None)
 
 ```
 
 
 
 Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_binary
+```py
+
+def get_binary(self)
+
+```
+
+
+
+Return the binary array comprising the entire application.
 
 
 ### get\_header\_binary
@@ -26,6 +38,18 @@ def get_header_binary(self)
 Get the TBF header as a bytes array.
 
 
+### get\_header\_size
+```py
+
+def get_header_size(self)
+
+```
+
+
+
+Return the size of the TBF header in bytes.
+
+
 ### get\_size
 ```py
 
@@ -38,10 +62,10 @@ def get_size(self)
 Return the total size (including TBF header) of this app in bytes.
 
 
-### has\_binary
+### has\_app\_binary
 ```py
 
-def has_binary(self)
+def has_app_binary(self)
 
 ```
 
@@ -87,10 +111,10 @@ def set_address(self, address)
 Set the address of flash where this app is or should go.
 
 
-### set\_binary
+### set\_app\_binary
 ```py
 
-def set_binary(self, binary)
+def set_app_binary(self, app_binary)
 
 ```
 
@@ -98,6 +122,19 @@ def set_binary(self, binary)
 
 Update the application binary. Likely this binary would come from the
 existing contents of flash on a board.
+
+
+### set\_size
+```py
+
+def set_size(self, size)
+
+```
+
+
+
+Force the entire app to be a certain size. If `size` is smaller than the
+actual app an error will be thrown.
 
 
 ### \_\_str\_\_

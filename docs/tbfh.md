@@ -103,6 +103,21 @@ def is_valid(self)
 Whether the CRC and other checks passed for this header.
 
 
+### set\_app\_size
+```py
+
+def set_app_size(self, size)
+
+```
+
+
+
+Set the total size the app takes in bytes in the flash of the chip.
+
+Since this does not change the header size we do not need to update
+any other fields in the header.
+
+
 ### set\_flag
 ```py
 

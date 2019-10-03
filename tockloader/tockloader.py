@@ -50,15 +50,15 @@ class TockLoader:
 	#
 	# Options
 	# -------
-	# - `order`:        How apps should be sorted when flashed onto the board.
-	#                   Supported values: size_descending
-	# - `size`:         Valid sizes for the entire application.
-	#                   Supported values: powers_of_two
-	# - `size_minimum`: Minimum valid size for each application. This size is
-	#                   the entire size of the application. In bytes.
+	# - `order`:           How apps should be sorted when flashed onto the board.
+	#                      Supported values: size_descending
+	# - `size_constraint`: Valid sizes for the entire application.
+	#                      Supported values: powers_of_two, none
+	# - `size_minimum`:    Minimum valid size for each application. This size is
+	#                      the entire size of the application. In bytes.
 	BOARDS_APP_DETAILS = {
 	    'default': {'order': 'size_descending',
-	                'size': 'powers_of_two',
+	                'size_constraint': 'powers_of_two',
 	                'size_minimum': 0},
 	    'nrf52dk': {'size_minimum': 4096}
 	}
@@ -568,8 +568,12 @@ class TockLoader:
 		Given an array of apps, some of which are new and some of which exist,
 		sort them in flash so they are in descending size order.
 		'''
-		# We are given an array of apps. First we need to order them by size.
-		apps.sort(key=lambda app: app.get_size(), reverse=True)
+		# We are given an array of apps. First we need to order them based on
+		# the ordering requested by this board (or potentially the user).
+		if self.app_options['order'] == 'size_descending':
+			apps.sort(key=lambda app: app.get_size(), reverse=True)
+		else:
+			raise TockLoaderException('Unknown sort order. This is a tockloader bug.')
 
 		# Get where the apps live in flash.
 		address = self.channel.get_apps_start_address()
@@ -671,9 +675,28 @@ class TockLoader:
 		for tab in tabs:
 			if self.args.force or tab.is_compatible_with_board(self.channel.get_board_name()):
 				app = tab.extract_app(arch)
+
 				# Enforce the minimum app size here.
 				if app.get_size() < self.app_options['size_minimum']:
 					app.set_size(self.app_options['size_minimum'])
+
+				# Enforce other sizing constraints here.
+				if self.app_options['size_constraint'] == 'powers_of_two':
+					# Make sure the total app size is a power of two.
+					app_size = app.get_size()
+					if (app_size & (app_size - 1)) != 0:
+						# This is not a power of two, but should be.
+						count = 0
+						while app_size != 0:
+							app_size >>= 1
+							count += 1
+						app.set_size(1 << count)
+						if self.args.debug:
+							print('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
+				elif self.app_options['size_constraint'] == 'none':
+					pass
+				else:
+					raise TockLoaderException('Unknown size constraint. This is a tockloader bug.')
 
 				apps.append(app)
 

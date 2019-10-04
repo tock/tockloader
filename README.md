@@ -199,6 +199,12 @@ the Tockloader package.
     pip3 install tockloader
     ```
 
+- Windows
+    - [Download and Install Python 3](https://www.python.org/downloads/windows/)
+    - Execute within CMD/PowerShell/...:
+        ```
+        pip3 install tockloader
+        ```
 
 Internal Notes
 --------------

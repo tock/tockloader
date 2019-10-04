@@ -270,6 +270,15 @@ Compares the CRC of the local binary to the one calculated by the
 bootloader.
 
 
+### \_configure\_socket
+```py
+
+def _configure_socket(self)
+
+```
+
+
+
 ### \_decode\_attribute
 ```py
 

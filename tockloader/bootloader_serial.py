@@ -165,13 +165,14 @@ class BootloaderSerial(BoardInterface):
 		# running, if it's a listen, pause listening, otherwise bail out
 		self.comm_path = '/tmp/tockloader.' + self._get_serial_port_hash()
 		if os.path.exists(self.comm_path):
-			self.client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+			self.client_sock = self._configure_socket()
 			try:
-				self.client_sock.connect(self.comm_path)
+				self.client_sock.connect(self.socket_bind)
 			except ConnectionRefusedError:
 				print('  [Warning]: Found stale tockloader server, removing')
 				print('             This may occur if a previous tockloader instance crashed')
-				os.unlink(self.comm_path)
+				if platform.system() != 'Windows':
+					os.unlink(self.socket_bind)
 				self.client_sock = None
 		else:
 			self.client_sock = None
@@ -186,7 +187,7 @@ class BootloaderSerial(BoardInterface):
 				raise TockLoaderException('Another tockloader process is active on this serial port')
 			elif r == 'Killing\n':
 				def restart_listener(path):
-					sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+					sock = self._configure_socket()
 					try:
 						sock.connect(path)
 						sock.sendall('Version 1\n'.encode('utf-8'))
@@ -204,11 +205,19 @@ class BootloaderSerial(BoardInterface):
 			else:
 				raise TockLoaderException('Internal error: Got >{}< from IPC'.format(r))
 		else:
-			self.server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-			flags = fcntl.fcntl(self.server_sock, fcntl.F_GETFD)
-			fcntl.fcntl(self.server_sock, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
-			self.server_sock.bind(self.comm_path)
+			self.server_sock = self._configure_socket()
+			
+			try:
+				self.server_sock.bind(self.socket_bind)
+			except socket.error as exc:
+				if exc.args[0] != 48 and exc.args[0] != 10048:
+					raise
+				# This should only be reached on windows systems (unix systems will communicate with one another)
+				print('  [Error]: There is already an instance of tockloader running.')
+				exit(1)
+			
 			self.server_sock.listen(1)
+			
 			self.server_event = threading.Event()
 			self.server_thread = threading.Thread(
 					target=self._server_thread,
@@ -218,7 +227,8 @@ class BootloaderSerial(BoardInterface):
 			def server_cleanup():
 				if self.server_sock is not None:
 					self.server_sock.close()
-					os.unlink(self.comm_path)
+					if platform.system() != 'Windows':
+						os.unlink(self.socket_bind)
 			atexit.register(server_cleanup)
 
 			if hasattr(self.args, 'wait_to_listen') and self.args.wait_to_listen:
@@ -236,7 +246,25 @@ class BootloaderSerial(BoardInterface):
 			# Writing a bogus message seems to start the counter.
 			self.sp.write(self.SYNC_MESSAGE)
 			time.sleep(0.1)
-
+	
+	# To configure a socket connection we need to differentiate between
+	# Windows and UNIX OS.
+	# Windows can handle localhost:80 sockets to connect while
+	# UNIX can use system paths
+	def _configure_socket(self):
+		if platform.system() == 'Windows':
+			self.socket_type = socket.AF_INET
+			self.socket_bind = ('localhost', 80)
+		else:
+			self.socket_type = socket.AF_UNIX
+			self.socket_bind = self.comm_path
+		
+		sock = socket.socket(self.socket_type, socket.SOCK_STREAM)
+		if platform.system() != 'Windows':
+			flags = fcntl.fcntl(sock, fcntl.F_GETFD)
+			fcntl.fcntl(sock, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+		return sock
+	
 	# While tockloader has a serial connection open, it leaves a unix socket
 	# open for other tockloader processes. For most of the time, this will
 	# simply report 'Busy\n' and new tockloader processes will back off and not

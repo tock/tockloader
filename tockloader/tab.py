@@ -51,7 +51,10 @@ class TAB:
 		try:
 			binary_tarinfo = self.tab.getmember('{}.tbf'.format(arch))
 		except Exception:
-			binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
+			try:
+				binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
+			except Exception:
+				raise TockLoaderException('Could not find arch "{}" in TAB file.'.format(arch))
 		binary = self.tab.extractfile(binary_tarinfo).read()
 
 		# First get the TBF header from the correct binary in the TAB

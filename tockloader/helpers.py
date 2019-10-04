@@ -49,20 +49,21 @@ def menu (options, *, return_type, default_index=0, prompt='Which option? '):
 	if the user simply presses enter). Passing `None` disables default
 	selection.
 	'''
+	prompt_to_show = prompt
 	print()
 	for i,opt in enumerate(options):
 		print('[{}]\t{}'.format(i, opt))
 	if default_index is not None:
-		prompt += '[{}] '.format(default_index)
+		prompt_to_show += '[{}] '.format(default_index)
 	print()
 
-	resp = input(prompt)
+	resp = input(prompt_to_show)
 	if resp == '':
 		resp = default_index
 	else:
 		try:
 			resp = int(resp)
-			if resp < 0 or resp > len(options):
+			if resp < 0 or resp >= len(options):
 				raise ValueError
 		except:
 			return menu(options, return_type=return_type,

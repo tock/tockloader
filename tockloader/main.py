@@ -12,6 +12,7 @@ import argparse
 import atexit
 import binascii
 import glob
+import logging
 import os
 import subprocess
 import sys
@@ -305,6 +306,9 @@ def main ():
 
 	# Cleanup any title the program may set
 	atexit.register(helpers.set_terminal_title, '')
+
+	# Setup logging for displaying background information to the user.
+	logging.basicConfig(style='{', format='[{levelname:<7}] {message}', level=logging.DEBUG)
 
 	# Create a common parent parser for arguments shared by all subparsers
 	parent = argparse.ArgumentParser(add_help=False)

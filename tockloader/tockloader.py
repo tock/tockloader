@@ -124,7 +124,7 @@ class TockLoader:
 			self._print_apps(apps, verbose, quiet)
 
 
-	def install (self, tabs, replace='yes', erase=False):
+	def install (self, tabs, replace='yes', erase=False, sticky=False):
 		'''
 		Add or update TABs on the board.
 
@@ -140,6 +140,12 @@ class TockLoader:
 
 			# Start with the apps we are searching for.
 			replacement_apps = self._extract_apps_from_tabs(tabs)
+
+			# If we want to install these as sticky apps, mark that now.
+			if sticky:
+				logging.info('Marking apps as sticky.')
+				for app in replacement_apps:
+					app.set_sticky()
 
 			# Get a list of installed apps
 			existing_apps = self._extract_all_app_headers()

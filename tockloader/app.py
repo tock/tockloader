@@ -18,6 +18,13 @@ class App:
 		'''
 		return self.tbfh.is_sticky()
 
+	def set_sticky (self):
+		'''
+		Mark this app as "sticky" in the app's header. This makes it harder to
+		accidentally remove this app if it is a core service or debug app.
+		'''
+		self.tbfh.set_flag('sticky', True)
+
 	def get_size (self):
 		'''
 		Return the total size (including TBF header) of this app in bytes.

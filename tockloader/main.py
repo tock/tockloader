@@ -131,7 +131,7 @@ def command_install (args):
 		replace = 'no'
 
 	print('Installing apps on the board...')
-	tock_loader.install(tabs, replace=replace, erase=args.erase)
+	tock_loader.install(tabs, replace=replace, erase=args.erase, sticky=args.sticky)
 
 
 def command_update (args):
@@ -451,6 +451,9 @@ def main ():
 		action='store_true')
 	install.add_argument('--erase',
 		help='Erase all existing apps before installing.',
+		action='store_true')
+	install.add_argument('--sticky',
+		help='Make the installed app(s) sticky.',
 		action='store_true')
 
 	update = subparser.add_parser('update',

@@ -91,56 +91,66 @@ class BootloaderSerial(BoardInterface):
 		Also sets up a local port for determining when two Tockloader instances
 		are running simultaneously.
 		'''
-		# Check to see if the serial port was specified or we should find
-		# one to use
+		# Check to see if the user specified a serial port or a specific name,
+		# or if we should find a serial port to use.
 		if self.args.port == None:
-			# Nothing was specified, so we look for something marked as "Tock".
-			# If we can't find something, it is OK.
+			# The user did not specify a specific port to use, so we look for
+			# something marked as "Tock". If we can't find something, we will
+			# fall back to using any serial port.
 			device_name = 'tock'
 			must_match = False
-			print('No device name specified. Using default "{}"'.format(device_name))
+			print('No device name specified. Using default name "{}".'.format(device_name))
 		else:
-			# Since we specified, make sure we connect to that.
+			# Since the user specified, make sure we connect to that particular
+			# port or something that matches it.
 			device_name = self.args.port
 			must_match = True
 
 		# Look for a matching port
 		ports = list(serial.tools.list_ports.grep(device_name))
-		if len(ports) == 1:
-			# Easy case, use the one that matches
-			print('Using "{}"'.format(ports[0]))
+		if must_match and os.path.exists(device_name):
+			# In the most specific case a user specified a full path that exists
+			# and we should use that specific serial port. We treat this as a
+			# special case because something like `/dev/ttyUSB5` will also match
+			# `/dev/ttyUSB55`, but it is clear that user expected to use the
+			# serial port specified by the full path.
+			index = 0
+			ports = [serial.tools.list_ports_common.ListPortInfo(device_name)]
+		elif len(ports) == 1:
+			# Easy case, use the one that matches.
 			index = 0
 		elif len(ports) > 1:
+			# If we get multiple matches then we ask the user to choose from a
+			# list.
+			print('Multiple serial port options found. Which would you like to use?')
 			index = helpers.menu(ports, return_type='index')
 		elif must_match:
-			# pyserial's list_ports can't find all valid serial ports, for
-			# example if someone symlinks to a port or creates a software
-			# serial port with socat, if this path exists, let's trust the
-			# caller for now
-			if os.path.exists(device_name):
-				index = 0
-				ports = [serial.tools.list_ports_common.ListPortInfo(device_name)]
-			else:
-				# We want to find a very specific board. If this does not
-				# exist, we want to fail.
-				raise TockLoaderException('Could not find a board matching "{}"'.format(device_name))
+			# If we get here, then the user did not specify a full path to a
+			# serial port, and we couldn't find anything on the board that
+			# matches what they specified (which may have just been a short
+			# name). Since the user put in the effort of specifically choosing a
+			# port, we error here rather than just (arbitrarily) choosing
+			# something they didn't specify.
+			raise TockLoaderException('Could not find a board matching "{}".'.format(device_name))
 		else:
-			# Just find any port and use the first one
+			# Just find any port and use the first one.
 			ports = list(serial.tools.list_ports.comports())
-			# Mac's will report Bluetooth devices with serial, which is
-			# almost certainly never what you want, so drop these
+			# Macs will report Bluetooth devices with serial, which is
+			# almost certainly never what you want, so drop those.
 			ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
+
 			if len(ports) == 0:
 				raise TockLoaderException('No serial ports found. Is the board connected?')
 
 			print('No serial port with device name "{}" found'.format(device_name))
-			print('Found {} serial port(s).'.format(len(ports)))
+			print('Found {} serial port{}.'.format(len(ports), ('s', '')[len(ports) == 1]))
 
 			if len(ports) == 1:
-				print('Using "{}"'.format(ports[0]))
 				index = 0
 			else:
 				index = helpers.menu(ports, return_type='index')
+
+		print('Using "{}".'.format(ports[index]))
 		port = ports[index][0]
 		helpers.set_terminal_title_from_port_info(ports[index])
 

@@ -11,6 +11,7 @@ files.
 import argparse
 import atexit
 import binascii
+import functools
 import glob
 import logging
 import os
@@ -309,6 +310,10 @@ def main ():
 
 	# Setup logging for displaying background information to the user.
 	logging.basicConfig(style='{', format='[{levelname:<7}] {message}', level=logging.DEBUG)
+	# Add a custom status level for logging what tockloader is doing.
+	logging.addLevelName(25, 'STATUS')
+	logging.Logger.status = functools.partialmethod(logging.Logger.log, 25)
+	logging.status = functools.partial(logging.log, 25)
 
 	# Create a common parent parser for arguments shared by all subparsers
 	parent = argparse.ArgumentParser(add_help=False)

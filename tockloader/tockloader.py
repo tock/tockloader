@@ -8,6 +8,7 @@ channel specific code is in other files.
 import binascii
 import contextlib
 import copy
+import logging
 import os
 import platform
 import string
@@ -217,18 +218,22 @@ class TockLoader:
 				elif len(apps) == 1:
 					# If there's only one app, delete it
 					app_names = [apps[0].name]
-					print('Only one app on board. Uninstalling {}'.format(apps[0]))
+					logging.info('Only one app on board.')
 				else:
-					print('There are multiple apps currently on the board:')
 					options = ['** Delete all']
 					options.extend([app.name for app in apps])
 					name = helpers.menu(options,
 							return_type='value',
-							prompt='Select app to uninstall ')
+							prompt='Select app to uninstall ',
+							title='There are multiple apps currently on the board:')
 					if name == '** Delete all':
 						app_names = [app.name for app in apps]
 					else:
 						app_names = [name]
+
+			print('Attempting to uninstall:')
+			for app_name in app_names:
+				print('  - {}'.format(app_name))
 
 			# Remove the apps if they are there
 			removed = False
@@ -246,23 +251,26 @@ class TockLoader:
 			if not force:
 				for app in apps:
 					if app.name in app_names and app.is_sticky():
-						print('INFO: Not removing app "{}" because it is sticky.'.format(app))
+						logging.info('Not removing app "{}" because it is sticky.'.format(app))
+						logging.info('To remove this you need to include the --force option.')
 
-			# Now take the remaining apps and make sure they
-			# are on the board properly.
-			self._reshuffle_apps(keep_apps)
+			# Check if we actually have any work to do.
+			if removed:
+				# Now take the remaining apps and make sure they are on the
+				# board properly.
+				self._reshuffle_apps(keep_apps)
 
-			print('Uninstall complete.')
+				logging.status('Uninstall complete.')
 
-			# And let the user know the state of the world now that we're done
-			apps = self._extract_all_app_headers()
-			if len(apps):
-				print('Remaining apps on board: ', end='')
-				self._print_apps(apps, verbose=False, quiet=True)
+				# And let the user know the state of the world now that we're done
+				apps = self._extract_all_app_headers()
+				if len(apps):
+					print('After uninstall, remaining apps on board: ', end='')
+					self._print_apps(apps, verbose=False, quiet=True)
+				else:
+					print('After uninstall, no apps on board.')
+
 			else:
-				print('No apps on board.')
-
-			if not removed:
 				raise TockLoaderException('Could not find any apps on the board to remove.')
 
 
@@ -289,13 +297,18 @@ class TockLoader:
 				for app in apps:
 					if app.is_sticky():
 						keep_apps.append(app)
-						print('INFO: Not erasing app "{}" because it is sticky.'.format(app))
+						logging.info('Not erasing app "{}" because it is sticky.'.format(app))
 
 				if len(keep_apps) == 0:
 					address = self.channel.get_apps_start_address()
 					self.channel.erase_page(address)
+
+					print('All apps have been erased.')
 				else:
 					self._reshuffle_apps(keep_apps)
+
+					print('After erasing apps, remaining apps on board: ', end='')
+					self._print_apps(apps, verbose=False, quiet=True)
 
 
 	def set_flag (self, app_names, flag_name, flag_value):
@@ -313,12 +326,12 @@ class TockLoader:
 
 			# User did not specify apps. Pick from list.
 			if len(app_names) == 0:
-				print('Which apps to configure?')
 				options = ['** All']
 				options.extend([app.name for app in apps])
 				name = helpers.menu(options,
 						return_type='value',
-						prompt='Select app to configure ')
+						prompt='Select app to configure ',
+						title='Which apps to configure?')
 				if name == '** All':
 					app_names = [app.name for app in apps]
 				else:
@@ -333,6 +346,7 @@ class TockLoader:
 
 			if changed:
 				self._reflash_app_headers(apps)
+				print('Set flag "{}" to "{}" for apps: {}'.format(flag_name, flag_value, ', '.join(app_names)))
 			else:
 				print('No matching apps found. Nothing changed.')
 
@@ -381,7 +395,7 @@ class TockLoader:
 			for index, attribute in enumerate(self.channel.get_all_attributes()):
 				if attribute:
 					if attribute['key'] == key:
-						print('Found existing key at slot {}. Overwriting.'.format(index))
+						logging.status('Found existing key at slot {}. Overwriting.'.format(index))
 						self.channel.set_attribute(index, out)
 						break
 				else:
@@ -393,7 +407,7 @@ class TockLoader:
 				if open_index == -1:
 					raise TockLoaderException('Error: No open space to save this attribute.')
 				else:
-					print('Key not found. Writing new attribute to slot {}'.format(open_index))
+					logging.status('Key not found. Writing new attribute to slot {}'.format(open_index))
 					self.channel.set_attribute(open_index, out)
 
 
@@ -417,7 +431,7 @@ class TockLoader:
 			# Find if this attribute key already exists
 			for index, attribute in enumerate(self.channel.get_all_attributes()):
 				if attribute and attribute['key'] == key:
-					print('Found existing key at slot {}. Removing.'.format(index))
+					logging.status('Found existing key at slot {}. Removing.'.format(index))
 					self.channel.set_attribute(index, out)
 					break
 			else:
@@ -520,7 +534,7 @@ class TockLoader:
 
 
 			now = time.time()
-			print('Finished in {:0.3f} seconds'.format(now-then))
+			logging.info('Finished in {:0.3f} seconds'.format(now-then))
 		except Exception as e:
 			raise(e)
 		finally:
@@ -545,7 +559,7 @@ class TockLoader:
 		flag = self.channel.read_range(address, length)
 		flag_str = flag.decode('utf-8', 'ignore')
 		if self.args.debug:
-			print('Read from flags location: {}'.format(flag_str))
+			logging.debug('Read from flags location: {}'.format(flag_str))
 		return flag_str == 'TOCKBOOTLOADER'
 
 	def _update_board_specific_options (self):
@@ -692,7 +706,7 @@ class TockLoader:
 							count += 1
 						app.set_size(1 << count)
 						if self.args.debug:
-							print('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
+							logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
 				elif self.app_options['size_constraint'] == 'none':
 					pass
 				else:

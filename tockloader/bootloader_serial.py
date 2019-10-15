@@ -121,8 +121,9 @@ class BootloaderSerial(BoardInterface):
 		elif len(ports) > 1:
 			# If we get multiple matches then we ask the user to choose from a
 			# list.
-			print('Multiple serial port options found. Which would you like to use?')
-			index = helpers.menu(ports, return_type='index')
+			index = helpers.menu(ports,
+				                 return_type='index',
+				                 title='Multiple serial port options found. Which would you like to use?')
 		elif must_match:
 			# If we get here, then the user did not specify a full path to a
 			# serial port, and we couldn't find anything on the board that
@@ -147,8 +148,9 @@ class BootloaderSerial(BoardInterface):
 			if len(ports) == 1:
 				index = 0
 			else:
-				print('Multiple serial port options found. Which would you like to use?')
-				index = helpers.menu(ports, return_type='index')
+				index = helpers.menu(ports,
+					                 return_type='index',
+					                 title='Multiple serial port options found. Which would you like to use?')
 
 		logging.info('Using "{}".'.format(ports[index]))
 		port = ports[index][0]

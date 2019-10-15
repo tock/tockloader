@@ -34,7 +34,7 @@ def set_terminal_title_from_port (port):
 	'''
 	set_terminal_title('Tockloader : {}'.format(port))
 
-def menu (options, *, return_type, default_index=0, prompt='Which option? '):
+def menu (options, *, return_type, default_index=0, prompt='Which option? ', title=''):
 	'''
 	Present a menu of choices to a user
 
@@ -50,7 +50,7 @@ def menu (options, *, return_type, default_index=0, prompt='Which option? '):
 	selection.
 	'''
 	prompt_to_show = prompt
-	print()
+	print(title)
 	for i,opt in enumerate(options):
 		print('[{}]\t{}'.format(i, opt))
 	if default_index is not None:
@@ -66,8 +66,11 @@ def menu (options, *, return_type, default_index=0, prompt='Which option? '):
 			if resp < 0 or resp >= len(options):
 				raise ValueError
 		except:
-			return menu(options, return_type=return_type,
-					default_index=default_index, prompt=prompt)
+			return menu(options,
+				        return_type=return_type,
+				        default_index=default_index,
+				        prompt=prompt,
+				        title=title)
 
 	if return_type == 'index':
 		return resp

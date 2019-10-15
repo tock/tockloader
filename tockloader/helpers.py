@@ -78,3 +78,20 @@ def menu (options, *, return_type, default_index=0, prompt='Which option? ', tit
 		return options[resp]
 	else:
 		raise NotImplementedError('Menu caller asked for bad return_type')
+
+def plural (value):
+	'''
+	Return '' or 's' based on whether the `value` means a string should have
+	a plural word.
+
+	`value` can be a list or a number. If the number or the length of the list
+	is 1, then '' will be returned. Otherwise 's'.
+	'''
+	try:
+		value = len(value)
+	except:
+		pass
+	if value == 1:
+		return ''
+	else:
+		return 's'

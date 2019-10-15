@@ -37,11 +37,11 @@ def check_and_run_make (args):
 
 	if hasattr(args, 'make') and args.make:
 		if os.path.isfile('./Makefile'):
-			print('Running `make`...')
+			logging.status('Running `make`...')
 			p = subprocess.Popen(['make'])
 			out, err = p.communicate()
 			if p.returncode != 0:
-				print('Error running make.')
+				logging.error('Error running make.')
 				sys.exit(1)
 
 def collect_tabs (args):
@@ -57,7 +57,8 @@ def collect_tabs (args):
 	# Check if any tab files were specified. If not, find them based
 	# on where this tool is being run.
 	if len(tab_names) == 0 or tab_names[0] == '':
-		print('No TABs passed to tockloader. Searching for TABs in subdirectories.')
+		logging.info('No TABs passed to tockloader.')
+		logging.status('Searching for TABs in subdirectories.')
 
 		# First check to see if things could be built that haven't been
 		if os.path.isfile('./Makefile'):
@@ -66,15 +67,15 @@ def collect_tabs (args):
 			# Check for the name of the compiler to see if there is work
 			# to be done
 			if 'arm-none-eabi-gcc' in out.decode('utf-8'):
-				print('Warning! There are uncompiled changes!')
-				print('You may want to run `make` before loading the application.')
+				logging.warning('Warning! There are uncompiled changes!')
+				logging.warning('You may want to run `make` before loading the application.')
 
 		# Search for ".tab" files
 		tab_names = glob.glob('./**/*.tab', recursive=True)
 		if len(tab_names) == 0:
 			raise TockLoaderException('No TAB files found.')
 
-		print('Using: {}'.format(tab_names))
+		logging.info('Using: {}'.format(tab_names))
 
 	# Concatenate the binaries.
 	tabs = []
@@ -82,7 +83,7 @@ def collect_tabs (args):
 		# Check if this is a TAB locally, or if we should check for it
 		# on a remote hosting server.
 		if not urllib.parse.urlparse(tab_name).scheme and not os.path.exists(tab_name):
-			print('Could not find TAB named "{}" locally.'.format(tab_name))
+			logging.info('Could not find TAB named "{}" locally.'.format(tab_name))
 			response = helpers.menu(['No', 'Yes'],
 				return_type='index',
 				prompt='Would you like to check the online TAB repository for that app? ')
@@ -97,8 +98,8 @@ def collect_tabs (args):
 			tabs.append(TAB(tab_name, args))
 		except Exception as e:
 			if args.debug:
-				print('Exception: {}'.format(e))
-			print('Error opening and reading "{}"'.format(tab_name))
+				logging.debug('Exception: {}'.format(e))
+			logging.error('Error opening and reading "{}"'.format(tab_name))
 
 	return tabs
 
@@ -130,7 +131,7 @@ def command_install (args):
 	if args.no_replace:
 		replace = 'no'
 
-	print('Installing apps on the board...')
+	logging.status('Installing app{} on the board...'.format(helpers.plural(len(tabs))))
 	tock_loader.install(tabs, replace=replace, erase=args.erase, sticky=args.sticky)
 
 
@@ -141,7 +142,7 @@ def command_update (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Updating application(s) on the board...')
+	logging.status('Updating application{} on the board...'.format(helpers.plural(len(tabs))))
 	tock_loader.install(tabs, replace='only')
 
 
@@ -150,9 +151,9 @@ def command_uninstall (args):
 	tock_loader.open(args)
 
 	if len(args.name) != 0:
-		print('Removing app(s) {} from board...'.format(', '.join(args.name)))
+		logging.status('Removing app{} {} from board...'.format(helpers.plural(len(tabs)), ', '.join(args.name)))
 	else:
-		print('Preparing to uninstall apps...')
+		logging.status('Preparing to uninstall apps...')
 	tock_loader.uninstall_app(args.name, args.force)
 
 
@@ -160,7 +161,7 @@ def command_erase_apps (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Removing apps...')
+	logging.status('Removing apps...')
 	tock_loader.erase_apps(args.force)
 
 
@@ -168,7 +169,7 @@ def command_enable_app (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Enabling apps...')
+	logging.status('Enabling apps...')
 	tock_loader.set_flag(args.name, 'enable', True)
 
 
@@ -176,7 +177,7 @@ def command_disable_app (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Disabling apps...')
+	logging.status('Disabling apps...')
 	tock_loader.set_flag(args.name, 'enable', False)
 
 
@@ -184,7 +185,7 @@ def command_sticky_app (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Making apps sticky...')
+	logging.status('Making apps sticky...')
 	tock_loader.set_flag(args.name, 'sticky', True)
 
 
@@ -192,7 +193,7 @@ def command_unsticky_app (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Making apps no longer sticky...')
+	logging.status('Making apps no longer sticky...')
 	tock_loader.set_flag(args.name, 'sticky', False)
 
 
@@ -216,7 +217,7 @@ def command_flash (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Flashing binar(y|ies) to board...')
+	logging.status('Flashing binar(y|ies) to board...')
 	tock_loader.flash_binary(binary, args.address)
 
 
@@ -225,7 +226,7 @@ def command_read (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Reading flash from the board...')
+	logging.status('Reading flash from the board...')
 	tock_loader.read_flash(args.address, args.length)
 
 
@@ -233,7 +234,7 @@ def command_list_attributes (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Listing attributes...')
+	logging.status('Listing attributes...')
 	tock_loader.list_attributes()
 
 
@@ -241,7 +242,7 @@ def command_set_attribute (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Setting attribute...')
+	logging.status('Setting attribute...')
 	tock_loader.set_attribute(args.key, args.value)
 
 
@@ -249,7 +250,7 @@ def command_remove_attribute (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Removing attribute...')
+	logging.status('Removing attribute...')
 	tock_loader.remove_attribute(args.key)
 
 
@@ -258,7 +259,7 @@ def command_info (args):
 	tock_loader.open(args)
 
 	print('tockloader version: {}'.format(__version__))
-	print('Showing all properties of the board...')
+	logging.status('Showing all properties of the board...')
 	tock_loader.info()
 
 
@@ -268,7 +269,7 @@ def command_inspect_tab (args):
 	if len(tabs) == 0:
 		raise TockLoaderException('No TABs found to inspect')
 
-	print('Inspecting TABs...')
+	logging.status('Inspecting TABs...')
 	for tab in tabs:
 		print(tab)
 
@@ -288,7 +289,7 @@ def command_dump_flash_page (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open(args)
 
-	print('Getting page of flash...')
+	logging.status('Getting page of flash...')
 	tock_loader.dump_flash_page(args.page)
 
 
@@ -597,7 +598,7 @@ def main ():
 	# Handle deprecated arguments.
 	# --jtag is now --jlink. If --jtag was passed copy it to --jlink.
 	if hasattr(args, 'jtag') and args.jtag:
-		print('Deprecation Notice! --jtag has been replaced with --jlink.')
+		logging.warning('Deprecation Notice! --jtag has been replaced with --jlink.')
 		setattr(args, 'jlink', args.jtag)
 	if hasattr(args, 'jtag_device') and args.jtag_device != 'cortex-m0':
 		setattr(args, 'jlink_device', args.jtag_device)
@@ -606,10 +607,10 @@ def main ():
 		try:
 			args.func(args)
 		except TockLoaderException as e:
-			print(e)
+			logging.error(e)
 			sys.exit(1)
 	else:
-		print('Missing Command.\n')
+		logging.error('Missing Command.\n')
 		parser.print_help()
 		sys.exit(1)
 

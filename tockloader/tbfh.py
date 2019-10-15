@@ -1,3 +1,5 @@
+
+import logging
 import struct
 
 class TBFHeader:
@@ -122,8 +124,8 @@ class TBFHeader:
 
 								self.pic_strategy = 'C Style'
 						else:
-							print('Warning: Unknown TLV block in TBF header.')
-							print('Warning: You might want to update tockloader.')
+							logging.warning('Unknown TLV block in TBF header.')
+							logging.warning('You might want to update tockloader.')
 
 						# All blocks are padded to four byte, so we may need to
 						# round up.
@@ -134,7 +136,7 @@ class TBFHeader:
 					if checksum == self.fields['checksum']:
 						self.valid = True
 					else:
-						print('Checksum mismatch. in packet: {:#x}, calculated: {:#x}'.format(self.fields['checksum'], checksum))
+						logging.error('Checksum mismatch. in packet: {:#x}, calculated: {:#x}'.format(self.fields['checksum'], checksum))
 
 				else:
 					# This is just padding and not an app.

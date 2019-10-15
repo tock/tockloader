@@ -8,6 +8,7 @@ way. Note, I just made up the string (flag) names; they are not passed to
 OpenOCD directly.
 '''
 
+import logging
 import platform
 import shlex
 import subprocess
@@ -79,7 +80,7 @@ class OpenOCD(BoardInterface):
 			prefix=prefix, source=source, cmd_prefix=cmd_prefix, cmd=commands, cmd_suffix=cmd_suffix)
 
 		if self.args.debug:
-			print('Running "{}".'.format(openocd_command))
+			logging.debu('Running "{}".'.format(openocd_command))
 
 		def print_output (subp):
 			response = ''
@@ -87,12 +88,12 @@ class OpenOCD(BoardInterface):
 				response += subp.stdout.decode('utf-8')
 			if subp.stderr:
 				response += subp.stderr.decode('utf-8')
-			print(response)
+			logging.debug(response)
 			return response
 
 		p = subprocess.run(shlex.split(openocd_command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		if p.returncode != 0:
-			print('ERROR: openocd returned with error code ' + str(p.returncode))
+			logging.error('ERROR: openocd returned with error code ' + str(p.returncode))
 			out = print_output(p)
 			if 'Can\'t find board/' in out:
 				raise TockLoaderException('ERROR: Cannot find the board configuration file. \
@@ -151,7 +152,7 @@ You may need to update OpenOCD to the version in latest git master.')
 
 	def erase_page (self, address):
 		if self.args.debug:
-			print('Erasing page at address {:#0x}'.format(address))
+			logging.debug('Erasing page at address {:#0x}'.format(address))
 
 		# For some reason on the nRF52840DK erasing an entire page causes
 		# previous flash to be reset to 0xFF. This doesn't seem to happen
@@ -176,7 +177,7 @@ You may need to update OpenOCD to the version in latest git master.')
 
 		# If the user specified a board, use that configuration
 		if self.board and self.board in self.KNOWN_BOARDS:
-			print('Using known arch and jtag-device for known board {}'.format(self.board))
+			logging.info('Using known arch and jtag-device for known board {}'.format(self.board))
 			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
 			self.openocd_board = board['openocd']

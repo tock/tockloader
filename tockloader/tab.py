@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import shutil
 import struct
@@ -36,11 +37,11 @@ class TAB:
 					self.tab = tarfile.open(fileobj=tmp_file)
 			except Exception as e:
 				if self.args.debug:
-					print('Could not download .tab file. This may have happened because:')
-					print('  - An HTTPS connection could not be established.')
-					print('  - A temporary file could not be created.')
-					print('  - Untarring the TAB failed.')
-					print('Exception: {}'.format(e))
+					logging.error('Could not download .tab file. This may have happened because:')
+					logging.error('  - An HTTPS connection could not be established.')
+					logging.error('  - A temporary file could not be created.')
+					logging.error('  - Untarring the TAB failed.')
+					logging.error('Exception: {}'.format(e))
 				raise TockLoaderException('Could not download .tab file.')
 
 	def extract_app (self, arch):

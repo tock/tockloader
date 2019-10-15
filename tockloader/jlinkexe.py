@@ -11,6 +11,7 @@ correct version. Once we know more about the board we are talking to we use the
 correct command line argument for future communication.
 '''
 
+import logging
 import subprocess
 import tempfile
 import time
@@ -52,17 +53,17 @@ class JLinkExe(BoardInterface):
                                 self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
 
 			if self.args.debug:
-				print('Running "{}".'.format(jlink_command))
+				logging.debug('Running "{}".'.format(jlink_command))
 
 			def print_output (subp):
 				if subp.stdout:
-					print(subp.stdout.decode('utf-8'))
+					logging.debug(subp.stdout.decode('utf-8'))
 				if subp.stderr:
-					print(subp.stderr.decode('utf-8'))
+					logging.debug(subp.stderr.decode('utf-8'))
 
 			p = subprocess.run(jlink_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			if p.returncode != 0:
-				print('ERROR: JTAG returned with error code ' + str(p.returncode))
+				logging.error('ERROR: JTAG returned with error code ' + str(p.returncode))
 				print_output(p)
 				raise TockLoaderException('JTAG error')
 			elif self.args.debug:
@@ -131,7 +132,7 @@ class JLinkExe(BoardInterface):
 
 	def erase_page (self, address):
 		if self.args.debug:
-			print('Erasing page at address {:#0x}'.format(address))
+			logging.debug('Erasing page at address {:#0x}'.format(address))
 
 		# For some reason on the nRF52840DK erasing an entire page causes
 		# previous flash to be reset to 0xFF. This doesn't seem to happen
@@ -156,7 +157,7 @@ class JLinkExe(BoardInterface):
 
 		# If the user specified a board, use that configuration
 		if self.board and self.board in self.KNOWN_BOARDS:
-			print('Using known arch and jtag-device for known board {}'.format(self.board))
+			logging.info('Using known arch and jtag-device for known board {}'.format(self.board))
 			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
 			self.jlink_device = board['jlink_device']
@@ -199,10 +200,10 @@ class JLinkExe(BoardInterface):
 				self.jlink_if = board['jlink_if']
 
 		if self.jlink_device == None:
-			print('Unknown jlink_device. Use the --board or --jlink-device options.')
+			logging.error('Unknown jlink_device. Use the --board or --jlink-device options.')
 			return
 
-		print('Starting JLinkExe JTAG connection.')
+		logging.status('Starting JLinkExe JTAG connection.')
 		jtag_p = subprocess.Popen('JLinkExe -device {} -if {} -speed {} -autoconnect 1 -jtagconf -1,-1'.format(
                     self.jlink_device, self.jlink_if, self.jlink_speed).split(),
 			stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -211,7 +212,7 @@ class JLinkExe(BoardInterface):
 		# the RTT listener.
 		time.sleep(1)
 
-		print('Starting JLinkRTTClient to listen for messages.')
+		logging.status('Starting JLinkRTTClient to listen for messages.')
 		p = subprocess.Popen('JLinkRTTClient', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		for stdout_line in iter(p.stdout.readline, ""):
 			l = stdout_line.decode("utf-8")

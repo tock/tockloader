@@ -137,6 +137,19 @@ Force the entire app to be a certain size. If `size` is smaller than the
 actual app an error will be thrown.
 
 
+### set\_sticky
+```py
+
+def set_sticky(self)
+
+```
+
+
+
+Mark this app as "sticky" in the app's header. This makes it harder to
+accidentally remove this app if it is a core service or debug app.
+
+
 ### \_\_str\_\_
 ```py
 

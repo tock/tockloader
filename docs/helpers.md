@@ -7,7 +7,7 @@ users in a nice way.
 ### menu
 ```py
 
-def menu(options, *, return_type, default_index=0, prompt='Which option? ')
+def menu(options, *, return_type, default_index=0, prompt='Which option? ', title='')
 
 ```
 
@@ -25,6 +25,22 @@ into strings.
 `default_index` is the index to present as the default value (what happens
 if the user simply presses enter). Passing `None` disables default
 selection.
+
+
+### plural
+```py
+
+def plural(value)
+
+```
+
+
+
+Return '' or 's' based on whether the `value` means a string should have
+a plural word.
+
+`value` can be a list or a number. If the number or the length of the list
+is 1, then '' will be returned. Otherwise 's'.
 
 
 ### set\_terminal\_title

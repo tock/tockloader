@@ -77,7 +77,7 @@ Print all info about this board.
 ### install
 ```py
 
-def install(self, tabs, replace='yes', erase=False)
+def install(self, tabs, replace='yes', erase=False, sticky=False)
 
 ```
 

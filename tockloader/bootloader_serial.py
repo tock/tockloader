@@ -16,12 +16,10 @@ import sys
 import time
 import threading
 
-'''
-Although Windows is not supported actively, this allow features that "just work" to work
-'''
+# Although Windows is not supported actively, this allow features that "just
+# work" to work on Windows.
 if platform.system() != 'Windows':
 	import fcntl
-
 
 import serial
 import serial.tools.list_ports

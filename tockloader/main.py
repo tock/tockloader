@@ -151,7 +151,7 @@ def command_uninstall (args):
 	tock_loader.open(args)
 
 	if len(args.name) != 0:
-		logging.status('Removing app{} {} from board...'.format(helpers.plural(len(tabs)), ', '.join(args.name)))
+		logging.status('Removing app(s) {} from board...'.format(', '.join(args.name)))
 	else:
 		logging.status('Preparing to uninstall apps...')
 	tock_loader.uninstall_app(args.name, args.force)

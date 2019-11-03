@@ -143,14 +143,21 @@ file to use. Note: you will likely need an up-to-date version of OpenOCD for
 everything to work. On MacOS you can use `brew install --HEAD openocd` to get
 a version from git.
 
-    tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board] --openocd-options [openocd_options]
+    tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board] \
+    --openocd-options [openocd_options] --openocd-commands [openocd_commands]
 
 - `openocd_board`: The `.cfg` file in the board folder in OpenOCD to use.
 - `openocd_options`: Its a list composed of `noreset`, `workareazero` and `resume`:
   - `noreset`: command `reset init;` is removed from openocd commands when this option is included
   - `workareazero`: command `set WORKAREASIZE 0;` is added to openocd commands when this option is included
   - `resume`: commands `soft_reset_halt; resume;` are added to openocd commands when this option is included
-
+- `openocd_commands`: This is an N amount of arguments list composed of key=value pairs, used to override the
+  internal OpenOCD commands. Right now only `program` key is supported, and it allows to override the default
+  `program` OpenOCD command, by commands like `write_image`. This is required to be able to upload to unsupported
+  boards without having to hardcode them in the `board_interface.py` file. The value can include the 
+  following keywords:
+  - `{{binary}}`: will be replaced by the binary file path
+  - `{address:#x}`: will be replaced with the specified address
 
 Example Usage
 -------------

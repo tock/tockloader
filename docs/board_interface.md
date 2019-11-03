@@ -1,5 +1,13 @@
 # Package tockloader.board_interface Documentation
 
+
+Generic interface for communicating with boards.
+
+While it would be nice if there was only a single method to communicate with
+boards, in practice that is not feasible. So, this file includes the interface
+that different communication methods must implement to effectively support
+tockloader.
+
 ## Class BoardInterface
 Base class for interacting with hardware boards. All of the class functions
 should be overridden to support a new method of interacting with a board.

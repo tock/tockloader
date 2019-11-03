@@ -34,7 +34,7 @@ def set_terminal_title_from_port (port):
 	'''
 	set_terminal_title('Tockloader : {}'.format(port))
 
-def menu (options, *, return_type, default_index=0, prompt='Which option? '):
+def menu (options, *, return_type, default_index=0, prompt='Which option? ', title=''):
 	'''
 	Present a menu of choices to a user
 
@@ -49,24 +49,28 @@ def menu (options, *, return_type, default_index=0, prompt='Which option? '):
 	if the user simply presses enter). Passing `None` disables default
 	selection.
 	'''
-	print()
+	prompt_to_show = prompt
+	print(title)
 	for i,opt in enumerate(options):
 		print('[{}]\t{}'.format(i, opt))
 	if default_index is not None:
-		prompt += '[{}] '.format(default_index)
+		prompt_to_show += '[{}] '.format(default_index)
 	print()
 
-	resp = input(prompt)
+	resp = input(prompt_to_show)
 	if resp == '':
 		resp = default_index
 	else:
 		try:
 			resp = int(resp)
-			if resp < 0 or resp > len(options):
+			if resp < 0 or resp >= len(options):
 				raise ValueError
 		except:
-			return menu(options, return_type=return_type,
-					default_index=default_index, prompt=prompt)
+			return menu(options,
+				        return_type=return_type,
+				        default_index=default_index,
+				        prompt=prompt,
+				        title=title)
 
 	if return_type == 'index':
 		return resp
@@ -74,3 +78,20 @@ def menu (options, *, return_type, default_index=0, prompt='Which option? '):
 		return options[resp]
 	else:
 		raise NotImplementedError('Menu caller asked for bad return_type')
+
+def plural (value):
+	'''
+	Return '' or 's' based on whether the `value` means a string should have
+	a plural word.
+
+	`value` can be a list or a number. If the number or the length of the list
+	is 1, then '' will be returned. Otherwise 's'.
+	'''
+	try:
+		value = len(value)
+	except:
+		pass
+	if value == 1:
+		return ''
+	else:
+		return 's'

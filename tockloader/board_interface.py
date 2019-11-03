@@ -1,3 +1,14 @@
+'''
+Generic interface for communicating with boards.
+
+While it would be nice if there was only a single method to communicate with
+boards, in practice that is not feasible. So, this file includes the interface
+that different communication methods must implement to effectively support
+tockloader.
+'''
+
+import logging
+import os
 
 class BoardInterface:
 	'''
@@ -6,27 +17,66 @@ class BoardInterface:
 	'''
 
 	KNOWN_BOARDS = {
-		'hail': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C', 'page_size': 512},
-		'imix': {'arch': 'cortex-m4', 'jlink_device': 'ATSAM4LC8C', 'page_size': 512},
-		'nrf51dk': {'arch': 'cortex-m0',
+		'hail': {'description': 'Hail development module.',
+		         'arch': 'cortex-m4',
+		         'jlink_device': 'ATSAM4LC8C',
+		         'page_size': 512},
+		'imix': {'description': 'Low-power IoT research platform',
+		         'arch': 'cortex-m4',
+		         'jlink_device': 'ATSAM4LC8C',
+		         'page_size': 512},
+		'nrf51dk': {'description': 'Nordic nRF51-based development kit',
+		            'arch': 'cortex-m0',
 		            'jlink_device': 'nrf51422',
 		            'page_size': 1024,
 		            'openocd': 'nordic_nrf51_dk.cfg',
 		            'openocd_options': ['workareazero']},
-		'nrf52dk': {'arch': 'cortex-m4',
+		'nrf52dk': {'description': 'Nordic nRF52-based development kit',
+		            'arch': 'cortex-m4',
 		            'jlink_device': 'nrf52',
 		            'page_size': 4096,
 		            'openocd': 'nordic_nrf52_dk.cfg'},
-		'launchxl-cc26x2r1': {'arch': 'cortex-m4',
+		'launchxl-cc26x2r1': {'description': 'TI CC26x2-based launchpad',
+		                      'arch': 'cortex-m4',
 		                      'page_size': 512,
 		                      'jlink_device': 'cc2652r1f',
 		                      'jlink_speed': 4000,
 		                      'jlink_if': 'jtag',
 		                      'openocd': 'ti_cc26x2_launchpad.cfg',
-		                      'openocd_options': ['noreset', 'resume']},
-		'ek-tm4c1294xl': {'arch': 'cortex-m4',
+		                      'openocd_options': ['noreset', 'resume'],
+		                      'openocd_commands': {'program': 'flash write_image erase {{binary}} {address:#x};\
+		                                                       verify_image {{binary}} {address:#x};'}},
+		'ek-tm4c1294xl': {'description': 'TI TM4C1294-based launchpad',
+		                  'arch': 'cortex-m4',
 		                  'page_size': 512,
 		                  'openocd': 'ek-tm4c1294xl.cfg'},
+		'arty': {'description': 'Arty FPGA running SiFive RISC-V core',
+		         'arch': 'rv32imac',
+		         'page_size': 512,
+		         'openocd': None, # No supported board in openocd proper
+		         'openocd_options': ['nocmdprefix'],
+		         'openocd_prefix': 'source [find interface/ftdi/digilent-hs1.cfg];\
+		                            ftdi_device_desc \\"Digilent USB Device\\";\
+		                            adapter_khz 10000;\
+		                            transport select jtag;\
+		                            source [find cpld/xilinx-xc7.cfg];\
+		                            source [find cpld/jtagspi.cfg];\
+		                            proc jtagspi_read {{fname offset len}} {{\
+		                              global _FLASHNAME;\
+		                              flash read_bank $_FLASHNAME $fname $offset $len;\
+		                            }};\
+		                            init;\
+		                            jtagspi_init 0 {bitfile};'
+		                            .format(bitfile=os.path.join( # Need path to bscan_spi_xc7a100t.bit
+		                            	os.path.dirname(os.path.realpath(__file__)),
+		            	                '..', 'bitfiles', 'bscan_spi_xc7a100t.bit')),
+		         'openocd_commands': {'program': 'jtagspi_program {{binary}} {address:#x};',
+		                              'read': 'jtagspi_read {{binary}} {address:#x} {length};',
+		                              'erase': 'flash fillb {address:#x} 0x00 512;'}},
+		'hifive1': {'description': 'SiFive HiFive1 development board',
+		            'arch': 'rv32imac',
+		            'page_size': 512,
+		            'openocd': 'sifive-hifive1.cfg'},
 	}
 
 	def __init__ (self, args):
@@ -44,6 +94,8 @@ class BoardInterface:
 		self.jlink_if = getattr(self.args, 'jlink_if', None)
 		self.openocd_board = getattr(self.args, 'openocd_board', None)
 		self.openocd_options = getattr(self.args, 'openocd_options', [])
+		self.openocd_prefix = getattr(self.args, 'openocd_prefix', '')
+		self.openocd_commands = getattr(self.args, 'openocd_commands', {})
 		self.page_size = getattr(self.args, 'page_size', 0)
 
 	def open_link_to_board (self):
@@ -75,7 +127,7 @@ class BoardInterface:
 		Read a specific range of flash.
 		'''
 		if self.args.debug:
-			print('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
+			logging.debug('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
 
 	def erase_page (self, address):
 		'''
@@ -197,4 +249,6 @@ class BoardInterface:
 		'''
 		Display the boards that have settings configured in tockloader.
 		'''
-		print('Known boards: {}'.format(', '.join(self.KNOWN_BOARDS.keys())))
+		print('Known boards:')
+		for board in sorted(self.KNOWN_BOARDS.keys()):
+			print('  - {:<20} {}'.format(board, self.KNOWN_BOARDS[board]['description']))

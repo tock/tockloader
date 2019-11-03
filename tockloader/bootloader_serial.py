@@ -8,6 +8,7 @@ import crcmod
 import datetime
 import hashlib
 import json
+import logging
 import os
 import platform
 import socket
@@ -16,12 +17,10 @@ import sys
 import time
 import threading
 
-'''
-Although Windows is not supported actively, this allow features that "just work" to work
-'''
+# Although Windows is not supported actively, this allow features that "just
+# work" to work on Windows.
 if platform.system() != 'Windows':
 	import fcntl
-
 
 import serial
 import serial.tools.list_ports
@@ -91,56 +90,69 @@ class BootloaderSerial(BoardInterface):
 		Also sets up a local port for determining when two Tockloader instances
 		are running simultaneously.
 		'''
-		# Check to see if the serial port was specified or we should find
-		# one to use
+		# Check to see if the user specified a serial port or a specific name,
+		# or if we should find a serial port to use.
 		if self.args.port == None:
-			# Nothing was specified, so we look for something marked as "Tock".
-			# If we can't find something, it is OK.
+			# The user did not specify a specific port to use, so we look for
+			# something marked as "Tock". If we can't find something, we will
+			# fall back to using any serial port.
 			device_name = 'tock'
 			must_match = False
-			print('No device name specified. Using default "{}"'.format(device_name))
+			logging.info('No device name specified. Using default name "{}".'.format(device_name))
 		else:
-			# Since we specified, make sure we connect to that.
+			# Since the user specified, make sure we connect to that particular
+			# port or something that matches it.
 			device_name = self.args.port
 			must_match = True
 
 		# Look for a matching port
 		ports = list(serial.tools.list_ports.grep(device_name))
-		if len(ports) == 1:
-			# Easy case, use the one that matches
-			print('Using "{}"'.format(ports[0]))
+		if must_match and os.path.exists(device_name):
+			# In the most specific case a user specified a full path that exists
+			# and we should use that specific serial port. We treat this as a
+			# special case because something like `/dev/ttyUSB5` will also match
+			# `/dev/ttyUSB55`, but it is clear that user expected to use the
+			# serial port specified by the full path.
+			index = 0
+			ports = [serial.tools.list_ports_common.ListPortInfo(device_name)]
+		elif len(ports) == 1:
+			# Easy case, use the one that matches.
 			index = 0
 		elif len(ports) > 1:
-			index = helpers.menu(ports, return_type='index')
+			# If we get multiple matches then we ask the user to choose from a
+			# list.
+			index = helpers.menu(ports,
+				                 return_type='index',
+				                 title='Multiple serial port options found. Which would you like to use?')
 		elif must_match:
-			# pyserial's list_ports can't find all valid serial ports, for
-			# example if someone symlinks to a port or creates a software
-			# serial port with socat, if this path exists, let's trust the
-			# caller for now
-			if os.path.exists(device_name):
-				index = 0
-				ports = [serial.tools.list_ports_common.ListPortInfo(device_name)]
-			else:
-				# We want to find a very specific board. If this does not
-				# exist, we want to fail.
-				raise TockLoaderException('Could not find a board matching "{}"'.format(device_name))
+			# If we get here, then the user did not specify a full path to a
+			# serial port, and we couldn't find anything on the board that
+			# matches what they specified (which may have just been a short
+			# name). Since the user put in the effort of specifically choosing a
+			# port, we error here rather than just (arbitrarily) choosing
+			# something they didn't specify.
+			raise TockLoaderException('Could not find a board matching "{}".'.format(device_name))
 		else:
-			# Just find any port and use the first one
+			# Just find any port and use the first one.
 			ports = list(serial.tools.list_ports.comports())
-			# Mac's will report Bluetooth devices with serial, which is
-			# almost certainly never what you want, so drop these
+			# Macs will report Bluetooth devices with serial, which is
+			# almost certainly never what you want, so drop those.
 			ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
+
 			if len(ports) == 0:
 				raise TockLoaderException('No serial ports found. Is the board connected?')
 
-			print('No serial port with device name "{}" found'.format(device_name))
-			print('Found {} serial port(s).'.format(len(ports)))
+			logging.info('No serial port with device name "{}" found.'.format(device_name))
+			logging.info('Found {} serial port{}.'.format(len(ports), ('s', '')[len(ports) == 1]))
 
 			if len(ports) == 1:
-				print('Using "{}"'.format(ports[0]))
 				index = 0
 			else:
-				index = helpers.menu(ports, return_type='index')
+				index = helpers.menu(ports,
+					                 return_type='index',
+					                 title='Multiple serial port options found. Which would you like to use?')
+
+		logging.info('Using "{}".'.format(ports[index]))
 		port = ports[index][0]
 		helpers.set_terminal_title_from_port_info(ports[index])
 
@@ -169,8 +181,8 @@ class BootloaderSerial(BoardInterface):
 			try:
 				self.client_sock.connect(self.comm_path)
 			except ConnectionRefusedError:
-				print('  [Warning]: Found stale tockloader server, removing')
-				print('             This may occur if a previous tockloader instance crashed')
+				logging.warning('Found stale tockloader server, removing.')
+				logging.warning('This may occur if a previous tockloader instance crashed.')
 				os.unlink(self.comm_path)
 				self.client_sock = None
 		else:
@@ -192,15 +204,15 @@ class BootloaderSerial(BoardInterface):
 						sock.sendall('Version 1\n'.encode('utf-8'))
 						sock.sendall('Start Listening\n'.encode('utf-8'))
 						sock.close()
-						print('     [Info]: Resumed other tockloader listen session')
+						logging.info('Resumed other tockloader listen session')
 					except:
-						print('  [Warning]: Error restarting other tockloader listen process')
-						print('             You may need to manually begin listening again')
+						logging.warning('Error restarting other tockloader listen process.')
+						logging.warning('You may need to manually begin listening again.')
 				atexit.register(restart_listener, self.comm_path)
 				self.client_sock.close()
 				while os.path.exists(self.comm_path):
 					time.sleep(.1)
-				print('     [Info]: Paused an active tockloader listen in another session')
+				logging.info('Paused an active tockloader listen in another session.')
 			else:
 				raise TockLoaderException('Internal error: Got >{}< from IPC'.format(r))
 		else:
@@ -222,9 +234,9 @@ class BootloaderSerial(BoardInterface):
 			atexit.register(server_cleanup)
 
 			if hasattr(self.args, 'wait_to_listen') and self.args.wait_to_listen:
-				print('     [Info]: Waiting for other tockloader to finish before listening')
+				logging.info('Waiting for other tockloader to finish before listening')
 				self.server_event.wait()
-				print('     [Info]: Resuming listening...')
+				logging.info('Resuming listening...')
 
 		self.sp.open()
 
@@ -251,7 +263,7 @@ class BootloaderSerial(BoardInterface):
 			while '\n' not in r:
 				r += connection.recv(100).decode('utf-8')
 			if r[:len('Version 1\n')] != 'Version 1\n':
-				print('WARN: Got unexpected connection: >{}< ; dropping'.format(r))
+				logging.warning('Got unexpected connection: >{}< ; dropping'.format(r))
 				connection.close()
 				continue
 
@@ -263,7 +275,7 @@ class BootloaderSerial(BoardInterface):
 				self.server_event.set()
 				continue
 			if r != 'Stop Listening\n':
-				print('WARN: Got unexpected command: >{}< ; dropping'.format(r))
+				logging.warning('Got unexpected command: >{}< ; dropping'.format(r))
 				connection.close()
 				continue
 
@@ -275,7 +287,7 @@ class BootloaderSerial(BoardInterface):
 
 			# Since there's no great way to kill & restart miniterm, we just
 			# redo the whole process, only tacking on a --wait-to-listen
-			print('     [Info]: Received request to pause from another tockloader process. Disconnecting...')
+			logging.info('Received request to pause from another tockloader process. Disconnecting...')
 			# And let them know we've progressed
 			connection.sendall('Killing\n'.encode('utf-8'))
 			connection.close()
@@ -347,13 +359,13 @@ class BootloaderSerial(BoardInterface):
 			except KeyboardInterrupt:
 				raise TockLoaderException('Exiting.')
 			except:
-				print('Error connecting to bootloader. No "pong" received.')
-				print('Things that could be wrong:')
-				print('  - The bootloader is not flashed on the chip')
-				print('  - The DTR/RTS lines are not working')
-				print('  - The serial port being used is incorrect')
-				print('  - The bootloader API has changed')
-				print('  - There is a bug in this script')
+				logging.error('Error connecting to bootloader. No "pong" received.')
+				logging.error('Things that could be wrong:')
+				logging.error('  - The bootloader is not flashed on the chip')
+				logging.error('  - The DTR/RTS lines are not working')
+				logging.error('  - The serial port being used is incorrect')
+				logging.error('  - The bootloader API has changed')
+				logging.error('  - There is a bug in this script')
 				raise TockLoaderException('Could not attach to the bootloader')
 
 		# Speculatively try to get a faster baud rate.
@@ -435,20 +447,20 @@ class BootloaderSerial(BoardInterface):
 
 		if len(ret) < 2:
 			if show_errors:
-				print('Error: No response after issuing command')
+				logging.error('No response after issuing command')
 			return (False, bytes())
 
 		if ret[0] != self.ESCAPE_CHAR:
 			if show_errors:
-				print('Error: Invalid response from bootloader (no escape character)')
+				logging.error('Invalid response from bootloader (no escape character)')
 			return (False, ret[0:2])
 		if ret[1] != response_code:
 			if show_errors:
-				print('Error: Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
+				logging.error('Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
 			return (False, ret[0:2])
 		if len(ret) != 2 + response_len:
 			if show_errors:
-				print('Error: Incorrect number of bytes received. Expected {}, got {}.'.format(2+response_len, len(ret)))
+				logging.error('Incorrect number of bytes received. Expected {}, got {}.'.format(2+response_len, len(ret)))
 			return (False, ret[0:2])
 
 		return (True, ret[2:])
@@ -483,12 +495,12 @@ class BootloaderSerial(BoardInterface):
 			remaining = self.page_size - (len(binary) % self.page_size)
 			if pad:
 				binary += bytes([0xFF]*remaining)
-				print('NOTE: Padding binary with {} 0xFFs.'.format(remaining))
+				logging.info('Padding binary with {} 0xFFs.'.format(remaining))
 			else:
 				# Don't pad, actually use the bytes already on the chip
 				missing = self.read_range(address + len(binary), remaining)
 				binary += missing
-				print('NOTE: Padding binary with {} bytes already on chip.'.format(remaining))
+				logging.info('Padding binary with {} bytes already on chip.'.format(remaining))
 
 		# Loop through the binary by pages at a time until it has been flashed
 		# to the chip.
@@ -504,7 +516,7 @@ class BootloaderSerial(BoardInterface):
 			success, ret = self._issue_command(self.COMMAND_WRITE_PAGE, pkt, True, 0, self.RESPONSE_OK)
 
 			if not success:
-				print('Error: Error when flashing page')
+				logging.error('Error when flashing page')
 				if ret[1] == self.RESPONSE_BADADDR:
 					raise TockLoaderException('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*self.page_size)))
 				elif ret[1] == self.RESPONSE_INTERROR:
@@ -597,7 +609,7 @@ class BootloaderSerial(BoardInterface):
 		if crc_bootloader != crc_loader:
 			raise TockLoaderException('Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}'.format(crc_loader, crc_bootloader))
 		else:
-			print('CRC check passed. Binaries successfully loaded.')
+			logging.info('CRC check passed. Binaries successfully loaded.')
 
 	def get_attribute (self, index):
 		message = struct.pack('<B', index)
@@ -662,7 +674,7 @@ class BootloaderSerial(BoardInterface):
 
 		# If the user specified a board, use that configuration
 		if self.board and self.board in self.KNOWN_BOARDS:
-			print('Using known arch for known board {}'.format(self.board))
+			logging.info('Using known arch for known board {}'.format(self.board))
 			board = self.KNOWN_BOARDS[self.board]
 			self.arch = board['arch']
 			self.page_size = board['page_size']
@@ -685,14 +697,14 @@ class BootloaderSerial(BoardInterface):
 
 		# Check that we learned what we needed to learn.
 		if self.board == None:
-			print('Error: The bootloader does not have a "board" attribute.')
-			print('       Please update the bootloader or specify a board; e.g. --board hail')
+			logging.error('The bootloader does not have a "board" attribute.')
+			logging.error('Please update the bootloader or specify a board; e.g. --board hail')
 		if self.arch == None:
-			print('Error: The bootloader does not have an "arch" attribute.')
-			print('       Please update the bootloader or specify an arch; e.g. --arch cortex-m4')
+			logging.error('The bootloader does not have an "arch" attribute.')
+			logging.error('Please update the bootloader or specify an arch; e.g. --arch cortex-m4')
 		if self.page_size == 0:
-			print('Error: The bootloader does not have an "pagesize" attribute.')
-			print('       Please update the bootloader or specify a page size for flash; e.g. --page-size 512')
+			logging.error('The bootloader does not have an "pagesize" attribute.')
+			logging.error('Please update the bootloader or specify a page size for flash; e.g. --page-size 512')
 
 		if self.board == None or self.arch == None or self.page_size == 0:
 			raise TockLoaderException('Could not determine the board and/or architecture')
@@ -702,7 +714,7 @@ class BootloaderSerial(BoardInterface):
 		'''
 		Run miniterm for receiving data from the board.
 		'''
-		print('Listening for serial output.')
+		logging.info('Listening for serial output.')
 
 		# Create a custom filter for miniterm that prepends the date.
 		class timestamper(serial.tools.miniterm.Transform):

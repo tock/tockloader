@@ -8,6 +8,7 @@ channel specific code is in other files.
 import binascii
 import contextlib
 import copy
+import logging
 import os
 import platform
 import string
@@ -28,8 +29,48 @@ class TockLoader:
 	is contained here.
 	'''
 
+	# Tockloader includes built-in settings for known Tock boards to make the
+	# overall user experience easier. As new boards support Tock, board-specific
+	# options can be include in the Tockloader source to make it easier for
+	# users.
+	#
+	# There are two levels of board-specific configurations: communication
+	# details and application details.
+	#
+	# - Communication details: These are specifics about how Tockloader should
+	#   communicate with the board and what specific commands are needed to
+	#   program the device.
+	#
+	# - Application details: These are specifics about how applications should
+	#   be situated in flash for a particular board. For instance, MPU rules may
+	#   dictate where an application can be placed to properly protect its
+	#   memory.
+	#
+	# Here, we set the application details that are board specific. See
+	# `board_interface.py` for the board-specific communication details.
+	#
+	# Options
+	# -------
+	# - `order`:           How apps should be sorted when flashed onto the board.
+	#                      Supported values: size_descending
+	# - `size_constraint`: Valid sizes for the entire application.
+	#                      Supported values: powers_of_two, none
+	# - `size_minimum`:    Minimum valid size for each application. This size is
+	#                      the entire size of the application. In bytes.
+	BOARDS_APP_DETAILS = {
+	    'default': {'order': 'size_descending',
+	                'size_constraint': 'powers_of_two',
+	                'size_minimum': 0},
+	    'nrf52dk': {'size_minimum': 4096}
+	}
+
+
 	def __init__ (self, args):
 		self.args = args
+
+		# These are customized once we have a connection to the board and know
+		# what board we are talking to.
+		self.app_options = self.BOARDS_APP_DETAILS['default']
 
 		# Get an object that allows talking to the board
 		if hasattr(self.args, 'jlink') and self.args.jlink:
@@ -83,7 +124,7 @@ class TockLoader:
 			self._print_apps(apps, verbose, quiet)
 
 
-	def install (self, tabs, replace='yes', erase=False):
+	def install (self, tabs, replace='yes', erase=False, sticky=False):
 		'''
 		Add or update TABs on the board.
 
@@ -99,6 +140,12 @@ class TockLoader:
 
 			# Start with the apps we are searching for.
 			replacement_apps = self._extract_apps_from_tabs(tabs)
+
+			# If we want to install these as sticky apps, mark that now.
+			if sticky:
+				logging.info('Marking apps as sticky.')
+				for app in replacement_apps:
+					app.set_sticky()
 
 			# Get a list of installed apps
 			existing_apps = self._extract_all_app_headers()
@@ -177,18 +224,22 @@ class TockLoader:
 				elif len(apps) == 1:
 					# If there's only one app, delete it
 					app_names = [apps[0].name]
-					print('Only one app on board. Uninstalling {}'.format(apps[0]))
+					logging.info('Only one app on board.')
 				else:
-					print('There are multiple apps currently on the board:')
 					options = ['** Delete all']
 					options.extend([app.name for app in apps])
 					name = helpers.menu(options,
 							return_type='value',
-							prompt='Select app to uninstall ')
+							prompt='Select app to uninstall ',
+							title='There are multiple apps currently on the board:')
 					if name == '** Delete all':
 						app_names = [app.name for app in apps]
 					else:
 						app_names = [name]
+
+			print('Attempting to uninstall:')
+			for app_name in app_names:
+				print('  - {}'.format(app_name))
 
 			# Remove the apps if they are there
 			removed = False
@@ -206,23 +257,26 @@ class TockLoader:
 			if not force:
 				for app in apps:
 					if app.name in app_names and app.is_sticky():
-						print('INFO: Not removing app "{}" because it is sticky.'.format(app))
+						logging.info('Not removing app "{}" because it is sticky.'.format(app))
+						logging.info('To remove this you need to include the --force option.')
 
-			# Now take the remaining apps and make sure they
-			# are on the board properly.
-			self._reshuffle_apps(keep_apps)
+			# Check if we actually have any work to do.
+			if removed:
+				# Now take the remaining apps and make sure they are on the
+				# board properly.
+				self._reshuffle_apps(keep_apps)
 
-			print('Uninstall complete.')
+				logging.status('Uninstall complete.')
 
-			# And let the user know the state of the world now that we're done
-			apps = self._extract_all_app_headers()
-			if len(apps):
-				print('Remaining apps on board: ', end='')
-				self._print_apps(apps, verbose=False, quiet=True)
+				# And let the user know the state of the world now that we're done
+				apps = self._extract_all_app_headers()
+				if len(apps):
+					print('After uninstall, remaining apps on board: ', end='')
+					self._print_apps(apps, verbose=False, quiet=True)
+				else:
+					print('After uninstall, no apps on board.')
+
 			else:
-				print('No apps on board.')
-
-			if not removed:
 				raise TockLoaderException('Could not find any apps on the board to remove.')
 
 
@@ -249,13 +303,18 @@ class TockLoader:
 				for app in apps:
 					if app.is_sticky():
 						keep_apps.append(app)
-						print('INFO: Not erasing app "{}" because it is sticky.'.format(app))
+						logging.info('Not erasing app "{}" because it is sticky.'.format(app))
 
 				if len(keep_apps) == 0:
 					address = self.channel.get_apps_start_address()
 					self.channel.erase_page(address)
+
+					print('All apps have been erased.')
 				else:
 					self._reshuffle_apps(keep_apps)
+
+					print('After erasing apps, remaining apps on board: ', end='')
+					self._print_apps(apps, verbose=False, quiet=True)
 
 
 	def set_flag (self, app_names, flag_name, flag_value):
@@ -273,12 +332,12 @@ class TockLoader:
 
 			# User did not specify apps. Pick from list.
 			if len(app_names) == 0:
-				print('Which apps to configure?')
 				options = ['** All']
 				options.extend([app.name for app in apps])
 				name = helpers.menu(options,
 						return_type='value',
-						prompt='Select app to configure ')
+						prompt='Select app to configure ',
+						title='Which apps to configure?')
 				if name == '** All':
 					app_names = [app.name for app in apps]
 				else:
@@ -293,6 +352,7 @@ class TockLoader:
 
 			if changed:
 				self._reflash_app_headers(apps)
+				print('Set flag "{}" to "{}" for apps: {}'.format(flag_name, flag_value, ', '.join(app_names)))
 			else:
 				print('No matching apps found. Nothing changed.')
 
@@ -341,7 +401,7 @@ class TockLoader:
 			for index, attribute in enumerate(self.channel.get_all_attributes()):
 				if attribute:
 					if attribute['key'] == key:
-						print('Found existing key at slot {}. Overwriting.'.format(index))
+						logging.status('Found existing key at slot {}. Overwriting.'.format(index))
 						self.channel.set_attribute(index, out)
 						break
 				else:
@@ -353,7 +413,7 @@ class TockLoader:
 				if open_index == -1:
 					raise TockLoaderException('Error: No open space to save this attribute.')
 				else:
-					print('Key not found. Writing new attribute to slot {}'.format(open_index))
+					logging.status('Key not found. Writing new attribute to slot {}'.format(open_index))
 					self.channel.set_attribute(open_index, out)
 
 
@@ -377,7 +437,7 @@ class TockLoader:
 			# Find if this attribute key already exists
 			for index, attribute in enumerate(self.channel.get_all_attributes()):
 				if attribute and attribute['key'] == key:
-					print('Found existing key at slot {}. Removing.'.format(index))
+					logging.status('Found existing key at slot {}. Removing.'.format(index))
 					self.channel.set_attribute(index, out)
 					break
 			else:
@@ -469,6 +529,9 @@ class TockLoader:
 			# talking to.
 			self.channel.determine_current_board()
 
+			# Set any board-specific options that tockloader needs to use.
+			self._update_board_specific_options()
+
 			yield
 
 			if platform.system() == 'Windows':
@@ -477,7 +540,7 @@ class TockLoader:
 
 
 			now = time.time()
-			print('Finished in {:0.3f} seconds'.format(now-then))
+			logging.info('Finished in {:0.3f} seconds'.format(now-then))
 		except Exception as e:
 			raise(e)
 		finally:
@@ -502,9 +565,19 @@ class TockLoader:
 		flag = self.channel.read_range(address, length)
 		flag_str = flag.decode('utf-8', 'ignore')
 		if self.args.debug:
-			print('Read from flags location: {}'.format(flag_str))
+			logging.debug('Read from flags location: {}'.format(flag_str))
 		return flag_str == 'TOCKBOOTLOADER'
 
+	def _update_board_specific_options (self):
+		'''
+		This uses the name of the board to update any options about how apps
+		should be loaded on this board that are hardcoded in Tockloader.
+		'''
+
+		# Configure app options for the board (if needed)
+		board = self.channel.get_board_name()
+		if board and board in self.BOARDS_APP_DETAILS:
+			self.app_options.update(self.BOARDS_APP_DETAILS[board])
 
 	############################################################################
 	## Helper Functions for Manipulating Binaries and TBF
@@ -515,8 +588,12 @@ class TockLoader:
 		Given an array of apps, some of which are new and some of which exist,
 		sort them in flash so they are in descending size order.
 		'''
-		# We are given an array of apps. First we need to order them by size.
-		apps.sort(key=lambda app: app.get_size(), reverse=True)
+		# We are given an array of apps. First we need to order them based on
+		# the ordering requested by this board (or potentially the user).
+		if self.app_options['order'] == 'size_descending':
+			apps.sort(key=lambda app: app.get_size(), reverse=True)
+		else:
+			raise TockLoaderException('Unknown sort order. This is a tockloader bug.')
 
 		# Get where the apps live in flash.
 		address = self.channel.get_apps_start_address()
@@ -531,8 +608,9 @@ class TockLoader:
 				# flash and save it to be moved, as well as update the address.
 				# However, we may have a new binary to use, so we don't need to
 				# fetch it.
-				if not app.has_binary():
-					app.set_binary(self.channel.read_range(app.address, app.get_size()))
+				if not app.has_app_binary():
+					entire_app = self.channel.read_range(app.address, app.get_size())
+					app.set_app_binary(entire_app[app.get_header_size():])
 
 				# Either way save the new address.
 				app.set_address(start_address)
@@ -543,8 +621,8 @@ class TockLoader:
 		# binary indicates that they are new or moved.
 		end = address
 		for app in apps:
-			if app.has_binary():
-				self.channel.flash_binary(app.address, app.binary)
+			if app.has_app_binary():
+				self.channel.flash_binary(app.address, app.get_binary())
 			end = app.address + app.get_size()
 
 		# Then erase the next page. This ensures that flash is clean at the
@@ -600,7 +678,7 @@ class TockLoader:
 		anything annoying like that.
 		'''
 		for app in apps:
-			if app.has_binary():
+			if app.has_app_binary():
 				raise TockLoaderException('App headers should not have binaries! That would imply the app has changed!')
 
 			self.channel.flash_binary(app.address, app.get_header_binary(), pad=False)
@@ -616,7 +694,31 @@ class TockLoader:
 
 		for tab in tabs:
 			if self.args.force or tab.is_compatible_with_board(self.channel.get_board_name()):
-				apps.append(tab.extract_app(arch))
+				app = tab.extract_app(arch)
+
+				# Enforce the minimum app size here.
+				if app.get_size() < self.app_options['size_minimum']:
+					app.set_size(self.app_options['size_minimum'])
+
+				# Enforce other sizing constraints here.
+				if self.app_options['size_constraint'] == 'powers_of_two':
+					# Make sure the total app size is a power of two.
+					app_size = app.get_size()
+					if (app_size & (app_size - 1)) != 0:
+						# This is not a power of two, but should be.
+						count = 0
+						while app_size != 0:
+							app_size >>= 1
+							count += 1
+						app.set_size(1 << count)
+						if self.args.debug:
+							logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
+				elif self.app_options['size_constraint'] == 'none':
+					pass
+				else:
+					raise TockLoaderException('Unknown size constraint. This is a tockloader bug.')
+
+				apps.append(app)
 
 		if len(apps) == 0:
 			raise TockLoaderException('No valid apps for this board were provided. Use --force to override.')

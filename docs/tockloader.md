@@ -77,7 +77,7 @@ Print all info about this board.
 ### install
 ```py
 
-def install(self, tabs, replace='yes', erase=False)
+def install(self, tabs, replace='yes', erase=False, sticky=False)
 
 ```
 
@@ -354,6 +354,19 @@ to the board. It also times the operation.
 
 For the bootloader, the board needs to be reset and told to enter the
 bootloader mode. For JTAG, this is unnecessary.
+
+
+### \_update\_board\_specific\_options
+```py
+
+def _update_board_specific_options(self)
+
+```
+
+
+
+This uses the name of the board to update any options about how apps
+should be loaded on this board that are hardcoded in Tockloader.
 
 
 

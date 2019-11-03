@@ -1,3 +1,5 @@
+import argparse
+import logging
 import os
 import shutil
 import struct
@@ -16,20 +18,31 @@ class TAB:
 	'''
 	Tock Application Bundle object. This class handles the TAB format.
 	'''
-	def __init__ (self, tab_path):
+	def __init__ (self, tab_path, args=argparse.Namespace()):
+		self.args = args
+
 		if os.path.exists(tab_path):
 			# Fetch it from the local filesystem.
 			self.tab = tarfile.open(tab_path)
 		else:
-			# Otherwise download it as a URL.
-			with urllib.request.urlopen(tab_path) as response:
-				tmp_file = tempfile.TemporaryFile()
-				# Copy the downloaded response to our temporary file.
-				shutil.copyfileobj(response, tmp_file)
-				# Need to seek to the beginning of the file for tarfile
-				# to work.
-				tmp_file.seek(0)
-				self.tab = tarfile.open(fileobj=tmp_file)
+			try:
+				# Otherwise download it as a URL.
+				with urllib.request.urlopen(tab_path) as response:
+					tmp_file = tempfile.TemporaryFile()
+					# Copy the downloaded response to our temporary file.
+					shutil.copyfileobj(response, tmp_file)
+					# Need to seek to the beginning of the file for tarfile
+					# to work.
+					tmp_file.seek(0)
+					self.tab = tarfile.open(fileobj=tmp_file)
+			except Exception as e:
+				if self.args.debug:
+					logging.error('Could not download .tab file. This may have happened because:')
+					logging.error('  - An HTTPS connection could not be established.')
+					logging.error('  - A temporary file could not be created.')
+					logging.error('  - Untarring the TAB failed.')
+					logging.error('Exception: {}'.format(e))
+				raise TockLoaderException('Could not download .tab file.')
 
 	def extract_app (self, arch):
 		'''
@@ -39,7 +52,10 @@ class TAB:
 		try:
 			binary_tarinfo = self.tab.getmember('{}.tbf'.format(arch))
 		except Exception:
-			binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
+			try:
+				binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
+			except Exception:
+				raise TockLoaderException('Could not find arch "{}" in TAB file.'.format(arch))
 		binary = self.tab.extractfile(binary_tarinfo).read()
 
 		# First get the TBF header from the correct binary in the TAB
@@ -61,7 +77,7 @@ class TAB:
 				# TBF header) for the app.
 				raise TockLoaderException('Invalid TAB, the app binary is longer than its defined total_size')
 
-			return App(tbfh, None, name, binary)
+			return App(tbfh, None, name, binary[tbfh.get_header_size():])
 		else:
 			raise TockLoaderException('Invalid TBF found in app in TAB')
 

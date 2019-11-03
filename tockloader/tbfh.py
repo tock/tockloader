@@ -1,3 +1,5 @@
+
+import logging
 import struct
 
 class TBFHeader:
@@ -75,7 +77,6 @@ class TBFHeader:
 				if remaining > 0 and len(buffer) >= remaining:
 					# This is an application. That means we need more parsing.
 					self.is_app = True
-					self.writeable_flash_regions = []
 
 					def roundup (x, to):
 						return x if x % to == 0 else x + to - x % to
@@ -96,6 +97,7 @@ class TBFHeader:
 								self.fields['minimum_ram_size'] = base[2]
 
 						elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
+							self.writeable_flash_regions = []
 							if remaining >= length:
 								for i in range(0, int(length / 8)):
 									base = struct.unpack('<II', buffer[i*8:(i+1)*8])
@@ -122,8 +124,8 @@ class TBFHeader:
 
 								self.pic_strategy = 'C Style'
 						else:
-							print('Warning: Unknown TLV block in TBF header.')
-							print('Warning: You might want to update tockloader.')
+							logging.warning('Unknown TLV block in TBF header.')
+							logging.warning('You might want to update tockloader.')
 
 						# All blocks are padded to four byte, so we may need to
 						# round up.
@@ -134,7 +136,7 @@ class TBFHeader:
 					if checksum == self.fields['checksum']:
 						self.valid = True
 					else:
-						print('Checksum mismatch. in packet: {:#x}, calculated: {:#x}'.format(self.fields['checksum'], checksum))
+						logging.error('Checksum mismatch. in packet: {:#x}, calculated: {:#x}'.format(self.fields['checksum'], checksum))
 
 				else:
 					# This is just padding and not an app.
@@ -199,6 +201,15 @@ class TBFHeader:
 		Get the total size the app takes in bytes in the flash of the chip.
 		'''
 		return self.fields['total_size']
+
+	def set_app_size (self, size):
+		'''
+		Set the total size the app takes in bytes in the flash of the chip.
+
+		Since this does not change the header size we do not need to update
+		any other fields in the header.
+		'''
+		self.fields['total_size'] = size
 
 	def get_header_size (self):
 		'''

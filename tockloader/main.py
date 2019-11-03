@@ -301,6 +301,22 @@ def command_list_known_boards (args):
 ## Setup and parse command line arguments
 ################################################################################
 
+class UpdateDictionaryAction(argparse.Action):
+	"""
+	Allows to accept key=value pairs of options,
+	which enables us to get dictionaries from the options
+	"""
+#     def __init__(self, option_strings, dest, nargs=None, **kwargs):
+#         if nargs is not None:
+#             raise ValueError("nargs not allowed")
+#         super(FooAction, self).__init__(option_strings, dest, **kwargs)
+	def __call__(self, parser, namespace, values, option_string=None):
+		for val in values:
+			if len(val) != 2:
+				raise ValueError("Unable to parse command line option %s for %s" % (val,self.dest))
+		options_dict = dict(values)
+		setattr(namespace, self.dest, options_dict)
+
 def main ():
 	'''
 	Read in command line arguments and call the correct command function.
@@ -376,7 +392,12 @@ def main ():
 		help='The cfg file in OpenOCD `board` folder.')
 	parent_jtag.add_argument('--openocd-options',
 		default=[],
-		help='Special flags to handle OpenOCD. Available options are: noreset resume workareazero. These are not passed to OpenOCD directly since they are custom Tockloader flags.',
+		help='Advanced flags to handle OpenOCD. Available options are: noreset resume workareazero. These are not passed to OpenOCD directly since they are custom Tockloader flags.',
+		nargs='*')
+	parent_jtag.add_argument('--openocd-commands',
+		default={},action=UpdateDictionaryAction,
+		type=lambda kv: kv.split("=",1),
+		help='Advanced flags to override OpenOCD programming commands in the form of key=values. These are passed to OpenOCD directly. Example: "program=flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};"',
 		nargs='*')
 	parent_jtag.add_argument('--board',
 		default=None,

@@ -147,17 +147,27 @@ a version from git.
     --openocd-options [openocd_options] --openocd-commands [openocd_commands]
 
 - `openocd_board`: The `.cfg` file in the board folder in OpenOCD to use.
-- `openocd_options`: Its a list composed of `noreset`, `workareazero` and `resume`:
-  - `noreset`: command `reset init;` is removed from openocd commands when this option is included
-  - `workareazero`: command `set WORKAREASIZE 0;` is added to openocd commands when this option is included
-  - `resume`: commands `soft_reset_halt; resume;` are added to openocd commands when this option is included
-- `openocd_commands`: This is an N amount of arguments list composed of key=value pairs, used to override the
-  internal OpenOCD commands. Right now only `program` key is supported, and it allows to override the default
-  `program` OpenOCD command, by commands like `write_image`. This is required to be able to upload to unsupported
-  boards without having to hardcode them in the `board_interface.py` file. The value can include the 
-  following keywords:
-  - `{{binary}}`: will be replaced by the binary file path
-  - `{address:#x}`: will be replaced with the specified address
+- `openocd_options`: A list of Tock-specific flags used to customize how
+  Tockloader calls OpenOCD based on experience with various boards and their
+  quirks. Options include:
+    - `noreset`: Removes the command `reset init;` from OpenOCD commands.
+    - `nocmdprefix`: Removes the commands `init; reset init; halt;` from OpenOCD
+    commands.
+    - `workareazero`: Adds the command `set WORKAREASIZE 0;` to OpenOCD commands.
+    - `resume`: Adds the commands `soft_reset_halt; resume;` to OpenOCD commands.
+- `openocd_commands`: This sets a custom OpenOCD command string to allow
+  Tockloader to program arbitrary chips with OpenOCD before support for the
+  board is officially include in Tockloader. The following main operations
+  can be customized:
+    - `program`: Operation used to write a binary to the chip.
+    - `read`: Operation used to read arbitrary flash memory on the chip.
+    - `erase`: Operation that erases arbitrary ranges of flash memory on the chip.
+
+    The custom values are specified as key=value pairs, for example,
+    `program=write_image; halt;`. Operation strings can include wildcards which
+    will get set with the correct value by Tockloader:
+    - `{{binary}}`: The binary file path.
+    - `{address:#x}`: The specified address for the binary to be programmed at.
 
 Example Usage
 -------------

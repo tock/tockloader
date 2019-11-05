@@ -164,10 +164,12 @@ a version from git.
     - `erase`: Operation that erases arbitrary ranges of flash memory on the chip.
 
     The custom values are specified as key=value pairs, for example,
-    `program=write_image; halt;`. Operation strings can include wildcards which
-    will get set with the correct value by Tockloader:
+    `--openocd_commands 'program=write_image; halt;' 'erase=flash fillb
+    {address:#x} 0xff 512;'`. Operation strings can include wildcards which will
+    get set with the correct value by Tockloader:
     - `{{binary}}`: The binary file path.
     - `{address:#x}`: The specified address for the binary to be programmed at.
+    - `{length}`: The number of bytes. Only valid for the `read` operation.
 
 Example Usage
 -------------

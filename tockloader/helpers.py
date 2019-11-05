@@ -3,6 +3,8 @@ Various helper functions that tockloader uses. Mostly for interacting with
 users in a nice way.
 '''
 
+import argparse
+
 import colorama
 
 def set_terminal_title (title):
@@ -95,3 +97,30 @@ def plural (value):
 		return ''
 	else:
 		return 's'
+
+class ListToDictAction(argparse.Action):
+	'''
+	`argparse` action to convert `[['key', 'val'], ['key2', 'val2']]` to
+	`{'key': 'val', 'key2': 'val2'}`.
+
+	This will also do the following conversions:
+	- `[[]]` -> `{}`
+	- `[['k': 'v'], []]` -> `{'k': 'v'}`
+	- `[['k': 'v'], ['']]` -> `{'k': 'v'}`
+	- `[['k': 'v'], ['a']]` -> `{'k': 'v', 'a': ''}`
+	'''
+	def __call__(self, parser, namespace, values, option_string=None):
+		# Remove any empty values.
+		values = list(filter(None, values))
+		values = list(filter(lambda x: len(x[0]), values))
+
+		# Correct any bad values.
+		for item in values:
+			print(item)
+			if len(item) == 1:
+				item.append('')
+			elif len(item) > 2:
+				item = item[0:2]
+
+		# Convert to dict and set as argument attribute.
+		setattr(namespace, self.dest, dict(values))

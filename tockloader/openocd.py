@@ -80,7 +80,7 @@ class OpenOCD(BoardInterface):
 			prefix=prefix, source=source, cmd_prefix=cmd_prefix, cmd=commands, cmd_suffix=cmd_suffix)
 
 		if self.args.debug:
-			logging.debu('Running "{}".'.format(openocd_command))
+			logging.debug('Running "{}".'.format(openocd_command))
 
 		def print_output (subp):
 			response = ''
@@ -123,8 +123,15 @@ You may need to update OpenOCD to the version in latest git master.')
 		if 'program' in self.openocd_commands:
 			command = self.openocd_commands['program']
 
+		if self.args.debug:
+			logging.debug('Using program command: "{}"'.format(command))
+
 		# Substitute the key arguments.
 		command = command.format(address=address)
+
+		if self.args.debug:
+			logging.debug('Expanded program command: "{}"'.format(command))
+
 		self._run_openocd_commands(command, binary)
 
 	def read_range (self, address, length):
@@ -135,8 +142,14 @@ You may need to update OpenOCD to the version in latest git master.')
 		if 'read' in self.openocd_commands:
 			command = self.openocd_commands['read']
 
+		if self.args.debug:
+			logging.debug('Using read command: "{}"'.format(command))
+
 		# Substitute the key arguments.
 		command = command.format(address=address, length=length)
+
+		if self.args.debug:
+			logging.debug('Expanded read command: "{}"'.format(command))
 
 		# Always return a valid byte array (like the serial version does)
 		read = bytes()
@@ -166,8 +179,15 @@ You may need to update OpenOCD to the version in latest git master.')
 		if 'erase' in self.openocd_commands:
 			command = self.openocd_commands['erase']
 
+		if self.args.debug:
+			logging.debug('Using erase command: "{}"'.format(command))
+
 		# Substitute the key arguments.
 		command = command.format(address=address)
+
+		if self.args.debug:
+			logging.debug('Expanded erase command: "{}"'.format(command))
+
 		self._run_openocd_commands(command, None)
 
 	def determine_current_board (self):

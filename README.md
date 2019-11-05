@@ -143,10 +143,33 @@ file to use. Note: you will likely need an up-to-date version of OpenOCD for
 everything to work. On MacOS you can use `brew install --HEAD openocd` to get
 a version from git.
 
-    tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board]
+    tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board] \
+    --openocd-options [openocd_options] --openocd-commands [openocd_commands]
 
 - `openocd_board`: The `.cfg` file in the board folder in OpenOCD to use.
+- `openocd_options`: A list of Tock-specific flags used to customize how
+  Tockloader calls OpenOCD based on experience with various boards and their
+  quirks. Options include:
+    - `noreset`: Removes the command `reset init;` from OpenOCD commands.
+    - `nocmdprefix`: Removes the commands `init; reset init; halt;` from OpenOCD
+    commands.
+    - `workareazero`: Adds the command `set WORKAREASIZE 0;` to OpenOCD commands.
+    - `resume`: Adds the commands `soft_reset_halt; resume;` to OpenOCD commands.
+- `openocd_commands`: This sets a custom OpenOCD command string to allow
+  Tockloader to program arbitrary chips with OpenOCD before support for the
+  board is officially include in Tockloader. The following main operations
+  can be customized:
+    - `program`: Operation used to write a binary to the chip.
+    - `read`: Operation used to read arbitrary flash memory on the chip.
+    - `erase`: Operation that erases arbitrary ranges of flash memory on the chip.
 
+    The custom values are specified as key=value pairs, for example,
+    `--openocd_commands 'program=write_image; halt;' 'erase=flash fillb
+    {address:#x} 0xff 512;'`. Operation strings can include wildcards which will
+    get set with the correct value by Tockloader:
+    - `{{binary}}`: The binary file path.
+    - `{address:#x}`: The specified address for the binary to be programmed at.
+    - `{length}`: The number of bytes. Only valid for the `read` operation.
 
 Example Usage
 -------------

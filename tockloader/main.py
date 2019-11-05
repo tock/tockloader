@@ -380,7 +380,8 @@ def main ():
 		nargs='*')
 	parent_jtag.add_argument('--openocd-commands',
 		default={},
-		type=lambda kv: dict([kv.split('=', 1)]),
+		type=lambda kv: kv.split('=', 1),
+		action=helpers.ListToDictAction,
 		help='Directly specify which OpenOCD commands to use for "program", "read", or "erase" actions. Example: "program=flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};"',
 		nargs='*')
 	parent_jtag.add_argument('--board',

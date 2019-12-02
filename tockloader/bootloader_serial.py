@@ -431,6 +431,22 @@ class BootloaderSerial(BoardInterface):
 		# Start with the header we know we are going to get. This makes
 		# checking for dangling escape characters easier.
 		ret = self.sp.read(2)
+
+		# Check for errors in the header we just got. We have to stop at this
+		# point since otherwise we loop waiting on data we will not get.
+		if len(ret) < 2:
+			if show_errors:
+				logging.error('No response after issuing command')
+			return (False, bytes())
+		if ret[0] != self.ESCAPE_CHAR:
+			if show_errors:
+				logging.error('Invalid response from bootloader (no escape character)')
+			return (False, ret[0:2])
+		if ret[1] != response_code:
+			if show_errors:
+				logging.error('Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
+			return (False, ret[0:2])
+
 		while bytes_to_read - len(ret) > 0:
 			new_data = self.sp.read(bytes_to_read - len(ret))
 
@@ -445,19 +461,6 @@ class BootloaderSerial(BoardInterface):
 			# De-escape, and add to array of read in bytes.
 			ret += new_data.replace(bytes([self.ESCAPE_CHAR, self.ESCAPE_CHAR]), bytes([self.ESCAPE_CHAR]))
 
-		if len(ret) < 2:
-			if show_errors:
-				logging.error('No response after issuing command')
-			return (False, bytes())
-
-		if ret[0] != self.ESCAPE_CHAR:
-			if show_errors:
-				logging.error('Invalid response from bootloader (no escape character)')
-			return (False, ret[0:2])
-		if ret[1] != response_code:
-			if show_errors:
-				logging.error('Expected return type {:x}, got return {:x}'.format(response_code, ret[1]))
-			return (False, ret[0:2])
 		if len(ret) != 2 + response_len:
 			if show_errors:
 				logging.error('Incorrect number of bytes received. Expected {}, got {}.'.format(2+response_len, len(ret)))
@@ -547,7 +550,7 @@ class BootloaderSerial(BoardInterface):
 			success, flash = self._issue_command(self.COMMAND_READ_RANGE, message, True, this_length, self.RESPONSE_READ_RANGE)
 
 			if not success:
-				raise TockLoaderException('Error: Could not read flash')
+				return b''
 			else:
 				read += flash
 

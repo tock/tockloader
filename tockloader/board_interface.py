@@ -125,6 +125,8 @@ class BoardInterface:
 	def read_range (self, address, length):
 		'''
 		Read a specific range of flash.
+
+		If this fails for some reason this should return an empty binary array.
 		'''
 		if self.args.debug:
 			logging.debug('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))

@@ -669,6 +669,11 @@ class TockLoader:
 			else:
 				break
 
+		if self.args.debug:
+			logging.debug('Found {} apps on the board.'.format(len(apps)))
+			for i,app in enumerate(apps):
+				logging.debug('  {}. {}'.format(i+1, app))
+
 		return apps
 
 	def _reflash_app_headers (self, apps):

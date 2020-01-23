@@ -15,9 +15,16 @@ import logging
 import subprocess
 import tempfile
 import time
+import os
+import platform
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
+
+jlink_exe_cmd = 'JLinkExe'
+
+if any(platform.win32_ver()):
+	jlink_exe_cmd = 'JLink'
 
 class JLinkExe(BoardInterface):
 	def _run_jtag_commands (self, commands, binary, write=True):
@@ -33,24 +40,25 @@ class JLinkExe(BoardInterface):
 			delete = False
 
 		if binary or not write:
-			temp_bin = tempfile.NamedTemporaryFile(mode='w+b', suffix='.bin', delete=delete)
+			temp_bin = tempfile.NamedTemporaryFile(mode='w+b', suffix='.bin', delete=False)
 			if write:
 				temp_bin.write(binary)
 
-			temp_bin.flush()
+			temp_bin.close()
 
 			# Update all of the commands with the name of the binary file
 			for i,command in enumerate(commands):
 				commands[i] = command.format(binary=temp_bin.name)
 
-		with tempfile.NamedTemporaryFile(mode='w', delete=delete) as jlink_file:
+		jlink_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+		try:
 			for command in commands:
 				jlink_file.write(command + '\n')
 
-			jlink_file.flush()
+			jlink_file.close()
 
-			jlink_command = 'JLinkExe -device {} -if {} -speed {} -AutoConnect 1 -jtagconf -1,-1 {}'.format(
-                                self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
+			jlink_command = '{} -device {} -if {} -speed {} -AutoConnect 1 -jtagconf -1,-1 -CommanderScript {}'.format(
+                                jlink_exe_cmd, self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
 
 			if self.args.debug:
 				logging.debug('Running "{}".'.format(jlink_command))
@@ -80,8 +88,11 @@ class JLinkExe(BoardInterface):
 
 			if write == False:
 				# Wanted to read binary, so lets pull that
-				temp_bin.seek(0, 0)
-				return temp_bin.read()
+				with open(temp_bin.name, "rb") as temp_bin:
+					temp_bin.seek(0, 0)
+					return temp_bin.read()
+		finally:
+			os.remove(jlink_file.name)
 
 	def flash_binary (self, address, binary):
 		'''
@@ -204,8 +215,8 @@ class JLinkExe(BoardInterface):
 			return
 
 		logging.status('Starting JLinkExe JTAG connection.')
-		jtag_p = subprocess.Popen('JLinkExe -device {} -if {} -speed {} -autoconnect 1 -jtagconf -1,-1'.format(
-                    self.jlink_device, self.jlink_if, self.jlink_speed).split(),
+		jtag_p = subprocess.Popen('{} -device {} -if {} -speed {} -autoconnect 1 -jtagconf -1,-1'.format(
+                    jlink_exe_cmd, self.jlink_device, self.jlink_if, self.jlink_speed).split(),
 			stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 		# Delay to give the JLinkExe JTAG connection time to start before running

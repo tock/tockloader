@@ -93,6 +93,7 @@ class JLinkExe(BoardInterface):
 					return temp_bin.read()
 		finally:
 			os.remove(jlink_file.name)
+			os.remove(temp_bin.name)
 
 	def flash_binary (self, address, binary):
 		'''

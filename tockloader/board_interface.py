@@ -93,6 +93,7 @@ class BoardInterface:
 		self.jlink_speed = getattr(self.args, 'jlink_speed', None)
 		self.jlink_if = getattr(self.args, 'jlink_if', None)
 		self.openocd_board = getattr(self.args, 'openocd_board', None)
+		self.openocd_cmd = getattr(self.args, 'openocd_cmd', 'openocd')
 		self.openocd_options = getattr(self.args, 'openocd_options', [])
 		self.openocd_prefix = getattr(self.args, 'openocd_prefix', '')
 		self.openocd_commands = getattr(self.args, 'openocd_commands', {})

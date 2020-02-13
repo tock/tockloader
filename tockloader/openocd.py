@@ -76,8 +76,9 @@ class OpenOCD(BoardInterface):
 		if 'resume' in self.openocd_options:
 			cmd_suffix = 'soft_reset_halt; resume;'
 
-		openocd_command = 'openocd -c "{prefix} {source} {cmd_prefix} {cmd} {cmd_suffix} exit"'.format(
-			prefix=prefix, source=source, cmd_prefix=cmd_prefix, cmd=commands, cmd_suffix=cmd_suffix)
+		openocd_command = '{openocd_cmd} -c "{prefix} {source} {cmd_prefix} {cmd} {cmd_suffix} exit"'.format(
+			openocd_cmd=self.openocd_cmd, prefix=prefix, source=source,
+			cmd_prefix=cmd_prefix, cmd=commands, cmd_suffix=cmd_suffix)
 
 		if self.args.debug:
 			logging.debug('Running "{}".'.format(openocd_command))

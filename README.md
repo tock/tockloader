@@ -144,9 +144,11 @@ everything to work. On MacOS you can use `brew install --HEAD openocd` to get
 a version from git.
 
     tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board] \
-    --openocd-options [openocd_options] --openocd-commands [openocd_commands]
+    --openocd-cmd [openocd_cmd] --openocd-options [openocd_options] \
+    --openocd-commands [openocd_commands]
 
 - `openocd_board`: The `.cfg` file in the board folder in OpenOCD to use.
+- `openocd_cmd`: The OpenOCD executable to invoke. Defaults to `openocd`.
 - `openocd_options`: A list of Tock-specific flags used to customize how
   Tockloader calls OpenOCD based on experience with various boards and their
   quirks. Options include:

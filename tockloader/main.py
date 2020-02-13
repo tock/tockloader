@@ -374,6 +374,9 @@ def main ():
 	parent_jtag.add_argument('--openocd-board',
 		default=None,
 		help='The cfg file in OpenOCD `board` folder.')
+	parent_jtag.add_argument('--openocd-cmd',
+		default='openocd',
+		help='The openocd binary to invoke.')
 	parent_jtag.add_argument('--openocd-options',
 		default=[],
 		help='Tockloader-specific flags to direct how Tockloader uses OpenOCD.',

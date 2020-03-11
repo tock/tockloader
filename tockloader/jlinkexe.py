@@ -22,6 +22,31 @@ from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
 
 class JLinkExe(BoardInterface):
+	def __init__ (self, args):
+		# Must call the generic init first.
+		super().__init__(args)
+
+		# Use command line arguments to set the necessary options.
+		self.jlink_device = getattr(self.args, 'jlink_device', None)
+		self.jlink_speed = getattr(self.args, 'jlink_speed', None)
+		self.jlink_if = getattr(self.args, 'jlink_if', None)
+
+		# If the user specified a board, use that configuration to fill in any
+		# missing settings.
+		if self.board and self.board in self.KNOWN_BOARDS:
+			logging.info('Using settings from KNOWN_BOARDS["{}"]'.format(self.board))
+			board = self.KNOWN_BOARDS[self.board]
+
+			# Set required settings
+			if self.jlink_device == None:
+				self.jlink_device = board['jlink_device']
+
+			# Set optional settings
+			if self.jlink_if == None and 'jlink_if' in board:
+				self.jlink_if = board['jlink_if']
+			if self.jlink_speed == None and 'jlink_speed' in board:
+				self.jlink_speed = board['jlink_speed']
+
 	def _run_jtag_commands (self, commands, binary, write=True):
 		'''
 		- `commands`: List of JLinkExe commands. Use {binary} for where the name
@@ -190,20 +215,9 @@ class JLinkExe(BoardInterface):
 			# These are already set! Yay we are done.
 			return
 
-		# If the user specified a board, use that configuration
-		if self.board and self.board in self.KNOWN_BOARDS:
-			logging.info('Using known arch and jtag-device for known board {}'.format(self.board))
-			board = self.KNOWN_BOARDS[self.board]
-			self.arch = board['arch']
-			self.jlink_device = board['jlink_device']
-			if 'jlink_speed' in board:
-				self.jlink_speed = board['jlink_speed']
-			if 'jlink_if' in board:
-				self.jlink_if = board['jlink_if']
-			self.page_size = board['page_size']
-			return
-
-		# The primary (only?) way to do this is to look at attributes
+		# If we get to here, we still have unknown settings and we need to
+		# retrieve them from the board itself. If they exist, they will be
+		# stored as attributes in the flash of the board.
 		attributes = self.get_all_attributes()
 		for attribute in attributes:
 			if attribute and attribute['key'] == 'board' and self.board == None:
@@ -215,6 +229,9 @@ class JLinkExe(BoardInterface):
 			if attribute and attribute['key'] == 'pagesize' and self.page_size == 0:
 				self.page_size = attribute['value']
 
+		# We might need to fill in if we only got a "board" attribute.
+		self._configure_from_known_boards()
+
 		# Check that we learned what we needed to learn.
 		if self.board == None or self.arch == None or self.jlink_device == 'cortex-m0' or self.page_size == 0:
 			raise TockLoaderException('Could not determine the current board or arch or jtag device name')
@@ -223,17 +240,6 @@ class JLinkExe(BoardInterface):
 		'''
 		Use JLinkRTTClient to listen for RTT messages.
 		'''
-		# Do a mini `determine_current_board` here so we know what to pass to
-		# JLinkExe. We don't bother trying to find this all automatically, for
-		# now it will just have to be passed in.
-		if self.jlink_device == None and self.board and self.board in self.KNOWN_BOARDS:
-			board = self.KNOWN_BOARDS[self.board]
-			self.jlink_device = board['jlink_device']
-			if 'jlink_speed' in board:
-				self.jlink_speed = board['jlink_speed']
-			if 'jlink_if' in board:
-				self.jlink_if = board['jlink_if']
-
 		if self.jlink_device == None:
 			logging.error('Unknown jlink_device. Use the --board or --jlink-device options.')
 			return

@@ -675,15 +675,8 @@ class BootloaderSerial(BoardInterface):
 			# These are already set! Yay we are done.
 			return
 
-		# If the user specified a board, use that configuration
-		if self.board and self.board in self.KNOWN_BOARDS:
-			logging.info('Using known arch for known board {}'.format(self.board))
-			board = self.KNOWN_BOARDS[self.board]
-			self.arch = board['arch']
-			self.page_size = board['page_size']
-			return
-
-		# The primary (only?) way to do this is to look at attributes
+		# If settings aren't set yet, we need to see if they are set on the
+		# board. The primary (only?) way to do this is to look at attributes.
 		attributes = self.get_all_attributes()
 		for attribute in attributes:
 			if attribute and attribute['key'] == 'board' and self.board == None:
@@ -693,10 +686,8 @@ class BootloaderSerial(BoardInterface):
 			if attribute and attribute['key'] == 'pagesize' and self.page_size == 0:
 				self.page_size = attribute['value']
 
-		# We might need to fill in the page size
-		if self.page_size==0 and self.board and self.board in self.KNOWN_BOARDS:
-			board = self.KNOWN_BOARDS[self.board]
-			self.page_size = board['page_size']
+		# We might need to fill in if we only got a "board" attribute.
+		self._configure_from_known_boards()
 
 		# Check that we learned what we needed to learn.
 		if self.board == None:

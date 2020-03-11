@@ -52,6 +52,7 @@ class BoardInterface:
 		                  'openocd': 'ek-tm4c1294xl.cfg'},
 		'arty': {'description': 'Arty FPGA running SiFive RISC-V core',
 		         'arch': 'rv32imac',
+		         'apps_start_address': 0x430000,
 		         'page_size': 512,
 		         'openocd': None, # No supported board in openocd proper
 		         'openocd_options': ['nocmdprefix'],
@@ -82,22 +83,56 @@ class BoardInterface:
 	def __init__ (self, args):
 		self.args = args
 
-		# These settings need to come from somewhere. Once place is the
-		# command line. Another is the attributes section on the board.
-		# There could be more in the future.
-		# Also, not all are required depending on the connection method used.
-		self.apps_start_address = getattr(self.args, 'app_address', None)
+		# These settings allow tockloader to correctly communicate with and
+		# program the attached hardware platform. They can be set through the
+		# following methods:
+		#
+		# 1. Command line arguments to tockloader.
+		# 2. Hardcoded values in the `KNOWN_BOARDS` array.
+		# 3. Attributes stored in flash on the hardware board itself.
+		#
+		# Tockloader looks for these setting in this order, and once a value has
+		# been determined, tockloader will stop searching and use that value.
+		# For example, if `arch` is set using the `--arch` argument to
+		# tockloader, then that will override anything set in `KNOWN_BOARDS` or
+		# in the on-board attributes.
+
+		# Start by looking for command line arguments.
 		self.board = getattr(self.args, 'board', None)
 		self.arch = getattr(self.args, 'arch', None)
-		self.jlink_device = getattr(self.args, 'jlink_device', None)
-		self.jlink_speed = getattr(self.args, 'jlink_speed', None)
-		self.jlink_if = getattr(self.args, 'jlink_if', None)
-		self.openocd_board = getattr(self.args, 'openocd_board', None)
-		self.openocd_cmd = getattr(self.args, 'openocd_cmd', 'openocd')
-		self.openocd_options = getattr(self.args, 'openocd_options', [])
-		self.openocd_prefix = getattr(self.args, 'openocd_prefix', '')
-		self.openocd_commands = getattr(self.args, 'openocd_commands', {})
+		self.apps_start_address = getattr(self.args, 'app_address', None)
 		self.page_size = getattr(self.args, 'page_size', 0)
+
+		# Next try to use `KNOWN_BOARDS`.
+		self._configure_from_known_boards()
+
+	def _configure_from_known_boards (self):
+		'''
+		If we know the name of the board we are interfacing with, this function
+		tries to use the `KNOWN_BOARDS` array to populate other needed settings
+		if they have not already been set from other methods.
+
+		This can be used in multiple locations. First, it is used when
+		tockloader first starts because if a user passes in the `--board`
+		argument then we know the board and can try to pull in settings from
+		KNOWN_BOARDS. Ideally, however, the user doesn't have to pass in any
+		arguments, but then we won't know what board until after we have had a
+		chance to read its attributes. The board at least needs the "board"
+		attribute to be set, and then we can use KNOWN_BOARDS to fill in the
+		rest.
+		'''
+		if self.board and self.board in self.KNOWN_BOARDS:
+			board = self.KNOWN_BOARDS[self.board]
+			if self.arch == None and 'arch' in board:
+				self.arch = board['arch']
+			if self.apps_start_address == None and 'apps_start_address' in board:
+				self.apps_start_address = board['apps_start_address']
+			if self.page_size == 0 and 'page_size' in board:
+				self.page_size = board['page_size']
+
+		# This init only includes the generic settings that all communication
+		# methods need. There may be flags specific to a particular
+		# communication interface.
 
 	def open_link_to_board (self):
 		'''

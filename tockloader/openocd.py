@@ -22,6 +22,35 @@ collect_temp_files = []
 
 class OpenOCD(BoardInterface):
 
+	def __init__ (self, args):
+		# Must call the generic init first.
+		super().__init__(args)
+
+		# Use command line arguments to set the necessary settings.
+		self.openocd_board = getattr(self.args, 'openocd_board', None)
+		self.openocd_cmd = getattr(self.args, 'openocd_cmd', 'openocd')
+		self.openocd_options = getattr(self.args, 'openocd_options', [])
+		self.openocd_prefix = getattr(self.args, 'openocd_prefix', '')
+		self.openocd_commands = getattr(self.args, 'openocd_commands', {})
+
+		# If the user specified a board, use that configuration to fill in any
+		# missing settings.
+		if self.board and self.board in self.KNOWN_BOARDS:
+			logging.info('Using settings from KNOWN_BOARDS["{}"]'.format(self.board))
+			board = self.KNOWN_BOARDS[self.board]
+
+			# Set required settings
+			if self.openocd_board == None:
+				self.openocd_board = board['openocd']
+
+			# Set optional settings
+			if self.openocd_options == [] and 'openocd_options' in board:
+				self.openocd_options = board['openocd_options']
+			if self.openocd_prefix == '' and 'openocd_prefix' in board:
+				self.openocd_prefix = board['openocd_prefix']
+			if self.openocd_commands == {} and 'openocd_commands' in board:
+				self.openocd_commands = board['openocd_commands']
+
 	def _run_openocd_commands (self, commands, binary, write=True):
 		'''
 		- `commands`: String of openocd commands. Use {binary} for where the name
@@ -196,22 +225,9 @@ You may need to update OpenOCD to the version in latest git master.')
 			# These are already set! Yay we are done.
 			return
 
-		# If the user specified a board, use that configuration
-		if self.board and self.board in self.KNOWN_BOARDS:
-			logging.info('Using known arch and jtag-device for known board {}'.format(self.board))
-			board = self.KNOWN_BOARDS[self.board]
-			self.arch = board['arch']
-			self.openocd_board = board['openocd']
-			if 'openocd_options' in board:
-				self.openocd_options = board['openocd_options']
-			if 'openocd_prefix' in board:
-				self.openocd_prefix = board['openocd_prefix']
-			if 'openocd_commands' in board:
-				self.openocd_commands = board['openocd_commands']
-			self.page_size = board['page_size']
-			return
-
-		# The primary (only?) way to do this is to look at attributes
+		# If we get to here, we still have unknown settings and we need to
+		# retrieve them from the board itself. If they exist, they will be
+		# stored as attributes in the flash of the board.
 		attributes = self.get_all_attributes()
 		for attribute in attributes:
 			if attribute and attribute['key'] == 'board' and self.board == None:
@@ -222,6 +238,9 @@ You may need to update OpenOCD to the version in latest git master.')
 				self.openocd_board = attribute['value']
 			if attribute and attribute['key'] == 'pagesize' and self.page_size == 0:
 				self.page_size = attribute['value']
+
+		# We might need to fill in if we only got a "board" attribute.
+		self._configure_from_known_boards()
 
 		# Check that we learned what we needed to learn.
 		if self.board == None or self.arch == None or self.openocd_board == 'cortex-m0' or self.page_size == 0:

@@ -12,6 +12,8 @@ correct command line argument for future communication.
 '''
 
 import logging
+import os
+import platform
 import subprocess
 import tempfile
 import time
@@ -28,7 +30,14 @@ class JLinkExe(BoardInterface):
 		- `write`: Set to true if the command writes binaries to the board. Set
 		  to false if the command will read bits from the board.
 		'''
-		delete = True
+
+		# On Windows, the executable name is different.
+		executable_name = 'JLinkExe'
+		if platform.system() == 'Windows':
+			executable_name = 'JLink'
+
+		# On Windows, do not delete temp files because they delete too fast.
+		delete = platform.system() != 'Windows'
 		if self.args.debug:
 			delete = False
 
@@ -38,6 +47,12 @@ class JLinkExe(BoardInterface):
 				temp_bin.write(binary)
 
 			temp_bin.flush()
+
+			# On Windows we have set the files to not delete, so closing them
+			# will not cause them to be removed. However, we close them to avoid
+			# file locking issues.
+			if platform.system() == 'Windows':
+				temp_bin.close()
 
 			# Update all of the commands with the name of the binary file
 			for i,command in enumerate(commands):
@@ -49,8 +64,11 @@ class JLinkExe(BoardInterface):
 
 			jlink_file.flush()
 
-			jlink_command = 'JLinkExe -device {} -if {} -speed {} -AutoConnect 1 -jtagconf -1,-1 {}'.format(
-                                self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
+			if platform.system() == 'Windows':
+				jlink_file.close()
+
+			jlink_command = '{} -device {} -if {} -speed {} -AutoConnect 1 -jtagconf -1,-1 -CommanderScript {}'.format(
+                                executable_name, self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
 
 			if self.args.debug:
 				logging.debug('Running "{}".'.format(jlink_command))
@@ -78,10 +96,27 @@ class JLinkExe(BoardInterface):
 			if 'Error while programming flash' in stdout:
 				raise TockLoaderException('ERROR: Problem flashing.')
 
+		# On Windows we need to re-open files to do a possible read, and cleanup
+		# files that we could not set to auto delete.
+		if platform.system() == 'Windows':
+			ret = None
 			if write == False:
 				# Wanted to read binary, so lets pull that
-				temp_bin.seek(0, 0)
-				return temp_bin.read()
+				with open(temp_bin.name, "rb") as temp_bin:
+					temp_bin.seek(0, 0)
+					ret = temp_bin.read()
+
+			# Cleanup files on Windows if needed.
+			if not self.args.debug:
+				os.remove(jlink_file.name)
+				os.remove(temp_bin.name)
+
+			return ret
+
+		if write == False:
+			# Wanted to read binary, so lets pull that
+			temp_bin.seek(0, 0)
+			return temp_bin.read()
 
 	def flash_binary (self, address, binary):
 		'''
@@ -203,9 +238,14 @@ class JLinkExe(BoardInterface):
 			logging.error('Unknown jlink_device. Use the --board or --jlink-device options.')
 			return
 
+		# On Windows, the executable name is different.
+		executable_name = 'JLinkExe'
+		if platform.system() == 'Windows':
+			executable_name = 'JLink'
+
 		logging.status('Starting JLinkExe JTAG connection.')
-		jtag_p = subprocess.Popen('JLinkExe -device {} -if {} -speed {} -autoconnect 1 -jtagconf -1,-1'.format(
-                    self.jlink_device, self.jlink_if, self.jlink_speed).split(),
+		jtag_p = subprocess.Popen('{} -device {} -if {} -speed {} -autoconnect 1 -jtagconf -1,-1'.format(
+                    executable_name, self.jlink_device, self.jlink_if, self.jlink_speed).split(),
 			stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 		# Delay to give the JLinkExe JTAG connection time to start before running

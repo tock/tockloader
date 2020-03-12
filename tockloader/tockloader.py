@@ -72,22 +72,24 @@ class TockLoader:
 		# what board we are talking to.
 		self.app_options = self.BOARDS_APP_DETAILS['default']
 
-		# Get an object that allows talking to the board
-		if hasattr(self.args, 'jlink') and self.args.jlink:
-			self.channel = JLinkExe(args)
-		elif hasattr(self.args, 'openocd') and self.args.openocd:
-			self.channel = OpenOCD(args)
-		else:
-			self.channel = BootloaderSerial(args)
 
-
-	def open (self, args):
+	def open (self):
 		'''
-		Open the correct channel to talk to the board.
+		Select and then open the correct channel to talk to the board.
 
 		For the bootloader, this means opening a serial port. For JTAG, not much
 		needs to be done.
 		'''
+
+		# Get an object that allows talking to the board.
+		if hasattr(self.args, 'jlink') and self.args.jlink:
+			self.channel = JLinkExe(self.args)
+		elif hasattr(self.args, 'openocd') and self.args.openocd:
+			self.channel = OpenOCD(self.args)
+		else:
+			self.channel = BootloaderSerial(self.args)
+
+		# And make sure the channel is open (e.g. open a serial port).
 		self.channel.open_link_to_board()
 
 

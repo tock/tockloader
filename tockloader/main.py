@@ -106,13 +106,13 @@ def collect_tabs (args):
 
 def command_listen (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 	tock_loader.run_terminal()
 
 
 def command_list (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 	tock_loader.list_apps(args.verbose, args.quiet)
 
 
@@ -124,7 +124,7 @@ def command_install (args):
 
 	# Install the apps on the board
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	# Figure out how we want to do updates
 	replace = 'yes'
@@ -140,7 +140,7 @@ def command_update (args):
 	tabs = collect_tabs(args)
 
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Updating application{} on the board...'.format(helpers.plural(len(tabs))))
 	tock_loader.install(tabs, replace='only')
@@ -148,7 +148,7 @@ def command_update (args):
 
 def command_uninstall (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	if len(args.name) != 0:
 		logging.status('Removing app(s) {} from board...'.format(', '.join(args.name)))
@@ -159,7 +159,7 @@ def command_uninstall (args):
 
 def command_erase_apps (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Removing apps...')
 	tock_loader.erase_apps(args.force)
@@ -167,7 +167,7 @@ def command_erase_apps (args):
 
 def command_enable_app (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Enabling apps...')
 	tock_loader.set_flag(args.name, 'enable', True)
@@ -175,7 +175,7 @@ def command_enable_app (args):
 
 def command_disable_app (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Disabling apps...')
 	tock_loader.set_flag(args.name, 'enable', False)
@@ -183,7 +183,7 @@ def command_disable_app (args):
 
 def command_sticky_app (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Making apps sticky...')
 	tock_loader.set_flag(args.name, 'sticky', True)
@@ -191,7 +191,7 @@ def command_sticky_app (args):
 
 def command_unsticky_app (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Making apps no longer sticky...')
 	tock_loader.set_flag(args.name, 'sticky', False)
@@ -215,7 +215,7 @@ def command_flash (args):
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Flashing binar(y|ies) to board...')
 	tock_loader.flash_binary(binary, args.address)
@@ -224,7 +224,7 @@ def command_flash (args):
 def command_read (args):
 	# Read the correct flash from the chip
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Reading flash from the board...')
 	tock_loader.read_flash(args.address, args.length)
@@ -232,7 +232,7 @@ def command_read (args):
 
 def command_list_attributes (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Listing attributes...')
 	tock_loader.list_attributes()
@@ -240,7 +240,7 @@ def command_list_attributes (args):
 
 def command_set_attribute (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Setting attribute...')
 	tock_loader.set_attribute(args.key, args.value)
@@ -248,7 +248,7 @@ def command_set_attribute (args):
 
 def command_remove_attribute (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Removing attribute...')
 	tock_loader.remove_attribute(args.key)
@@ -256,7 +256,7 @@ def command_remove_attribute (args):
 
 def command_info (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	print('tockloader version: {}'.format(__version__))
 	logging.status('Showing all properties of the board...')
@@ -287,7 +287,7 @@ def command_inspect_tab (args):
 
 def command_dump_flash_page (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open(args)
+	tock_loader.open()
 
 	logging.status('Getting page of flash...')
 	tock_loader.dump_flash_page(args.page)

@@ -144,7 +144,7 @@ class TAB:
 		'''
 		app = self.extract_app(arch)
 		header_size = app.tbfh.get_header_size()
-		app_binary_notbfh = app.binary[header_size:]
+		app_binary_notbfh = app.get_app_binary()
 
 		crt0 = struct.unpack('<IIIIIIIIII', app_binary_notbfh[0:40])
 

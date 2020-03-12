@@ -70,9 +70,16 @@ class App:
 
 	def has_app_binary (self):
 		'''
-		Whether we have the actually application binary for this app.
+		Whether we have the actual application binary for this app.
 		'''
 		return self.app_binary != None
+
+	def get_app_binary (self):
+		'''
+		Return just the compiled application code binary. Does not include
+		the TBF header.
+		'''
+		return self.app_binary
 
 	def get_binary (self):
 		'''

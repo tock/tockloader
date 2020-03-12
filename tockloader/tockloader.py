@@ -17,6 +17,7 @@ import time
 
 from . import helpers
 from .app import App
+from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
@@ -516,7 +517,7 @@ class TockLoader:
 		Simple function to print to console the boards that are hardcoded
 		into Tockloader to make them easier to use.
 		'''
-		self.channel.print_known_boards()
+		BoardInterface(self.args).print_known_boards()
 
 
 	############################################################################

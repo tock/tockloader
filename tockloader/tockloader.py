@@ -507,7 +507,7 @@ class TockLoader:
 			channel = JLinkExe(self.args)
 		else:
 			channel = BootloaderSerial(self.args)
-			channel.open_link_to_board()
+			channel.open_link_to_board(listen=True)
 
 		channel.run_terminal()
 

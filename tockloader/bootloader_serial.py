@@ -83,12 +83,15 @@ class BootloaderSerial(BoardInterface):
 	# Tell the bootloader to reset its buffer to handle a new command.
 	SYNC_MESSAGE = bytes([0x00, 0xFC, 0x05])
 
-	def open_link_to_board (self):
+	def open_link_to_board (self, listen=False):
 		'''
 		Open the serial port to the chip/bootloader.
 
 		Also sets up a local port for determining when two Tockloader instances
 		are running simultaneously.
+
+		Set the argument `listen` to true if the serial port is being setup
+		because we are planning to run `run_terminal`.
 		'''
 		# Check to see if the user specified a serial port or a specific name,
 		# or if we should find a serial port to use.
@@ -172,11 +175,13 @@ class BootloaderSerial(BoardInterface):
 
 
 
-		# Only one process at a time can talk to a serial port (reliably)
+		# Only one process at a time can talk to a serial port (reliably).
 		# Before connecting, check whether there is another tockloader process
-		# running, if it's a listen, pause listening, otherwise bail out
+		# running, and if it's a listen, pause that listen (unless we are also
+		# doing a listen), otherwise bail out.
 		self.comm_path = '/tmp/tockloader.' + self._get_serial_port_hash()
 		if os.path.exists(self.comm_path):
+			# Open a socket to the other tockloader instance if one exists.
 			self.client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 			try:
 				self.client_sock.connect(self.comm_path)
@@ -188,7 +193,20 @@ class BootloaderSerial(BoardInterface):
 		else:
 			self.client_sock = None
 
+		# Check if another tockloader instance exists based on whether we were
+		# able to create a socket to it.
 		if self.client_sock:
+			# If we could connect, and we are trying to do a listen on the same
+			# serial port, then we should exit and notify the user there is
+			# already an active tockloader process.
+			if listen:
+				# We tell the other tockloader not to mind us and then print
+				# an error to the user.
+				self.client_sock.sendall('Version 1\n'.encode('utf-8'))
+				self.client_sock.sendall('Ignore\n'.encode('utf-8'))
+				self.client_sock.close()
+				raise TockLoaderException('Another tockloader process is already running')
+
 			self.client_sock.sendall('Version 1\n'.encode('utf-8'))
 			self.client_sock.sendall('Stop Listening\n'.encode('utf-8'))
 			r = ''
@@ -274,6 +292,13 @@ class BootloaderSerial(BoardInterface):
 			if r == 'Start Listening\n':
 				self.server_event.set()
 				continue
+
+			if r == 'Ignore\n':
+				# The other tockloader was just checking to see if we exist.
+				# We can just close the connection on our end and keep waiting.
+				connection.close()
+				continue
+
 			if r != 'Stop Listening\n':
 				logging.warning('Got unexpected command: >{}< ; dropping'.format(r))
 				connection.close()

@@ -27,11 +27,11 @@ class OpenOCD(BoardInterface):
 		super().__init__(args)
 
 		# Use command line arguments to set the necessary settings.
-		self.openocd_board = getattr(self.args, 'openocd_board', None)
-		self.openocd_cmd = getattr(self.args, 'openocd_cmd', 'openocd')
-		self.openocd_options = getattr(self.args, 'openocd_options', [])
-		self.openocd_prefix = getattr(self.args, 'openocd_prefix', '')
-		self.openocd_commands = getattr(self.args, 'openocd_commands', {})
+		self.openocd_board = getattr(self.args, 'openocd_board')
+		self.openocd_options = getattr(self.args, 'openocd_options')
+		self.openocd_commands = getattr(self.args, 'openocd_commands')
+		self.openocd_cmd = getattr(self.args, 'openocd_cmd')
+		self.openocd_prefix = ''
 
 		# If the user specified a board, use that configuration to fill in any
 		# missing settings.

@@ -134,9 +134,14 @@ arguments.
 Tockloader also supports a JTAG interface using JLinkExe. JLinkExe requires
 knowing the device type of the MCU on the board.
 
-    tockloader [command] --jlink --arch [arch] --board [board] --jlink-device [device]
+    tockloader [command] --jlink --arch [arch] --board [board] \
+    --jlink-cmd [jlink_cmd] --jlink-device [device] --jlink-speed [speed] --jlink-if [if]
 
+- `jlink_cmd`: The JLink executable to invoke. Defaults to `JLinkExe` on
+  Mac/Linux, and `JLink` on Windows.
 - `device`: The JLinkExe device identifier.
+- `speed`: The speed value to pass to JLink. Defaults to 1200.
+- `if`: The interface to pass to JLink.
 
 Tockloader can also do JTAG using OpenOCD. OpenOCD needs to know which config
 file to use. Note: you will likely need an up-to-date version of OpenOCD for

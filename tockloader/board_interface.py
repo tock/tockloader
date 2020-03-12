@@ -98,10 +98,10 @@ class BoardInterface:
 		# in the on-board attributes.
 
 		# Start by looking for command line arguments.
-		self.board = getattr(self.args, 'board', None)
-		self.arch = getattr(self.args, 'arch', None)
-		self.apps_start_address = getattr(self.args, 'app_address', None)
-		self.page_size = getattr(self.args, 'page_size', 0)
+		self.board = getattr(self.args, 'board')
+		self.arch = getattr(self.args, 'arch')
+		self.apps_start_address = getattr(self.args, 'app_address')
+		self.page_size = getattr(self.args, 'page_size')
 
 		# Next try to use `KNOWN_BOARDS`.
 		self._configure_from_known_boards()

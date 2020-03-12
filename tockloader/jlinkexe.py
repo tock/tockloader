@@ -27,9 +27,9 @@ class JLinkExe(BoardInterface):
 		super().__init__(args)
 
 		# Use command line arguments to set the necessary options.
-		self.jlink_device = getattr(self.args, 'jlink_device', None)
-		self.jlink_speed = getattr(self.args, 'jlink_speed', None)
-		self.jlink_if = getattr(self.args, 'jlink_if', None)
+		self.jlink_device = getattr(self.args, 'jlink_device')
+		self.jlink_speed = getattr(self.args, 'jlink_speed')
+		self.jlink_if = getattr(self.args, 'jlink_if')
 
 		# If the user specified a board, use that configuration to fill in any
 		# missing settings.
@@ -47,6 +47,21 @@ class JLinkExe(BoardInterface):
 			if self.jlink_speed == None and 'jlink_speed' in board:
 				self.jlink_speed = board['jlink_speed']
 
+		# If certain settings are still missing, use defaults.
+		if self.jlink_if == None:
+			self.jlink_if = 'swd'
+		if self.jlink_speed == None:
+			self.jlink_speed = 1200
+
+		# Determine the name of the binary to run.
+		self.jlink_cmd = getattr(self.args, 'jlink_cmd')
+		# If not specified we use the default, but this is different on Windows
+		# vs. not Windows.
+		if self.jlink_cmd == None:
+			self.jlink_cmd = 'JLinkExe'
+			if platform.system() == 'Windows':
+				self.jlink_cmd = 'JLink'
+
 	def _run_jtag_commands (self, commands, binary, write=True):
 		'''
 		- `commands`: List of JLinkExe commands. Use {binary} for where the name
@@ -55,11 +70,6 @@ class JLinkExe(BoardInterface):
 		- `write`: Set to true if the command writes binaries to the board. Set
 		  to false if the command will read bits from the board.
 		'''
-
-		# On Windows, the executable name is different.
-		executable_name = 'JLinkExe'
-		if platform.system() == 'Windows':
-			executable_name = 'JLink'
 
 		# On Windows, do not delete temp files because they delete too fast.
 		delete = platform.system() != 'Windows'
@@ -93,7 +103,7 @@ class JLinkExe(BoardInterface):
 				jlink_file.close()
 
 			jlink_command = '{} -device {} -if {} -speed {} -AutoConnect 1 -jtagconf -1,-1 -CommanderScript {}'.format(
-                                executable_name, self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
+                                self.jlink_cmd, self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
 
 			if self.args.debug:
 				logging.debug('Running "{}".'.format(jlink_command))
@@ -244,14 +254,9 @@ class JLinkExe(BoardInterface):
 			logging.error('Unknown jlink_device. Use the --board or --jlink-device options.')
 			return
 
-		# On Windows, the executable name is different.
-		executable_name = 'JLinkExe'
-		if platform.system() == 'Windows':
-			executable_name = 'JLink'
-
 		logging.status('Starting JLinkExe JTAG connection.')
 		jtag_p = subprocess.Popen('{} -device {} -if {} -speed {} -autoconnect 1 -jtagconf -1,-1'.format(
-                    executable_name, self.jlink_device, self.jlink_if, self.jlink_speed).split(),
+                    self.jlink_cmd, self.jlink_device, self.jlink_if, self.jlink_speed).split(),
 			stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 		# Delay to give the JLinkExe JTAG connection time to start before running

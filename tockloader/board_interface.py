@@ -98,10 +98,10 @@ class BoardInterface:
 		# in the on-board attributes.
 
 		# Start by looking for command line arguments.
-		self.board = getattr(self.args, 'board')
-		self.arch = getattr(self.args, 'arch')
-		self.apps_start_address = getattr(self.args, 'app_address')
-		self.page_size = getattr(self.args, 'page_size')
+		self.board = getattr(self.args, 'board', None)
+		self.arch = getattr(self.args, 'arch', None)
+		self.apps_start_address = getattr(self.args, 'app_address', None)
+		self.page_size = getattr(self.args, 'page_size', 0)
 
 		# Next try to use `KNOWN_BOARDS`.
 		self._configure_from_known_boards()
@@ -290,3 +290,6 @@ class BoardInterface:
 		print('Known boards:')
 		for board in sorted(self.KNOWN_BOARDS.keys()):
 			print('  - {:<20} {}'.format(board, self.KNOWN_BOARDS[board]['description']))
+
+	def run_terminal (self):
+		raise TockLoaderException('No terminal mechanism implemented for this host->board communication method.')

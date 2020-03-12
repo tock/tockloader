@@ -106,7 +106,6 @@ def collect_tabs (args):
 
 def command_listen (args):
 	tock_loader = TockLoader(args)
-	tock_loader.open()
 	tock_loader.run_terminal()
 
 
@@ -421,21 +420,25 @@ def main ():
 	listen.add_argument('--count',
 		help='Prepend output with a message counter',
 		action='store_true')
-	listen.add_argument('--jlink',
+	listen.add_argument('--rtt',
 		action='store_true',
 		help='Use Segger RTT to listen.')
 	listen.add_argument('--board',
 		default=None,
-		help='Specify the board that is being read from. Only used with --jlink.')
+		help='Specify the board that is being read from. Only used with --rtt.')
+	listen.add_argument('--jlink-cmd',
+		help='The JLinkExe binary to invoke. Only used with --rtt.')
+	listen.add_argument('--jlink-rtt-cmd',
+		help='The JLinkRTTClient binary to invoke. Only used with --rtt.')
 	listen.add_argument('--jlink-device',
 		default=None,
-		help='The device type to pass to JLinkExe. Only used with --jlink.')
+		help='The device type to pass to JLinkExe. Only used with --rtt.')
 	listen.add_argument('--jlink-speed',
 		default=1200,
-		help='The JLink speed to pass to JLinkExe. Only used with --jlink.')
+		help='The JLink speed to pass to JLinkExe. Only used with --rtt.')
 	listen.add_argument('--jlink-if',
 		default='swd',
-		help='The interface type to pass to JLinkExe. Only used with --jlink.')
+		help='The interface type to pass to JLinkExe. Only used with --rtt.')
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',

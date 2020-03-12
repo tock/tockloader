@@ -263,8 +263,13 @@ class JLinkExe(BoardInterface):
 		# the RTT listener.
 		time.sleep(1)
 
-		logging.status('Starting JLinkRTTClient to listen for messages.')
-		p = subprocess.Popen('JLinkRTTClient', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		# Determine the name of the RTT binary to run.
+		self.jlink_rtt_cmd = getattr(self.args, 'jlink_rtt_cmd')
+		if self.jlink_rtt_cmd == None:
+			self.jlink_rtt_cmd = 'JLinkRTTClient'
+
+		logging.status('Starting {} to listen for messages.'.format(self.jlink_rtt_cmd))
+		p = subprocess.Popen('{}'.format(self.jlink_rtt_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		for stdout_line in iter(p.stdout.readline, ""):
 			l = stdout_line.decode("utf-8")
 			if not l.startswith('###RTT Client: *'):

@@ -106,29 +106,6 @@ class TockLoader:
 			self.channel.flash_binary(address, binary)
 
 
-	def run_terminal (self):
-		'''
-		Create an interactive terminal session with the board.
-
-		This is a special-case use of Tockloader where this is really a helper
-		function for running some sort of underlying terminal-like operation.
-		Therefore, how we set this up is a little different from other
-		tockloader commands. In particular, we do _not_ want `tockloader.open()`
-		to have been called at this point.
-		'''
-		# By default, we use the serial connection and serial terminal. However,
-		# tockloader supports other terminals, and we choose the correct one
-		# here. There is no need to save the channel, since
-		# `channel.run_terminal()` never returns.
-		if self.args.rtt:
-			channel = JLinkExe(self.args)
-		else:
-			channel = BootloaderSerial(self.args)
-			channel.open_link_to_board()
-
-		channel.run_terminal()
-
-
 	def list_apps (self, verbose, quiet):
 		'''
 		Query the chip's flash to determine which apps are installed.
@@ -510,6 +487,29 @@ class TockLoader:
 		with self._start_communication_with_board():
 			flash = self.channel.read_range(address, length)
 			self._print_flash(address, flash)
+
+
+	def run_terminal (self):
+		'''
+		Create an interactive terminal session with the board.
+
+		This is a special-case use of Tockloader where this is really a helper
+		function for running some sort of underlying terminal-like operation.
+		Therefore, how we set this up is a little different from other
+		tockloader commands. In particular, we do _not_ want `tockloader.open()`
+		to have been called at this point.
+		'''
+		# By default, we use the serial connection and serial terminal. However,
+		# tockloader supports other terminals, and we choose the correct one
+		# here. There is no need to save the channel, since
+		# `channel.run_terminal()` never returns.
+		if self.args.rtt:
+			channel = JLinkExe(self.args)
+		else:
+			channel = BootloaderSerial(self.args)
+			channel.open_link_to_board()
+
+		channel.run_terminal()
 
 
 	def print_known_boards (self):

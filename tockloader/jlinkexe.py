@@ -38,7 +38,7 @@ class JLinkExe(BoardInterface):
 			board = self.KNOWN_BOARDS[self.board]
 
 			# Set required settings
-			if self.jlink_device == None:
+			if self.jlink_device == 'cortex-m0':
 				self.jlink_device = board['jlink_device']
 
 			# Set optional settings

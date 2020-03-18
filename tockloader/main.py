@@ -431,7 +431,7 @@ def main ():
 	listen.add_argument('--jlink-rtt-cmd',
 		help='The JLinkRTTClient binary to invoke. Only used with --rtt.')
 	listen.add_argument('--jlink-device',
-		default=None,
+		default='cortex-m0',
 		help='The device type to pass to JLinkExe. Only used with --rtt.')
 	listen.add_argument('--jlink-speed',
 		default=1200,

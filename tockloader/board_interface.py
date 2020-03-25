@@ -78,6 +78,14 @@ class BoardInterface:
 		            'arch': 'rv32imac',
 		            'page_size': 512,
 		            'openocd': 'sifive-hifive1.cfg'},
+		'edu-ciaa': {'description': 'Educational NXP board, from the CIAA proyect',
+		                      'arch': 'cortex-m4',
+		                      'page_size': 512,
+		                      'apps_start_address': 0x1a040000,
+		                      'openocd': 'ftdi_lpc4337.cfg',
+		                      'openocd_options': ['noreset'],
+		                      'openocd_commands': {'program': 'flash write_image erase {{binary}}\
+		                       {address:#x};verify_image {{binary}} {address:#x};'}},
 	}
 
 	def __init__ (self, args):

@@ -688,7 +688,7 @@ class TockLoader:
 				break
 
 		if self.args.debug:
-			logging.debug('Found {} apps on the board.'.format(len(apps)))
+			logging.debug('Found {} app{} on the board.'.format(len(apps), helpers.plural(len(apps))))
 			for i,app in enumerate(apps):
 				logging.debug('  {}. {}'.format(i+1, app))
 

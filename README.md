@@ -58,7 +58,7 @@ These provide other helpful features.
 
 #### `tockloader listen`
 
-Listen to UART `printf()` data from a board. Use the option `--jlink` to use
+Listen to UART `printf()` data from a board. Use the option `--rtt` to use
 Segger's RTT listener instead of using a serial port.
 
 
@@ -198,6 +198,19 @@ Get `printf()` data from a board:
 
     tockloader listen
 
+Additional Flags
+----------------
+
+There are additional flags that might be useful for customizing tockloader's
+operation based on the requirements of a particular hardware platform.
+
+- `--app-address`: Manually specify the address at the beginning of where apps
+  are stored. This can be in hex or decimal.
+- `--rewrite-apps`: This forces tockloader to re-write all apps anytime that any
+  app changes in any way (e.g. its header changes or the app is updated or a new
+  app is installed.). Additionally, tockloader will completely erase the app
+  flash region between saving any existing apps from the board and then
+  re-flashing the apps with any changes.
 
 Features
 --------

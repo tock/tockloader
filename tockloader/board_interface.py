@@ -84,7 +84,7 @@ class BoardInterface:
 		                      'apps_start_address': 0x1a040000,
 		                      'openocd': 'ftdi_lpc4337.cfg',
 		                      'openocd_options': ['noreset'],
-		                      'openocd_commands': {'program': 'flash write_image erase {{binary}} {address:#x};',
+		                      'openocd_commands': {'program': 'flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};',
 		                       'erase': 'flash fillb {address:#x} 0x00 512;'}
 					},
 	}

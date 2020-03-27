@@ -66,6 +66,8 @@ class TockLoader:
 	                'size_constraint': 'powers_of_two',
 	                'size_minimum': 0},
 	    'nrf52dk': {'size_minimum': 4096},
+	    'edu-ciaa': {'size_constraint': 'powers_of_two',
+	                'size_minimum': 65536},
 	}
 
 

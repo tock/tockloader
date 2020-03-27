@@ -8,6 +8,7 @@ channel specific code is in other files.
 import binascii
 import contextlib
 import copy
+import functools
 import logging
 import os
 import platform
@@ -616,12 +617,20 @@ class TockLoader:
 		# Get where the apps live in flash.
 		address = self.channel.get_apps_start_address()
 
-		# Now iterate to see if the address has changed
+		# If apps are moving then we need to read their contents off the board
+		# so we can re-flash them in their new spot. Also, tockloader supports
+		# erasing all app flash space before modifying it, as some boards have
+		# flash controllers that require an erase before any writes, and the
+		# erase covers a large area of flash. In that case, we must read all
+		# apps and then re-write them, since otherwise they will be erased.
+		#
+		# So, we iterate through all apps and read them into memory if we are
+		# doing an erase and re-flash cycle or if the app has moved.
 		start_address = address
 		for app in apps:
-			# If the address already matches, then we are good.
-			# On to the next app.
-			if app.address != start_address:
+			# If we are not doing a re-write or the address already matches,
+			# then we are good and can skip this app.
+			if self.args.rewrite_apps or app.address != start_address:
 				# If they don't, then we need to read the binary out of
 				# flash and save it to be moved, as well as update the address.
 				# However, we may have a new binary to use, so we don't need to
@@ -635,6 +644,21 @@ class TockLoader:
 
 			start_address += app.get_size()
 
+		# Check if we are re-writing all apps after doing an erase. If we are,
+		# then we need to do the erase now before writing apps.
+		if self.args.rewrite_apps:
+			# Calculate the size of all of the apps to know how much we need to
+			# erase.
+			total_size = functools.reduce(lambda acc, app: acc+app.get_size(), apps, 0)
+			# Get page size so we can calculate how many pages to erase. Also
+			# make sure we erase one extra page to terminate the linked list of
+			# apps in flash.
+			page_size = self.channel.get_page_size()
+			pages_to_erase = (total_size + (2*page_size) - 1) // page_size
+			# Do the necessary erases
+			for i in range(pages_to_erase):
+				self.channel.erase_page(address + (i*page_size))
+
 		# Now flash all apps that have a binary field. The presence of the
 		# binary indicates that they are new or moved.
 		end = address
@@ -643,10 +667,14 @@ class TockLoader:
 				self.channel.flash_binary(app.address, app.get_binary())
 			end = app.address + app.get_size()
 
-		# Then erase the next page. This ensures that flash is clean at the
-		# end of the installed apps and makes things nicer for future uses of
-		# this script.
-		self.channel.erase_page(end)
+		# Then erase the next page if we have not already rewritten all existing
+		# apps. This ensures that flash is clean at the end of the installed
+		# apps and makes sure the kernel will find the correct end of
+		# applications. But, if we have re-written apps then this has already
+		# been taken care of by the initial erase and we do not want to do it
+		# again.
+		if not self.args.rewrite_apps:
+			self.channel.erase_page(end)
 
 	def _extract_all_app_headers (self):
 		'''

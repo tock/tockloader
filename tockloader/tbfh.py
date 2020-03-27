@@ -14,8 +14,22 @@ class TBFHeader:
 	HEADER_TYPE_PIC_OPTION_1            = 0x04
 
 	def __init__ (self, buffer):
+		# Flag that records if this TBF header is valid. This is calculated once
+		# when a new TBF header is read in. Any manipulations that tockloader
+		# does will not make a TBF header invalid, so we do not need to
+		# re-calculate this.
 		self.valid = False
+		# Whether this TBF header is for an app, or is just padding (or perhaps
+		# something else). Tockloader will not change this after the TBF header
+		# is initially parsed, so we do not need to re-calculate this and can
+		# used a flag here.
 		self.is_app = False
+		# Whether the TBF header has been modified from when it was first
+		# created (by calling `__init__`). This might happen, for example, if a
+		# new flag was set. We keep track of this so that we know if we need to
+		# re-flash the TBF header to the board.
+		self.modified = False
+
 		self.fields = {}
 
 		full_buffer = buffer;
@@ -149,6 +163,13 @@ class TBFHeader:
 		'''
 		return self.valid
 
+	def is_modified (self):
+		'''
+		Whether the TBF header has been modified by Tockloader after it was
+		initially read in (either from a new TAB or from the board).
+		'''
+		return self.modified
+
 	def is_enabled (self):
 		'''
 		Whether the application is marked as enabled. Enabled apps start when
@@ -189,12 +210,14 @@ class TBFHeader:
 				self.fields['flags'] |= 0x01;
 			else:
 				self.fields['flags'] &= ~0x01;
+			self.modified = True
 
 		elif flag_name == 'sticky':
 			if flag_value:
 				self.fields['flags'] |= 0x02;
 			else:
 				self.fields['flags'] &= ~0x02;
+			self.modified = True
 
 	def get_app_size (self):
 		'''
@@ -210,6 +233,7 @@ class TBFHeader:
 		any other fields in the header.
 		'''
 		self.fields['total_size'] = size
+		self.modified = True
 
 	def get_header_size (self):
 		'''

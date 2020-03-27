@@ -11,6 +11,15 @@ class App:
 		self.name = name             # A copy of the application name.
 		self.app_binary = app_binary # A binary array of the app _after_ the header.
 
+		self.modified = False        # A flag indicating if this app has been modified by tockloader.
+
+	def is_modified (self):
+		'''
+		Returns whether this app has been modified by tockloader since it was
+		initially created by `__init__`.
+		'''
+		return self.modified or self.tbfh.is_modified()
+
 	def is_sticky (self):
 		'''
 		Returns true if the app is set as sticky and will not be removed with
@@ -61,12 +70,14 @@ class App:
 		existing contents of flash on a board.
 		'''
 		self.app_binary = app_binary
+		self.modified = True
 
 	def set_address (self, address):
 		'''
 		Set the address of flash where this app is or should go.
 		'''
 		self.address = address
+		self.modified = True
 
 	def has_app_binary (self):
 		'''

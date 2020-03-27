@@ -347,7 +347,7 @@ class TockLoader:
 					changed = True
 
 			if changed:
-				self._reflash_app_headers(apps)
+				self._reshuffle_apps(apps)
 				print('Set flag "{}" to "{}" for apps: {}'.format(flag_name, flag_value, ', '.join(app_names)))
 			else:
 				print('No matching apps found. Nothing changed.')
@@ -605,7 +605,8 @@ class TockLoader:
 	def _reshuffle_apps (self, apps):
 		'''
 		Given an array of apps, some of which are new and some of which exist,
-		sort them in flash so they are in descending size order.
+		sort them in flash so they are in descending size order. Then write
+		these apps to flash.
 		'''
 		# We are given an array of apps. First we need to order them based on
 		# the ordering requested by this board (or potentially the user).
@@ -617,6 +618,14 @@ class TockLoader:
 		# Get where the apps live in flash.
 		address = self.channel.get_apps_start_address()
 
+		# Decide if we need to read the existing binary from flash into memory.
+		# We can need to do this for various reasons:
+		#
+		# 1. If the app location has changed, and we will need to write it to
+		#    its new location.
+		# 2. If we are re-writting all apps after doing an erase.
+		# 3. If the TBF header has changed and we need to update it in flash.
+		#
 		# If apps are moving then we need to read their contents off the board
 		# so we can re-flash them in their new spot. Also, tockloader supports
 		# erasing all app flash space before modifying it, as some boards have
@@ -628,18 +637,19 @@ class TockLoader:
 		# doing an erase and re-flash cycle or if the app has moved.
 		start_address = address
 		for app in apps:
-			# If we are not doing a re-write or the address already matches,
-			# then we are good and can skip this app.
-			if self.args.rewrite_apps or app.address != start_address:
-				# If they don't, then we need to read the binary out of
-				# flash and save it to be moved, as well as update the address.
-				# However, we may have a new binary to use, so we don't need to
-				# fetch it.
-				if not app.has_app_binary():
+			# If we do not already have a binary, and any of the conditions are
+			# met, we need to read the app binary from the board.
+			if (not app.has_app_binary()) and \
+			   (self.args.rewrite_apps or
+			   	app.address != start_address or
+			   	app.is_modified()):
+					logging.debug('Reading app {} binary from board.'.format(app))
 					entire_app = self.channel.read_range(app.address, app.get_size())
-					app.set_app_binary(entire_app[app.get_header_size():])
+					in_flash_tbfh = TBFHeader(entire_app)
+					app.set_app_binary(entire_app[in_flash_tbfh.get_header_size():])
 
-				# Either way save the new address.
+			# Only if the app moved do we save the new address.
+			if app.address != start_address:
 				app.set_address(start_address)
 
 			start_address += app.get_size()
@@ -656,14 +666,16 @@ class TockLoader:
 			page_size = self.channel.get_page_size()
 			pages_to_erase = (total_size + (2*page_size) - 1) // page_size
 			# Do the necessary erases
+			logging.debug('Erasing {} pages starting at {:#x} before re-writing apps'.format(pages_to_erase, address))
 			for i in range(pages_to_erase):
 				self.channel.erase_page(address + (i*page_size))
 
-		# Now flash all apps that have a binary field. The presence of the
-		# binary indicates that they are new or moved.
+		# Now flash all apps that have been modified. The only way an app would
+		# not be modified is if it was read off the board and nothing changed.
+		# An app from a TAB will be modified since it will have a new address.
 		end = address
 		for app in apps:
-			if app.has_app_binary():
+			if app.is_modified():
 				self.channel.flash_binary(app.address, app.get_binary())
 			end = app.address + app.get_size()
 
@@ -721,18 +733,6 @@ class TockLoader:
 				logging.debug('  {}. {}'.format(i+1, app))
 
 		return apps
-
-	def _reflash_app_headers (self, apps):
-		'''
-		Take a list of app headers and reflash them to the chip. This doesn't do
-		a lot of checking, so you better have not re-ordered the headers or
-		anything annoying like that.
-		'''
-		for app in apps:
-			if app.has_app_binary():
-				raise TockLoaderException('App headers should not have binaries! That would imply the app has changed!')
-
-			self.channel.flash_binary(app.address, app.get_header_binary(), pad=False)
 
 	def _extract_apps_from_tabs (self, tabs):
 		'''

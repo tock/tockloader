@@ -184,7 +184,7 @@ Return the size of the page in bytes for the connected board.
 ### open\_link\_to\_board
 ```py
 
-def open_link_to_board(self)
+def open_link_to_board(self, listen=False)
 
 ```
 
@@ -194,6 +194,9 @@ Open the serial port to the chip/bootloader.
 
 Also sets up a local port for determining when two Tockloader instances
 are running simultaneously.
+
+Set the argument `listen` to true if the serial port is being setup
+because we are planning to run `run_terminal`.
 
 
 ### print\_known\_boards
@@ -218,6 +221,8 @@ def read_range(self, address, length)
 
 
 Read a specific range of flash.
+
+If this fails for some reason this should return an empty binary array.
 
 
 ### run\_terminal
@@ -268,6 +273,29 @@ def _check_crc(self, address, binary)
 
 Compares the CRC of the local binary to the one calculated by the
 bootloader.
+
+
+### \_configure\_from\_known\_boards
+```py
+
+def _configure_from_known_boards(self)
+
+```
+
+
+
+If we know the name of the board we are interfacing with, this function
+tries to use the `KNOWN_BOARDS` array to populate other needed settings
+if they have not already been set from other methods.
+
+This can be used in multiple locations. First, it is used when
+tockloader first starts because if a user passes in the `--board`
+argument then we know the board and can try to pull in settings from
+KNOWN_BOARDS. Ideally, however, the user doesn't have to pass in any
+arguments, but then we won't know what board until after we have had a
+chance to read its attributes. The board at least needs the "board"
+attribute to be set, and then we can use KNOWN_BOARDS to fill in the
+rest.
 
 
 ### \_decode\_attribute

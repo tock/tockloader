@@ -78,6 +78,19 @@ Whether the application is marked as enabled. Enabled apps start when
 the board boots, and disabled ones do not.
 
 
+### is\_modified
+```py
+
+def is_modified(self)
+
+```
+
+
+
+Whether the TBF header has been modified by Tockloader after it was
+initially read in (either from a new TAB or from the board).
+
+
 ### is\_sticky
 ```py
 

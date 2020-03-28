@@ -219,6 +219,17 @@ def read_range(self, address, length)
 
 Read a specific range of flash.
 
+If this fails for some reason this should return an empty binary array.
+
+
+### run\_terminal
+```py
+
+def run_terminal(self)
+
+```
+
+
 
 ### set\_attribute
 ```py
@@ -230,6 +241,29 @@ def set_attribute(self, index, raw)
 
 
 Set a single attribute.
+
+
+### \_configure\_from\_known\_boards
+```py
+
+def _configure_from_known_boards(self)
+
+```
+
+
+
+If we know the name of the board we are interfacing with, this function
+tries to use the `KNOWN_BOARDS` array to populate other needed settings
+if they have not already been set from other methods.
+
+This can be used in multiple locations. First, it is used when
+tockloader first starts because if a user passes in the `--board`
+argument then we know the board and can try to pull in settings from
+KNOWN_BOARDS. Ideally, however, the user doesn't have to pass in any
+arguments, but then we won't know what board until after we have had a
+chance to read its attributes. The board at least needs the "board"
+attribute to be set, and then we can use KNOWN_BOARDS to fill in the
+rest.
 
 
 ### \_decode\_attribute

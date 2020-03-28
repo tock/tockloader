@@ -116,13 +116,13 @@ Download all attributes stored on the board.
 ### open
 ```py
 
-def open(self, args)
+def open(self)
 
 ```
 
 
 
-Open the correct channel to talk to the board.
+Select and then open the correct channel to talk to the board.
 
 For the bootloader, this means opening a serial port. For JTAG, not much
 needs to be done.
@@ -175,6 +175,12 @@ def run_terminal(self)
 
 
 Create an interactive terminal session with the board.
+
+This is a special-case use of Tockloader where this is really a helper
+function for running some sort of underlying terminal-like operation.
+Therefore, how we set this up is a little different from other
+tockloader commands. In particular, we do _not_ want `tockloader.open()`
+to have been called at this point.
 
 
 ### set\_attribute
@@ -312,20 +318,6 @@ def _print_flash(self, address, flash)
 Print binary data in a nice hexdump format.
 
 
-### \_reflash\_app\_headers
-```py
-
-def _reflash_app_headers(self, apps)
-
-```
-
-
-
-Take a list of app headers and reflash them to the chip. This doesn't do
-a lot of checking, so you better have not re-ordered the headers or
-anything annoying like that.
-
-
 ### \_reshuffle\_apps
 ```py
 
@@ -336,7 +328,8 @@ def _reshuffle_apps(self, apps)
 
 
 Given an array of apps, some of which are new and some of which exist,
-sort them in flash so they are in descending size order.
+sort them in flash so they are in descending size order. Then write
+these apps to flash.
 
 
 ### \_start\_communication\_with\_board

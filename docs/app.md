@@ -14,6 +14,19 @@ def __init__(self, tbfh, address, name, app_binary=None)
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### get\_app\_binary
+```py
+
+def get_app_binary(self)
+
+```
+
+
+
+Return just the compiled application code binary. Does not include
+the TBF header.
+
+
 ### get\_binary
 ```py
 
@@ -71,7 +84,7 @@ def has_app_binary(self)
 
 
 
-Whether we have the actually application binary for this app.
+Whether we have the actual application binary for this app.
 
 
 ### info
@@ -84,6 +97,19 @@ def info(self, verbose=False)
 
 
 Get a string describing various properties of the app.
+
+
+### is\_modified
+```py
+
+def is_modified(self)
+
+```
+
+
+
+Returns whether this app has been modified by tockloader since it was
+initially created by `__init__`.
 
 
 ### is\_sticky

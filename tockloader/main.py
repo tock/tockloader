@@ -315,18 +315,13 @@ def main ():
 	logging.Logger.status = functools.partialmethod(logging.Logger.log, 25)
 	logging.status = functools.partial(logging.log, 25)
 
-	# Create a common parent parser for arguments shared by all subparsers
+	# Create a common parent parser for arguments shared by all subparsers. In
+	# practice there are very few of these since tockloader supports a range of
+	# operations.
 	parent = argparse.ArgumentParser(add_help=False)
-
-	# All commands need a serial port to talk to the board
-	parent.add_argument('--port', '-p', '--device', '-d',
-		help='The serial port or device name to use',
-		metavar='STR')
-
 	parent.add_argument('--debug',
 		action='store_true',
 		help='Print additional debugging information')
-
 	parent.add_argument('--version',
 		action='version',
 		version=__version__,
@@ -346,60 +341,69 @@ def main ():
 	parent_apps.add_argument('--force',
 		help='Allow apps on boards that are not listed as compatible',
 		action='store_true')
+	parent_apps.add_argument('--rewrite-apps',
+		help='Ensure flash is erased before updating apps, and re-flash apps as needed',
+		action='store_true')
 
-	# Parser for most commands
-	parent_jtag = argparse.ArgumentParser(add_help=False)
-	parent_jtag.add_argument('--jtag',
+	# Parser for commands that configure the communication channel between
+	# tockloader and the board. By default tockloader uses the serial channel.
+	# If a board wants to use another option (like a JTAG connection) then
+	# tockloader requires a flag so it knows to use a different channel.
+	parent_channel = argparse.ArgumentParser(add_help=False)
+	parent_channel.add_argument('--port', '-p', '--device', '-d',
+		help='The serial port or device name to use',
+		metavar='STR')
+	parent_channel.add_argument('--jtag',
 		action='store_true',
 		help='Use JTAG and JLinkExe to flash. Deprecated. Use --jlink instead.')
-	parent_jtag.add_argument('--jlink',
+	parent_channel.add_argument('--jlink',
 		action='store_true',
 		help='Use JLinkExe to flash.')
-	parent_jtag.add_argument('--openocd',
+	parent_channel.add_argument('--openocd',
 		action='store_true',
 		help='Use OpenOCD to flash.')
-	parent_jtag.add_argument('--jtag-device',
+	parent_channel.add_argument('--jtag-device',
 		default='cortex-m0',
 		help='The device type to pass to JLinkExe. Useful for initial commissioning. Deprecated. Use --jlink-device instead.')
-	parent_jtag.add_argument('--jlink-device',
+	parent_channel.add_argument('--jlink-device',
 		default='cortex-m0',
 		help='The device type to pass to JLinkExe. Useful for initial commissioning.')
-	parent_jtag.add_argument('--jlink-cmd',
+	parent_channel.add_argument('--jlink-cmd',
 		help='The JLinkExe binary to invoke.')
-	parent_jtag.add_argument('--jlink-speed',
+	parent_channel.add_argument('--jlink-speed',
 		help='The JLink speed to pass to JLinkExe.')
-	parent_jtag.add_argument('--jlink-if',
+	parent_channel.add_argument('--jlink-if',
 		help='The interface type to pass to JLinkExe.')
-	parent_jtag.add_argument('--openocd-board',
+	parent_channel.add_argument('--openocd-board',
 		help='The cfg file in OpenOCD `board` folder.')
-	parent_jtag.add_argument('--openocd-cmd',
+	parent_channel.add_argument('--openocd-cmd',
 		default='openocd',
 		help='The openocd binary to invoke.')
-	parent_jtag.add_argument('--openocd-options',
+	parent_channel.add_argument('--openocd-options',
 		default=[],
 		help='Tockloader-specific flags to direct how Tockloader uses OpenOCD.',
 		nargs='*')
-	parent_jtag.add_argument('--openocd-commands',
+	parent_channel.add_argument('--openocd-commands',
 		default={},
 		type=lambda kv: kv.split('=', 1),
 		action=helpers.ListToDictAction,
 		help='Directly specify which OpenOCD commands to use for "program", "read", or "erase" actions. Example: "program=flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};"',
 		nargs='*')
-	parent_jtag.add_argument('--board',
+	parent_channel.add_argument('--board',
 		default=None,
 		help='Explicitly specify the board that is being targeted.')
-	parent_jtag.add_argument('--arch',
+	parent_channel.add_argument('--arch',
 		default=None,
 		help='Explicitly specify the architecture of the board that is being targeted.')
-	parent_jtag.add_argument('--page-size',
+	parent_channel.add_argument('--page-size',
 		default=0,
 		type=int,
 		help='Explicitly specify how many bytes in a flash page.')
-	parent_jtag.add_argument('--baud-rate',
+	parent_channel.add_argument('--baud-rate',
 		default=115200,
 		type=int,
 		help='If using serial, set the target baud rate.')
-	parent_jtag.add_argument('--no-bootloader-entry',
+	parent_channel.add_argument('--no-bootloader-entry',
 		action='store_true',
 		help='Tell Tockloader to assume the bootloader is already active.')
 
@@ -411,6 +415,9 @@ def main ():
 	listen = subparser.add_parser('listen',
 		parents=[parent],
 		help='Open a terminal to receive UART data')
+	listen.add_argument('--port', '-p', '--device', '-d',
+		help='The serial port or device name to use',
+		metavar='STR')
 	listen.add_argument('--wait-to-listen',
 		help='Wait until contacted on server socket to actually listen',
 		action='store_true')
@@ -442,7 +449,7 @@ def main ():
 	listen.set_defaults(func=command_listen)
 
 	listcmd = subparser.add_parser('list',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='List the apps installed on the board')
 	listcmd.set_defaults(func=command_list)
 	listcmd.add_argument('--verbose', '-v',
@@ -453,7 +460,7 @@ def main ():
 		action='store_true')
 
 	install = subparser.add_parser('install',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='Install apps on the board')
 	install.set_defaults(func=command_install)
 	install.add_argument('tab',
@@ -473,7 +480,7 @@ def main ():
 		action='store_true')
 
 	update = subparser.add_parser('update',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='Update an existing app with this version')
 	update.set_defaults(func=command_update)
 	update.add_argument('tab',
@@ -481,7 +488,7 @@ def main ():
 		nargs='*')
 
 	uninstall = subparser.add_parser('uninstall',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='Remove an already flashed app')
 	uninstall.set_defaults(func=command_uninstall)
 	uninstall.add_argument('name',
@@ -489,12 +496,12 @@ def main ():
 		nargs='*')
 
 	eraseapps = subparser.add_parser('erase-apps',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='Delete apps from the board')
 	eraseapps.set_defaults(func=command_erase_apps)
 
 	enableapp = subparser.add_parser('enable-app',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='Enable an app so the kernel runs it')
 	enableapp.set_defaults(func=command_enable_app)
 	enableapp.add_argument('name',
@@ -502,7 +509,7 @@ def main ():
 		nargs='*')
 
 	disableapp = subparser.add_parser('disable-app',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='Disable an app so it will not be started')
 	disableapp.set_defaults(func=command_disable_app)
 	disableapp.add_argument('name',
@@ -510,7 +517,7 @@ def main ():
 		nargs='*')
 
 	stickyapp = subparser.add_parser('sticky-app',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='Make an app sticky so it is hard to erase')
 	stickyapp.set_defaults(func=command_sticky_app)
 	stickyapp.add_argument('name',
@@ -518,7 +525,7 @@ def main ():
 		nargs='*')
 
 	unstickyapp = subparser.add_parser('unsticky-app',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='Make an app unsticky (the normal setting)')
 	unstickyapp.set_defaults(func=command_unsticky_app)
 	unstickyapp.add_argument('name',
@@ -526,7 +533,7 @@ def main ():
 		nargs='*')
 
 	flash = subparser.add_parser('flash',
-		parents=[parent, parent_jtag],
+		parents=[parent, parent_channel],
 		help='Flash binaries to the chip')
 	flash.set_defaults(func=command_flash)
 	flash.add_argument('binary',
@@ -538,7 +545,7 @@ def main ():
 		default=0x30000)
 
 	flash = subparser.add_parser('read',
-		parents=[parent, parent_jtag],
+		parents=[parent, parent_channel],
 		help='Read arbitrary flash memory')
 	flash.set_defaults(func=command_read)
 	flash.add_argument('--address', '-a',
@@ -551,12 +558,12 @@ def main ():
 		default=512)
 
 	listattributes = subparser.add_parser('list-attributes',
-		parents=[parent, parent_jtag],
+		parents=[parent, parent_channel],
 		help='List attributes stored on the board')
 	listattributes.set_defaults(func=command_list_attributes)
 
 	setattribute = subparser.add_parser('set-attribute',
-		parents=[parent, parent_jtag],
+		parents=[parent, parent_channel],
 		help='Store attribute on the board')
 	setattribute.set_defaults(func=command_set_attribute)
 	setattribute.add_argument('key',
@@ -565,14 +572,14 @@ def main ():
 		help='Attribute value')
 
 	removeattribute = subparser.add_parser('remove-attribute',
-		parents=[parent, parent_jtag],
+		parents=[parent, parent_channel],
 		help='Remove attribute from the board')
 	removeattribute.set_defaults(func=command_remove_attribute)
 	removeattribute.add_argument('key',
 		help='Attribute key')
 
 	info = subparser.add_parser('info',
-		parents=[parent, parent_apps, parent_jtag],
+		parents=[parent, parent_apps, parent_channel],
 		help='Verbose information about the connected board')
 	info.set_defaults(func=command_info)
 
@@ -588,7 +595,7 @@ def main ():
 		nargs='*')
 
 	dump_flash_page = subparser.add_parser('dump-flash-page',
-		parents=[parent, parent_jtag],
+		parents=[parent, parent_channel],
 		help='Read a page of flash from the board')
 	dump_flash_page.set_defaults(func=command_dump_flash_page)
 	dump_flash_page.add_argument('page',

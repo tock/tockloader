@@ -4,6 +4,71 @@
 Various helper functions that tockloader uses. Mostly for interacting with
 users in a nice way.
 
+## Class ListToDictAction
+`argparse` action to convert `[['key', 'val'], ['key2', 'val2']]` to
+`{'key': 'val', 'key2': 'val2'}`.
+
+This will also do the following conversions:
+- `[[]]` -> `{}`
+- `[['k': 'v'], []]` -> `{'k': 'v'}`
+- `[['k': 'v'], ['']]` -> `{'k': 'v'}`
+- `[['k': 'v'], ['a']]` -> `{'k': 'v', 'a': ''}`
+### \_\_init\_\_
+```py
+
+def __init__(self, option_strings, dest, nargs=None, const=None, default=None, type=None, choices=None, required=False, help=None, metavar=None)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### \_\_call\_\_
+```py
+
+def __call__(self, parser, namespace, values, option_string=None)
+
+```
+
+
+
+Call self as a function.
+
+
+### \_\_repr\_\_
+```py
+
+def __repr__(self)
+
+```
+
+
+
+Return repr(self).
+
+
+### \_get\_args
+```py
+
+def _get_args(self)
+
+```
+
+
+
+### \_get\_kwargs
+```py
+
+def _get_kwargs(self)
+
+```
+
+
+
+
+
 ### menu
 ```py
 

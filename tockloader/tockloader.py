@@ -64,8 +64,7 @@ class TockLoader:
 	                'size_constraint': 'powers_of_two',
 	                'size_minimum': 0},
 	    'nrf52dk': {'size_minimum': 4096},
-	    'edu-ciaa': {'size_constraint': 'powers_of_two',
-	                'size_minimum': 65536}
+	    'edu-ciaa': {'size_minimum': 512}
 	}
 
 
@@ -656,30 +655,26 @@ class TockLoader:
 
 			start_address += app.get_size()
 
-		# Check if we are re-writing all apps after doing an erase. If we are,
-		# then we need to do the erase now before writing apps.
-		if self.args.rewrite_apps:
-			# Calculate the size of all of the apps to know how much we need to
-			# erase.
-			total_size = functools.reduce(lambda acc, app: acc+app.get_size(), apps, 0)
-			# Get page size so we can calculate how many pages to erase. Also
-			# make sure we erase one extra page to terminate the linked list of
-			# apps in flash.
-			page_size = self.channel.get_page_size()
-			pages_to_erase = (total_size + (2*page_size) - 1) // page_size
-			# Do the necessary erases
-			logging.debug('Erasing {} pages starting at {:#x} before re-writing apps'.format(pages_to_erase, address))
-			for i in range(pages_to_erase):
-				self.channel.erase_page(address + (i*page_size))
-
 		# Now flash all apps that have been modified. The only way an app would
 		# not be modified is if it was read off the board and nothing changed.
 		# An app from a TAB will be modified since it will have a new address.
 		end = address
-		for app in apps:
-			if app.is_modified():
-				self.channel.flash_binary(app.address, app.get_binary())
-			end = app.address + app.get_size()
+
+		if self.args.rewrite_apps:
+			app_address = address
+			app_blob = bytearray()
+			for app in apps:
+				app.set_address(app_address)
+				app_blob += app.get_binary()
+				app_address += app.get_size()
+			logging.debug('Installing app blob. Size: {}'.format(len(app_blob)))
+			self.channel.flash_binary(address, app_blob)
+			end = app_address
+		else:
+			for app in apps:
+				if app.is_modified():
+					self.channel.flash_binary(app.address, app.get_binary())
+				end = app.address + app.get_size()
 
 		# Then erase the next page if we have not already rewritten all existing
 		# apps. This ensures that flash is clean at the end of the installed
@@ -687,8 +682,7 @@ class TockLoader:
 		# applications. But, if we have re-written apps then this has already
 		# been taken care of by the initial erase and we do not want to do it
 		# again.
-		if not self.args.rewrite_apps:
-			self.channel.erase_page(end)
+		self.channel.erase_page(end)
 
 	def _extract_all_app_headers (self):
 		'''

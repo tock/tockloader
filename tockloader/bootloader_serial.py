@@ -30,6 +30,8 @@ from . import helpers
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
 
+from tqdm import tqdm 	# Used for printing progress bars
+
 class BootloaderSerial(BoardInterface):
 	'''
 	Implementation of `BoardInterface` for the Tock Bootloader over serial.
@@ -532,7 +534,7 @@ class BootloaderSerial(BoardInterface):
 
 		# Loop through the binary by pages at a time until it has been flashed
 		# to the chip.
-		for i in range(len(binary) // self.page_size):
+		for i in tqdm(range(len(binary) // self.page_size)):
 			# Create the packet that we send to the bootloader. First four
 			# bytes are the address of the page.
 			pkt = struct.pack('<I', address + (i*self.page_size))

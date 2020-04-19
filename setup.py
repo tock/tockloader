@@ -35,5 +35,6 @@ setup(name='tockloader',
           "crcmod >= 1.7",
           "pyserial >= 3.0.1",
           "pytoml >= 0.1.11",
+          "tqdm >= 4.45.0 ",
           ],
      )

@@ -341,8 +341,8 @@ def main ():
 	parent_apps.add_argument('--force',
 		help='Allow apps on boards that are not listed as compatible',
 		action='store_true')
-	parent_apps.add_argument('--rewrite-apps',
-		help='Ensure flash is erased before updating apps, and re-flash apps as needed',
+	parent_apps.add_argument('--bundle-apps',
+		help='Concatenate apps and flash all together, re-flashing apps as needed',
 		action='store_true')
 
 	# Parser for commands that configure the communication channel between

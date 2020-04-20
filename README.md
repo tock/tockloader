@@ -206,11 +206,10 @@ operation based on the requirements of a particular hardware platform.
 
 - `--app-address`: Manually specify the address at the beginning of where apps
   are stored. This can be in hex or decimal.
-- `--rewrite-apps`: This forces tockloader to re-write all apps anytime that any
+- `--bundle-apps`: This forces tockloader to write all apps as a concatentated
+  bundle using only a single flash command. This will require that anytime any
   app changes in any way (e.g. its header changes or the app is updated or a new
-  app is installed.). Additionally, tockloader will completely erase the app
-  flash region between saving any existing apps from the board and then
-  re-flashing the apps with any changes.
+  app is installed.) all apps are re-written.
 
 Features
 --------

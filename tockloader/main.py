@@ -153,7 +153,7 @@ def command_uninstall (args):
 		logging.status('Removing app(s) {} from board...'.format(', '.join(args.name)))
 	else:
 		logging.status('Preparing to uninstall apps...')
-	tock_loader.uninstall_app(args.name, args.force)
+	tock_loader.uninstall_app(args.name)
 
 
 def command_erase_apps (args):
@@ -161,7 +161,7 @@ def command_erase_apps (args):
 	tock_loader.open()
 
 	logging.status('Removing apps...')
-	tock_loader.erase_apps(args.force)
+	tock_loader.erase_apps()
 
 
 def command_enable_app (args):

@@ -59,11 +59,13 @@ class TockLoader:
 	#                      Supported values: powers_of_two, none
 	# - `size_minimum`:    Minimum valid size for each application. This size is
 	#                      the entire size of the application. In bytes.
+	# - `cmd_flags`:       A dict of command line flags and the value they
+	#                      should be set to for the board.
 	BOARDS_APP_DETAILS = {
 	    'default': {'order': 'size_descending',
 	                'size_constraint': 'powers_of_two',
 	                'size_minimum': 0},
-	    'nrf52dk': {'size_minimum': 4096}
+	    'nrf52dk': {'size_minimum': 4096},
 	}
 
 
@@ -202,7 +204,7 @@ class TockLoader:
 				raise TockLoaderException('Nothing found to update')
 
 
-	def uninstall_app (self, app_names, force=False):
+	def uninstall_app (self, app_names):
 		'''
 		If an app by this name exists, remove it from the chip. If no name is
 		given, present the user with a list of apps to remove.
@@ -243,18 +245,22 @@ class TockLoader:
 			for app in apps:
 				# Only keep apps that are not marked for uninstall or that
 				# are sticky (unless force was set)
-				if app.name not in app_names or (app.is_sticky() and not force):
+				if app.name not in app_names or (app.is_sticky() and not self.args.force):
 					keep_apps.append(app)
 				else:
 					removed = True
 
-			# Tell the user if we are not removing certain apps because they
-			# are sticky.
-			if not force:
+			# Tell the user if we are not removing certain apps because they are
+			# sticky, or if we are removing apps because --force was provided.
+			if not self.args.force:
 				for app in apps:
 					if app.name in app_names and app.is_sticky():
 						logging.info('Not removing app "{}" because it is sticky.'.format(app))
 						logging.info('To remove this you need to include the --force option.')
+			else:
+				for app in apps:
+					if app.name in app_names and app.is_sticky():
+						logging.info('Removing sticky app "{}" because --force was used.'.format(app))
 
 			# Check if we actually have any work to do.
 			if removed:
@@ -276,7 +282,7 @@ class TockLoader:
 				raise TockLoaderException('Could not find any apps on the board to remove.')
 
 
-	def erase_apps (self, force=False):
+	def erase_apps (self):
 		'''
 		Erase flash where apps go. All apps are not actually cleared, we just
 		overwrite the header of the first app.
@@ -285,7 +291,7 @@ class TockLoader:
 		with self._start_communication_with_board():
 
 			# On force we can just eliminate all apps
-			if force:
+			if self.args.force:
 				# Erase the first page where apps go. This will cause the first
 				# header to be invalid and effectively removes all apps.
 				address = self.channel.get_apps_start_address()
@@ -597,6 +603,13 @@ class TockLoader:
 		board = self.channel.get_board_name()
 		if board and board in self.BOARDS_APP_DETAILS:
 			self.app_options.update(self.BOARDS_APP_DETAILS[board])
+
+		# Allow boards to specify command line arguments by default so that
+		# users do not have to pass them in every time.
+		if 'cmd_flags' in self.app_options:
+			for flag,setting in self.app_options['cmd_flags'].items():
+				logging.debug('Hardcoding command line argument "{}" to "{}" for board {}.'.format(flag, setting, board))
+				setattr(self.args, flag, setting)
 
 	############################################################################
 	## Helper Functions for Manipulating Binaries and TBF

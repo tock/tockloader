@@ -41,14 +41,15 @@ class JLinkExe(BoardInterface):
 			if self.jlink_device == 'cortex-m0':
 				if 'jlink_device' in board:
 					self.jlink_device = board['jlink_device']
-				else:
-					raise TockLoaderException('Unknown JLink Device type. You must pass --jlink-device.')
 
 			# Set optional settings
 			if self.jlink_if == None and 'jlink_if' in board:
 				self.jlink_if = board['jlink_if']
 			if self.jlink_speed == None and 'jlink_speed' in board:
 				self.jlink_speed = board['jlink_speed']
+
+		if self.jlink_device == 'cortex-m0':
+			raise TockLoaderException('Unknown JLink Device type. You must pass --jlink-device.')
 
 		# If certain settings are still missing, use defaults.
 		if self.jlink_if == None:

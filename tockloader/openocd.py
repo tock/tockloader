@@ -43,9 +43,6 @@ class OpenOCD(BoardInterface):
 			if self.openocd_board == None:
 				if 'openocd' in board:
 					self.openocd_board = board['openocd']
-				else:
-					raise TockLoaderException('Unknown OpenOCD board name. You must pass --openocd-board.')
-
 
 			# Set optional settings
 			if self.openocd_options == [] and 'openocd_options' in board:
@@ -54,6 +51,10 @@ class OpenOCD(BoardInterface):
 				self.openocd_prefix = board['openocd_prefix']
 			if self.openocd_commands == {} and 'openocd_commands' in board:
 				self.openocd_commands = board['openocd_commands']
+
+		if self.openocd_board == None:
+			raise TockLoaderException('Unknown OpenOCD board name. You must pass --openocd-board.')
+
 
 	def _run_openocd_commands (self, commands, binary, write=True):
 		'''

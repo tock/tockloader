@@ -76,8 +76,17 @@ class BoardInterface:
 		                              'erase': 'flash fillb {address:#x} 0x00 512;'}},
 		'hifive1': {'description': 'SiFive HiFive1 development board',
 		            'arch': 'rv32imac',
+		            'apps_start_address': 0x20430000,
 		            'page_size': 512,
 		            'openocd': 'sifive-hifive1.cfg'},
+		'edu-ciaa': {'description': 'Educational NXP board, from the CIAA project',
+		             'arch': 'cortex-m4',
+		             'page_size': 512,
+		             'apps_start_address': 0x1a040000,
+		             'openocd': 'ftdi_lpc4337.cfg',
+		             'openocd_options': ['noreset'],
+		             'openocd_commands': {'program': 'flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};',
+		             'erase': 'flash fillb {address:#x} 0x00 512;'}},
 	}
 
 	def __init__ (self, args):

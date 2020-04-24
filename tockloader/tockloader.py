@@ -66,6 +66,8 @@ class TockLoader:
 	                'size_constraint': 'powers_of_two',
 	                'size_minimum': 0},
 	    'nrf52dk': {'size_minimum': 4096},
+	    'edu-ciaa': {'cmd_flags': {'bundle_apps': True,
+	                               'openocd': True}},
 	}
 
 
@@ -76,6 +78,9 @@ class TockLoader:
 		# what board we are talking to.
 		self.app_options = self.BOARDS_APP_DETAILS['default']
 
+		# If the user specified a board manually, we might be able to update
+		# options now, so we can try.
+		self._update_board_specific_options()
 
 	def open (self):
 		'''
@@ -84,6 +89,11 @@ class TockLoader:
 		For the bootloader, this means opening a serial port. For JTAG, not much
 		needs to be done.
 		'''
+
+		# Verify both openocd and jlink are not set.
+		if getattr(self.args, 'jlink', False) and getattr(self.args, 'openocd', False):
+			raise TockLoaderException('Cannot use both --jlink and --openocd options')
+
 		# Get an object that allows talking to the board.
 		if hasattr(self.args, 'jlink') and self.args.jlink:
 			self.channel = JLinkExe(self.args)
@@ -595,21 +605,32 @@ class TockLoader:
 
 	def _update_board_specific_options (self):
 		'''
-		This uses the name of the board to update any options about how apps
-		should be loaded on this board that are hardcoded in Tockloader.
+		This uses the name of the board to update any hard-coded options about
+		how Tockloader should function. This is a convenience mechanism, as it
+		prevents users from having to pass them in through command line arguments.
 		'''
 
-		# Configure app options for the board (if needed)
-		board = self.channel.get_board_name()
+		# Get the name of the board if it is known.
+		board = None
+		if hasattr(self, 'channel'):
+			# We have configured a channel to a board, and that channel may
+			# have read off of the board which board it actually is.
+			board = self.channel.get_board_name()
+		else:
+			board = getattr(self.args, 'board', None)
+
+		# Configure options for the board if possible.
 		if board and board in self.BOARDS_APP_DETAILS:
 			self.app_options.update(self.BOARDS_APP_DETAILS[board])
+			# Remove the options so they do not get set twice.
+			del self.BOARDS_APP_DETAILS[board]
 
-		# Allow boards to specify command line arguments by default so that
-		# users do not have to pass them in every time.
-		if 'cmd_flags' in self.app_options:
-			for flag,setting in self.app_options['cmd_flags'].items():
-				logging.debug('Hardcoding command line argument "{}" to "{}" for board {}.'.format(flag, setting, board))
-				setattr(self.args, flag, setting)
+			# Allow boards to specify command line arguments by default so that
+			# users do not have to pass them in every time.
+			if 'cmd_flags' in self.app_options:
+				for flag,setting in self.app_options['cmd_flags'].items():
+					logging.debug('Hardcoding command line argument "{}" to "{}" for board {}.'.format(flag, setting, board))
+					setattr(self.args, flag, setting)
 
 	############################################################################
 	## Helper Functions for Manipulating Binaries and TBF

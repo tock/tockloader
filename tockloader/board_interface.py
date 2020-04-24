@@ -76,6 +76,7 @@ class BoardInterface:
 		                              'erase': 'flash fillb {address:#x} 0x00 512;'}},
 		'hifive1': {'description': 'SiFive HiFive1 development board',
 		            'arch': 'rv32imac',
+		            'apps_start_address': 0x20430000,
 		            'page_size': 512,
 		            'openocd': 'sifive-hifive1.cfg'},
 		'edu-ciaa': {'description': 'Educational NXP board, from the CIAA project',

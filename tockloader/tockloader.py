@@ -89,6 +89,11 @@ class TockLoader:
 		For the bootloader, this means opening a serial port. For JTAG, not much
 		needs to be done.
 		'''
+
+		# Verify both openocd and jlink are not set.
+		if getattr(self.args, 'jlink', False) and getattr(self.args, 'openocd', False):
+			raise TockLoaderException('Cannot use both --jlink and --openocd options')
+
 		# Get an object that allows talking to the board.
 		if hasattr(self.args, 'jlink') and self.args.jlink:
 			self.channel = JLinkExe(self.args)

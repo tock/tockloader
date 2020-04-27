@@ -36,7 +36,7 @@ Print one page of flash contents.
 ### erase\_apps
 ```py
 
-def erase_apps(self, force=False)
+def erase_apps(self)
 
 ```
 
@@ -210,7 +210,7 @@ Set a flag in the TBF header.
 ### uninstall\_app
 ```py
 
-def uninstall_app(self, app_names, force=False)
+def uninstall_app(self, app_names)
 
 ```
 
@@ -358,8 +358,9 @@ def _update_board_specific_options(self)
 
 
 
-This uses the name of the board to update any options about how apps
-should be loaded on this board that are hardcoded in Tockloader.
+This uses the name of the board to update any hard-coded options about
+how Tockloader should function. This is a convenience mechanism, as it
+prevents users from having to pass them in through command line arguments.
 
 
 

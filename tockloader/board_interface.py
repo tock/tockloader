@@ -54,7 +54,7 @@ class BoardInterface:
 		         'arch': 'rv32imac',
 		         'apps_start_address': 0x430000,
 		         'page_size': 512,
-		         'openocd': None, # No supported board in openocd proper
+		         'openocd': 'external', # No supported board in openocd proper
 		         'openocd_options': ['nocmdprefix'],
 		         'openocd_prefix': 'source [find interface/ftdi/digilent-hs1.cfg];\
 		                            ftdi_device_desc \\"Digilent USB Device\\";\

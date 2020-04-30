@@ -101,7 +101,7 @@ class OpenOCD(BoardInterface):
 			prefix = 'set WORKAREASIZE 0;'
 		if self.openocd_prefix:
 			prefix = self.openocd_prefix
-		if self.openocd_board == None:
+		if self.openocd_board == 'external':
 			source = ''
 		if 'noreset' in self.openocd_options:
 			cmd_prefix = 'init; halt;'

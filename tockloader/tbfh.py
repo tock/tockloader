@@ -141,6 +141,12 @@ class TBFHeader:
 							logging.warning('Unknown TLV block in TBF header.')
 							logging.warning('You might want to update tockloader.')
 
+							# Add the unknown data to the stored state so we can
+							# put it back afterwards.
+							if not hasattr(self, 'unknown'):
+								self.unknown = []
+							self.unknown.append((tipe, length, buffer[0:length]))
+
 						# All blocks are padded to four byte, so we may need to
 						# round up.
 						length = roundup(length, 4)
@@ -308,6 +314,12 @@ class TBFHeader:
 					padding_length = roundup(len(encoded_name), 4) - len(encoded_name)
 					if padding_length > 0:
 						buf += b'\0'*padding_length
+				if hasattr(self, 'unknown'):
+					# Add back any unknown headers so they are preserved in the
+					# binary.
+					for tipe,length,binary in self.unknown:
+						buf += struct.pack('<HH', tipe, length)
+						buf += binary
 
 			nbuf = bytearray(len(buf))
 			nbuf[:] = buf

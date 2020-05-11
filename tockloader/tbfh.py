@@ -2,6 +2,9 @@
 import logging
 import struct
 
+def roundup (x, to):
+	return x if x % to == 0 else x + to - x % to
+
 class TBFHeader:
 	'''
 	Tock Binary Format header class. This can parse TBF encoded headers and
@@ -91,9 +94,6 @@ class TBFHeader:
 				if remaining > 0 and len(buffer) >= remaining:
 					# This is an application. That means we need more parsing.
 					self.is_app = True
-
-					def roundup (x, to):
-						return x if x % to == 0 else x + to - x % to
 
 					while remaining >= 4:
 						base = struct.unpack('<HH', buffer[0:4])
@@ -304,6 +304,10 @@ class TBFHeader:
 					encoded_name = self.package_name.encode('utf-8')
 					buf += struct.pack('<HH', self.HEADER_TYPE_PACKAGE_NAME, len(encoded_name))
 					buf += encoded_name
+					# May need to add padding.
+					padding_length = roundup(len(encoded_name), 4) - len(encoded_name)
+					if padding_length > 0:
+						buf += b'\0'*padding_length
 
 			nbuf = bytearray(len(buf))
 			nbuf[:] = buf

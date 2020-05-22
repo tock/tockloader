@@ -109,7 +109,7 @@ class BootloaderSerial(BoardInterface):
 			must_match = True
 
 		# Look for a matching port
-		ports = list(serial.tools.list_ports.grep(device_name))
+		ports = sorted(list(serial.tools.list_ports.grep(device_name)))
 		if must_match and os.path.exists(device_name):
 			# In the most specific case a user specified a full path that exists
 			# and we should use that specific serial port. We treat this as a

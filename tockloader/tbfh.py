@@ -377,9 +377,9 @@ class TBFHeader:
 				out += '  {:<20}: {:>8} {:>#12x}\n'.format('length', wfr[1], wfr[1])
 		for k,v in sorted(self.fields.items()):
 			if k == 'checksum':
-				out += '{:<22}:          {:>#12x}\n'.format(k, v)
+				out += '{:<22}:            {:>#12x}\n'.format(k, v)
 			else:
-				out += '{:<22}: {:>8} {:>#12x}\n'.format(k, v, v)
+				out += '{:<22}: {:>10} {:>#12x}\n'.format(k, v, v)
 
 			if k == 'flags':
 				values = ['No', 'Yes']

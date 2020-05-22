@@ -15,6 +15,7 @@ class TBFHeader:
 	HEADER_TYPE_WRITEABLE_FLASH_REGIONS = 0x02
 	HEADER_TYPE_PACKAGE_NAME            = 0x03
 	HEADER_TYPE_PIC_OPTION_1            = 0x04
+	HEADER_TYPE_FIXED_ADDRESSES         = 0x05
 
 	def __init__ (self, buffer):
 		# Flag that records if this TBF header is valid. This is calculated once
@@ -137,6 +138,14 @@ class TBFHeader:
 								self.fields['minimum_stack_length'] = base[9]
 
 								self.pic_strategy = 'C Style'
+
+						elif tipe == self.HEADER_TYPE_FIXED_ADDRESSES:
+							if remaining >= 8 and length == 8:
+								base = struct.unpack('<II', buffer[0:8])
+								self.fields['fixed_address_ram'] = base[0]
+								self.fields['fixed_address_flash'] = base[1]
+								self.fixed_addresses = True
+
 						else:
 							logging.warning('Unknown TLV block in TBF header.')
 							logging.warning('You might want to update tockloader.')
@@ -314,6 +323,11 @@ class TBFHeader:
 					padding_length = roundup(len(encoded_name), 4) - len(encoded_name)
 					if padding_length > 0:
 						buf += b'\0'*padding_length
+				if hasattr(self, 'fixed_addresses'):
+					buf += struct.pack('<HHII',
+						self.HEADER_TYPE_FIXED_ADDRESSES, 8,
+						self.fields['fixed_address_ram'],
+						self.fields['fixed_address_flash'])
 				if hasattr(self, 'unknown'):
 					# Add back any unknown headers so they are preserved in the
 					# binary.

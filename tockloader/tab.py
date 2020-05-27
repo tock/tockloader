@@ -111,56 +111,16 @@ class TAB:
 			archs = [i[:-4] for i in contained_files if i[-4:] == '.bin']
 		return archs
 
-	def get_tbf_header (self):
+	def get_tbf_names (self):
 		'''
-		Return a TBFHeader object with the TBF header from the app in the TAB.
-		TBF headers are not architecture specific, so we pull from a random
-		binary if there are multiple architectures supported.
+		Returns a list of the names of all of the .tbf files contained in the
+		TAB, without the extension.
 		'''
-		# Find a .tbf file
+		tbfs = []
 		for f in self.tab.getnames():
 			if f[-4:] == '.tbf':
-				binary_tarinfo = self.tab.getmember(f)
-				binary = self.tab.extractfile(binary_tarinfo).read()
-
-				# Get the TBF header from a binary in the TAB
-				return TBFHeader(binary)
-
-		# Fall back to a .bin file
-		for f in self.tab.getnames():
-			if f[-4:] == '.bin':
-				binary_tarinfo = self.tab.getmember(f)
-				binary = self.tab.extractfile(binary_tarinfo).read()
-
-				# Get the TBF header from a binary in the TAB
-				return TBFHeader(binary)
-		return None
-
-	def get_crt0_header_str (self, arch):
-		'''
-		Return a string representation of the crt0 header some apps use for
-		doing PIC fixups. We assume this header is positioned immediately
-		after the TBF header.
-		'''
-		app = self.extract_app(arch)
-		header_size = app.tbfh.get_header_size()
-		app_binary_notbfh = app.get_app_binary()
-
-		crt0 = struct.unpack('<IIIIIIIIII', app_binary_notbfh[0:40])
-
-		out = ''
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('got_sym_start', crt0[0], crt0[0])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('got_start', crt0[1], crt0[1])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('got_size', crt0[2], crt0[2])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('data_sym_start', crt0[3], crt0[3])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('data_start', crt0[4], crt0[4])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('data_size', crt0[5], crt0[5])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('bss_start', crt0[6], crt0[6])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('bss_size', crt0[7], crt0[7])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('reldata_start', crt0[8], crt0[8])
-		out += '{:<20}: {:>8} {:>#12x}\n'.format('stack_size', crt0[9], crt0[9])
-
-		return out
+				tbfs.append(f[:-4])
+		return tbfs
 
 	def __str__ (self):
 		out = ''
@@ -170,7 +130,5 @@ class TAB:
 			if k == 'name':
 				continue
 			out += '  {}: {}\n'.format(k,v)
-		out += '  supported architectures: {}\n'.format(', '.join(self.get_supported_architectures()))
-		out += '  TBF Header\n'
-		out += textwrap.indent(str(self.get_tbf_header()), '    ')
+		out += '  included architectures: {}\n'.format(', '.join(self.get_supported_architectures()))
 		return out

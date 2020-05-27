@@ -270,16 +270,26 @@ def command_inspect_tab (args):
 
 	logging.status('Inspecting TABs...')
 	for tab in tabs:
+		# Print the basic information that is true about the TAB and all
+		# contained TBF binaries.
 		print(tab)
 
-		# If the user asked for the crt0 header, display that for each
-		# architecture.
-		if args.crt0_header:
-			print('  crt0 header')
-			archs = tab.get_supported_architectures()
-			for arch in archs:
-				print('    {}'.format(arch))
-				print(textwrap.indent(tab.get_crt0_header_str(arch), '      '))
+		# Ask the user if they want to see more detail about a certain TBF.
+		tbf_names = tab.get_tbf_names()
+		index = helpers.menu(tbf_names+['None'],
+		                     return_type='index',
+		                     title='Which TBF to inspect further?')
+		if index < len(tbf_names):
+			print('')
+			print('{}:'.format(tbf_names[index]))
+			app = tab.extract_app(tbf_names[index])
+			print(textwrap.indent(str(app.get_header()), '  '))
+
+			# If the user asked for the crt0 header, display that for the
+			# architecture
+			if args.crt0_header:
+				print('  crt0 header')
+				print(textwrap.indent(app.get_crt0_header_str() , '    '))
 
 		print('')
 

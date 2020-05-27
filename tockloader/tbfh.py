@@ -363,26 +363,60 @@ class TBFHeader:
 
 	def __str__ (self):
 		out = ''
+
 		if not self.valid:
 			out += 'INVALID!\n'
-		if hasattr(self, 'package_name'):
-			out += '{:<22}: {}\n'.format('package_name', self.package_name)
-		if hasattr(self, 'pic_strategy'):
-			out += '{:<22}: {}\n'.format('PIC', self.pic_strategy)
-		out += '{:<22}: {:>8}\n'.format('version', self.version)
-		if hasattr(self, 'writeable_flash_regions'):
-			for i, wfr in enumerate(self.writeable_flash_regions):
-				out += 'writeable flash region {}\n'.format(i)
-				out += '  {:<20}: {:>8} {:>#12x}\n'.format('offset', wfr[0], wfr[0])
-				out += '  {:<20}: {:>8} {:>#12x}\n'.format('length', wfr[1], wfr[1])
-		for k,v in sorted(self.fields.items()):
-			if k == 'checksum':
-				out += '{:<22}:            {:>#12x}\n'.format(k, v)
-			else:
-				out += '{:<22}: {:>10} {:>#12x}\n'.format(k, v, v)
 
-			if k == 'flags':
-				values = ['No', 'Yes']
-				out += '  {:<20}: {}\n'.format('enabled', values[(v >> 0) & 0x01])
-				out += '  {:<20}: {}\n'.format('sticky', values[(v >> 1) & 0x01])
+		out += '{:<22}: {}\n'.format('version', self.version)
+
+		# Special case version 1. However, at this point (May 2020), I would be
+		# shocked if this ever gets run on a version 1 TBFH.
+		if self.version == 1:
+			for k,v in sorted(self.fields.items()):
+				if k == 'checksum':
+					out += '{:<22}:            {:>#12x}\n'.format(k, v)
+				else:
+					out += '{:<22}: {:>10} {:>#12x}\n'.format(k, v, v)
+
+				if k == 'flags':
+					values = ['No', 'Yes']
+					out += '  {:<20}: {}\n'.format('enabled', values[(v >> 0) & 0x01])
+					out += '  {:<20}: {}\n'.format('sticky', values[(v >> 1) & 0x01])
+			return out
+
+		# Base fields that always exist.
+		out += '{:<22}: {:>10} {:>#12x}\n'.format('header_size', self.fields['header_size'], self.fields['header_size'])
+		out += '{:<22}: {:>10} {:>#12x}\n'.format('total_size', self.fields['total_size'], self.fields['total_size'])
+		out += '{:<22}:            {:>#12x}\n'.format('checksum', self.fields['checksum'])
+		out += '{:<22}: {:>10} {:>#12x}\n'.format('flags', self.fields['flags'], self.fields['flags'])
+		out += '  {:<20}: {}\n'.format('enabled', ['No', 'Yes'][(self.fields['flags'] >> 0) & 0x01])
+		out += '  {:<20}: {}\n'.format('sticky', ['No', 'Yes'][(self.fields['flags'] >> 1) & 0x01])
+
+		# Main TLV
+		if self.is_app:
+			out += 'TLV: Main ({})\n'.format(self.HEADER_TYPE_MAIN)
+			out += '  {:<20}: {:>10} {:>#12x}\n'.format('init_fn_offset', self.fields['init_fn_offset'], self.fields['init_fn_offset'])
+			out += '  {:<20}: {:>10} {:>#12x}\n'.format('protected_size', self.fields['protected_size'], self.fields['protected_size'])
+			out += '  {:<20}: {:>10} {:>#12x}\n'.format('minimum_ram_size', self.fields['minimum_ram_size'], self.fields['minimum_ram_size'])
+
+		if hasattr(self, 'package_name'):
+			out += 'TLV: Package Name ({})\n'.format(self.HEADER_TYPE_PACKAGE_NAME)
+			out += '  {:<20}: {}\n'.format('package_name', self.package_name)
+
+		if hasattr(self, 'pic_strategy'):
+			out += 'TLV: PIC Option 1 ({})\n'.format(self.HEADER_TYPE_PIC_OPTION_1)
+			out += '  {:<20}: {}\n'.format('PIC', self.pic_strategy)
+
+		if hasattr(self, 'writeable_flash_regions'):
+			out += 'TLV: Writeable Flash Regions ({})\n'.format(self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS)
+			for i, wfr in enumerate(self.writeable_flash_regions):
+				out += '  writeable flash region {}\n'.format(i)
+				out += '    {:<18}: {:>8} {:>#12x}\n'.format('offset', wfr[0], wfr[0])
+				out += '    {:<18}: {:>8} {:>#12x}\n'.format('length', wfr[1], wfr[1])
+
+		if hasattr(self, 'fixed_addresses'):
+			out += 'TLV: Fixed Addresses ({})\n'.format(self.HEADER_TYPE_FIXED_ADDRESSES)
+			out += '  {:<20}: {:>10} {:>#12x}\n'.format('fixed_address_ram', self.fields['fixed_address_ram'], self.fields['fixed_address_ram'])
+			out += '  {:<20}: {:>10} {:>#12x}\n'.format('fixed_address_flash', self.fields['fixed_address_flash'], self.fields['fixed_address_flash'])
+
 		return out

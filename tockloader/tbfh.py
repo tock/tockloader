@@ -272,6 +272,22 @@ class TBFHeader:
 		else:
 			return ''
 
+	def has_fixed_addresses (self):
+		'''
+		Return true if this TBF header includes the fixed addresses TLV.
+		'''
+		return hasattr(self, 'fixed_addresses')
+
+	def get_fixed_addresses (self):
+		'''
+		Return (fixed_address_ram, fixed_address_flash) if there are fixed
+		addresses, or None.
+		'''
+		if hasattr(self, 'fixed_addresses'):
+			return (self.fields['fixed_address_ram'], self.fields['fixed_address_flash'])
+		else:
+			return None
+
 	# Return a buffer containing the header repacked as a binary buffer
 	def get_binary (self):
 		'''

@@ -17,7 +17,8 @@ import textwrap
 import time
 
 from . import helpers
-from .app import App
+from .app_installed import InstalledApp
+from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
 from .exceptions import TockLoaderException
@@ -136,7 +137,7 @@ class TockLoader:
 		'''
 		Add or update TABs on the board.
 
-		- `replace` can be either "yes", "no", or "only"
+		- `replace` can be "yes", "no", or "only"
 		- `erase` if true means erase all other apps before installing
 		'''
 		# Check if we have any apps to install. If not, then we can quit early.
@@ -179,7 +180,7 @@ class TockLoader:
 			if replace == 'yes' or replace == 'only':
 				for existing_app in existing_apps:
 					for replacement_app in replacement_apps:
-						if existing_app.name == replacement_app.name:
+						if existing_app.get_name() == replacement_app.get_name():
 							resulting_apps.append(copy.deepcopy(replacement_app))
 							changed = True
 							break
@@ -193,7 +194,7 @@ class TockLoader:
 				if replace == 'yes':
 					for replacement_app in replacement_apps:
 						for resulting_app in resulting_apps:
-							if replacement_app.name == resulting_app.name:
+							if replacement_app.get_name() == resulting_app.get_name():
 								break
 						else:
 							# We did not find the name in the resulting apps.
@@ -231,7 +232,7 @@ class TockLoader:
 					raise TockLoaderException('No apps are installed on the board')
 				elif len(apps) == 1:
 					# If there's only one app, delete it
-					app_names = [apps[0].name]
+					app_names = [apps[0].get_name()]
 					logging.info('Only one app on board.')
 				else:
 					options = ['** Delete all']
@@ -241,7 +242,7 @@ class TockLoader:
 							prompt='Select app to uninstall ',
 							title='There are multiple apps currently on the board:')
 					if name == '** Delete all':
-						app_names = [app.name for app in apps]
+						app_names = [app.get_name() for app in apps]
 					else:
 						app_names = [name]
 
@@ -255,7 +256,7 @@ class TockLoader:
 			for app in apps:
 				# Only keep apps that are not marked for uninstall or that
 				# are sticky (unless force was set)
-				if app.name not in app_names or (app.is_sticky() and not self.args.force):
+				if app.get_name() not in app_names or (app.is_sticky() and not self.args.force):
 					keep_apps.append(app)
 				else:
 					removed = True
@@ -264,12 +265,12 @@ class TockLoader:
 			# sticky, or if we are removing apps because --force was provided.
 			if not self.args.force:
 				for app in apps:
-					if app.name in app_names and app.is_sticky():
+					if app.get_name() in app_names and app.is_sticky():
 						logging.info('Not removing app "{}" because it is sticky.'.format(app))
 						logging.info('To remove this you need to include the --force option.')
 			else:
 				for app in apps:
-					if app.name in app_names and app.is_sticky():
+					if app.get_name() in app_names and app.is_sticky():
 						logging.info('Removing sticky app "{}" because --force was used.'.format(app))
 
 			# Check if we actually have any work to do.
@@ -280,13 +281,14 @@ class TockLoader:
 
 				logging.status('Uninstall complete.')
 
-				# And let the user know the state of the world now that we're done
-				apps = self._extract_all_app_headers()
-				if len(apps):
-					print('After uninstall, remaining apps on board: ', end='')
-					self._print_apps(apps, verbose=False, quiet=True)
-				else:
-					print('After uninstall, no apps on board.')
+				if self.args.debug:
+					# And let the user know the state of the world now that we're done
+					apps = self._extract_all_app_headers()
+					if len(apps):
+						print('After uninstall, remaining apps on board: ', end='')
+						self._print_apps(apps, verbose=False, quiet=True)
+					else:
+						print('After uninstall, no apps on board.')
 
 			else:
 				raise TockLoaderException('Could not find any apps on the board to remove.')
@@ -351,15 +353,15 @@ class TockLoader:
 						prompt='Select app to configure ',
 						title='Which apps to configure?')
 				if name == '** All':
-					app_names = [app.name for app in apps]
+					app_names = [app.get_name() for app in apps]
 				else:
 					app_names = [name]
 
 			# Configure all selected apps
 			changed = False
 			for app in apps:
-				if app.name in app_names:
-					app.tbfh.set_flag(flag_name, flag_value)
+				if app.get_name() in app_names:
+					app.get_header().set_flag(flag_name, flag_value)
 					changed = True
 
 			if changed:
@@ -384,7 +386,7 @@ class TockLoader:
 
 	def set_attribute (self, key, value):
 		'''
-		Download all attributes stored on the board.
+		Change an attribute stored on the board.
 		'''
 		# Do some checking
 		if len(key.encode('utf-8')) > 8:
@@ -639,9 +641,37 @@ class TockLoader:
 	def _reshuffle_apps (self, apps):
 		'''
 		Given an array of apps, some of which are new and some of which exist,
-		sort them in flash so they are in descending size order. Then write
-		these apps to flash.
+		sort them so we can write them to flash.
+
+		This function is really the driver of tockloader, and is responsible for
+		setting up applications in a way that can be successfully used by the
+		board.
 		'''
+
+		# JUNE 2020: This function can be really complicated (balancing apps
+		# compiled for a fixed address, MPU alignment concerns, ordering
+		# concerns, etc.) and by no means is the current implementation arriving
+		# at an optimal solution. An interested contributor could probably find
+		# many improvements and optimizations.
+
+		# First, we are going to split the work into two cases: do we have any
+		# app that is compiled for a fixed address, or not? Likely, there won't
+		# be platforms that have mixed fixed address apps and PIC apps. This
+		# split simplifies things, but a better algorithm would not have this
+		# split.
+		is_fixed_address_app = False
+		for app in apps:
+			if app.has_fixed_addresses():
+				is_fixed_address_app = True
+
+		if is_fixed_address_app:
+			return
+
+
+		#
+		# This is the normal PIC case
+		#
+
 		# We are given an array of apps. First we need to order them based on
 		# the ordering requested by this board (or potentially the user).
 		if self.app_options['order'] == 'size_descending':
@@ -669,28 +699,23 @@ class TockLoader:
 		#
 		# So, we iterate through all apps and read them into memory if we are
 		# doing an erase and re-flash cycle or if the app has moved.
-		start_address = address
+		app_address = address
 		for app in apps:
 			# If we do not already have a binary, and any of the conditions are
 			# met, we need to read the app binary from the board.
 			if (not app.has_app_binary()) and \
 			   (self.args.bundle_apps or
-			   	app.address != start_address or
+			   	app.get_address() != app_address or
 			   	app.is_modified()):
 					logging.debug('Reading app {} binary from board.'.format(app))
 					entire_app = self.channel.read_range(app.address, app.get_size())
 					in_flash_tbfh = TBFHeader(entire_app)
 					app.set_app_binary(entire_app[in_flash_tbfh.get_header_size():])
 
-			# Only if the app moved do we save the new address.
-			if app.address != start_address:
-				app.set_address(start_address)
+			app_address += app.get_size()
 
-			start_address += app.get_size()
-
-		# Need to know the address after the last app (`end`) so that we can
-		# make sure to clear the flash where the TBF header would go.
-		end = address
+		# Need to know the address we are putting each app at.
+		app_address = address
 
 		# Actually write apps to the board.
 		if self.args.bundle_apps:
@@ -703,25 +728,27 @@ class TockLoader:
 			# and special case this bundle operation.
 			app_bundle = bytearray()
 			for app in apps:
-				app_bundle += app.get_binary()
-				end += app.get_size()
+				app_bundle += app.get_binary(app_address)
+				app_address += app.get_size()
 			logging.debug('Installing app bundle. Size: {} bytes.'.format(len(app_bundle)))
 			self.channel.flash_binary(address, app_bundle)
 		else:
 			# Flash only apps that have been modified. The only way an app would
 			# not be modified is if it was read off the board and nothing
-			# changed. An app from a TAB will be modified since it will have a
-			# new address.
+			# changed.
 			for app in apps:
-				if app.is_modified():
-					self.channel.flash_binary(app.address, app.get_binary())
-				end = app.address + app.get_size()
+				# If we get a binary, then we need to flash it. Otherwise,
+				# the app is already installed.
+				optional_binary = app.get_binary(app_address)
+				if optional_binary:
+					self.channel.flash_binary(app_address, optional_binary)
+				app_address = app_address + app.get_size()
 
 		# Then erase the next page if we have not already rewritten all existing
 		# apps. This ensures that flash is clean at the end of the installed
 		# apps and makes sure the kernel will find the correct end of
 		# applications.
-		self.channel.erase_page(end)
+		self.channel.erase_page(app_address)
 
 	def _extract_all_app_headers (self):
 		'''
@@ -747,14 +774,7 @@ class TockLoader:
 			tbfh = TBFHeader(flash)
 
 			if tbfh.is_valid():
-				# Get the name out of the app.
-				name_or_params = tbfh.get_app_name()
-				if isinstance(name_or_params, str):
-					name = name_or_params
-				else:
-					name = self._get_app_name(address+name_or_params[0], name_or_params[1])
-
-				app = App(tbfh, address, name)
+				app = InstalledApp(tbfh, address)
 				apps.append(app)
 
 				address += app.get_size()
@@ -771,7 +791,7 @@ class TockLoader:
 
 	def _extract_apps_from_tabs (self, tabs):
 		'''
-		Iterate through the list of TABs and create the app dict for each.
+		Iterate through the list of TABs and create the app object for each.
 		'''
 		apps = []
 
@@ -782,27 +802,34 @@ class TockLoader:
 			if self.args.force or tab.is_compatible_with_board(self.channel.get_board_name()):
 				app = tab.extract_app(arch)
 
-				# Enforce the minimum app size here.
-				if app.get_size() < self.app_options['size_minimum']:
-					app.set_size(self.app_options['size_minimum'])
 
-				# Enforce other sizing constraints here.
-				if self.app_options['size_constraint'] == 'powers_of_two':
-					# Make sure the total app size is a power of two.
-					app_size = app.get_size()
-					if (app_size & (app_size - 1)) != 0:
-						# This is not a power of two, but should be.
-						count = 0
-						while app_size != 0:
-							app_size >>= 1
-							count += 1
-						app.set_size(1 << count)
-						if self.args.debug:
-							logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
-				elif self.app_options['size_constraint'] == 'none':
-					pass
-				else:
-					raise TockLoaderException('Unknown size constraint. This is a tockloader bug.')
+#####
+#### TODO PUT THIS LOGIC SOMEWHERE
+#### but it kinda matters for the final app arrangement
+######
+
+
+				# # Enforce the minimum app size here.
+				# if app.get_size() < self.app_options['size_minimum']:
+				# 	app.set_size(self.app_options['size_minimum'])
+
+				# # Enforce other sizing constraints here.
+				# if self.app_options['size_constraint'] == 'powers_of_two':
+				# 	# Make sure the total app size is a power of two.
+				# 	app_size = app.get_size()
+				# 	if (app_size & (app_size - 1)) != 0:
+				# 		# This is not a power of two, but should be.
+				# 		count = 0
+				# 		while app_size != 0:
+				# 			app_size >>= 1
+				# 			count += 1
+				# 		app.set_size(1 << count)
+				# 		if self.args.debug:
+				# 			logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
+				# elif self.app_options['size_constraint'] == 'none':
+				# 	pass
+				# else:
+				# 	raise TockLoaderException('Unknown size constraint. This is a tockloader bug.')
 
 				apps.append(app)
 
@@ -810,16 +837,6 @@ class TockLoader:
 			raise TockLoaderException('No valid apps for this board were provided. Use --force to override.')
 
 		return apps
-
-	def _get_app_name (self, address, length):
-		'''
-		Retrieve bytes from the board and interpret them as a string
-		'''
-		if length == 0:
-			return ''
-
-		name_memory = self.channel.read_range(address, length)
-		return name_memory.decode('utf-8')
 
 	def _app_is_aligned_correctly (self, address, size):
 		'''
@@ -878,7 +895,7 @@ class TockLoader:
 				print('[App {}]'.format(i))
 
 				# Check if this app is OK with the MPU region requirements.
-				if not self._app_is_aligned_correctly(app.address, app.get_size()):
+				if not self._app_is_aligned_correctly(app.get_address(), app.get_size()):
 					print('  [WARNING] App is misaligned for the MPU')
 
 				print(textwrap.indent(app.info(verbose), '  '))
@@ -889,10 +906,7 @@ class TockLoader:
 
 		else:
 			# In quiet mode just show the names.
-			app_names = []
-			for app in apps:
-				app_names.append(app.name)
-			print(' '.join(app_names))
+			print(' '.join([app.get_name() for app in apps]))
 
 	def _print_attributes (self, attributes):
 		'''

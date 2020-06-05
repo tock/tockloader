@@ -1,36 +1,48 @@
 import struct
 import textwrap
 
-class TabApp:
+class InstalledApp:
 	'''
-	Representation of a Tock app for a specific board from a TAB file. This is
-	different from a TAB, since a TAB can include compiled binaries for a range
-	of architectures, or compiled for various scenarios, which may not be
-	applicable for a particular board.
+	Representation of a Tock app installed on a specific board.
 
-	A TabApp need not be a single (TBF header, binary) pair, as an app from a
-	TAB can include multiple (header, binary) pairs if the app was compiled
-	multiple times. This could be for any reason (e.g. it was signed with
-	different keys, or it uses different compiler optimizations), but typically
-	this is because it is compiled for specific addresses in flash and RAM, and
-	there are multiple linked versions present in the TAB. If so, there will be
-	multiple (header, binary) pairs included in this App object, and the correct
-	one for the board will be used later.
+	At the very least this includes the TBF header and an address of where the
+	app is on the board. It can also include the actual app binary which is
+	necessary if the app needs to be moved.
 	'''
 
-	def __init__ (self, tbfs):
+	def __init__ (self, tbfh, address, app_binary=None):
+		self.tbfh = tbfh             # A `tbfh` object representing this app's header.
+		self.app_binary = app_binary # A binary array of the app _after_ the header.
+		self.address = address       # Where on the board this app currently is.
+
+		self.modified = False        # A flag indicating if this app has been modified by tockloader.
+
+	def get_name (self):
 		'''
-		Create a `TabApp` from a list of (TBF header, app binary) pairs.
+		Return the app name.
 		'''
-		self.tbfs = tbfs # A list of (TBF header, app binary) pairs.
+		return self.tbfh.get_app_name()
+
+	def is_modified (self):
+		'''
+		Returns whether this app has been modified by tockloader since it was
+		initially created by `__init__`.
+		'''
+		return self.modified or self.tbfh.is_modified()
+
+	def is_sticky (self):
+		'''
+		Returns true if the app is set as sticky and will not be removed with
+		a normal app erase command. Sticky apps must be force removed.
+		'''
+		return self.tbfh.is_sticky()
 
 	def set_sticky (self):
 		'''
 		Mark this app as "sticky" in the app's header. This makes it harder to
 		accidentally remove this app if it is a core service or debug app.
 		'''
-		for tbfh,binary in self.tbfs:
-			tbfh.set_flag('sticky', True)
+		self.tbfh.set_flag('sticky', True)
 
 	def get_size (self):
 		'''
@@ -49,6 +61,13 @@ class TabApp:
 		if size < current_size:
 			raise TockLoaderException('Cannot make app smaller. Current size: {} bytes'.format(current_size))
 		self.tbfh.set_app_size(size)
+		self.is_modified = True
+
+	def has_fixed_addresses(self):
+		'''
+		Return true if the TBF binary is compiled for a fixed address.
+		'''
+		return self.tbfh.has_fixed_addresses()
 
 	def get_header (self):
 		'''
@@ -76,12 +95,11 @@ class TabApp:
 		self.app_binary = app_binary
 		self.modified = True
 
-	def set_address (self, address):
+	def get_address (self):
 		'''
-		Set the address of flash where this app is or should go.
+		Get the address of where on the board the app is or should go.
 		'''
-		self.address = address
-		self.modified = True
+		return self.address
 
 	def has_app_binary (self):
 		'''
@@ -96,10 +114,15 @@ class TabApp:
 		'''
 		return self.app_binary
 
-	def get_binary (self):
+	def get_binary (self, address):
 		'''
-		Return the binary array comprising the entire application.
+		Return the binary array comprising the entire application if it needs to
+		be written to the board. Otherwise, if it is already installed, return
+		None
 		'''
+		if not self.is_modified() and address == self.address:
+			return None
+
 		binary = self.tbfh.get_binary() + self.app_binary
 
 		# Check that the binary is not longer than it is supposed to be. This
@@ -147,7 +170,7 @@ class TabApp:
 		fields = self.tbfh.fields
 
 		out = ''
-		out += 'Name:                  {}\n'.format(self.name)
+		out += 'Name:                  {}\n'.format(self.get_name())
 		out += 'Enabled:               {}\n'.format(self.tbfh.is_enabled())
 		out += 'Sticky:                {}\n'.format(self.tbfh.is_sticky())
 		out += 'Total Size in Flash:   {} bytes\n'.format(self.get_size())
@@ -158,4 +181,4 @@ class TabApp:
 		return out
 
 	def __str__ (self):
-		return self.name
+		return self.get_name()

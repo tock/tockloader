@@ -24,6 +24,26 @@ class TabApp:
 		'''
 		self.tbfs = tbfs # A list of (TBF header, app binary) pairs.
 
+	def get_name (self):
+		'''
+		Return the app name.
+		'''
+		app_names = set([tbf[0].get_app_name() for tbf in self.tbfs])
+		if len(app_names) > 1:
+			raise TockLoaderException('Different names inside the same TAB?')
+		elif len(app_names) == 0:
+			raise TockLoaderException('No name in the TBF binaries')
+
+		return app_names.pop()
+
+	def is_modified (self):
+		'''
+		Returns whether this app needs to be flashed on to the board. Since this
+		is a TabApp, we did not get this app from the board and therefore we
+		have to flash this to the board.
+		'''
+		return True
+
 	def set_sticky (self):
 		'''
 		Mark this app as "sticky" in the app's header. This makes it harder to
@@ -36,71 +56,77 @@ class TabApp:
 		'''
 		Return the total size (including TBF header) of this app in bytes.
 		'''
-		return self.tbfh.get_app_size()
+		app_sizes = set([tbf[0].get_app_size() for tbf in self.tbfs])
+		if len(app_sizes) > 1:
+			raise TockLoaderException('Different app sizes inside the same TAB?')
+		elif len(app_sizes) == 0:
+			raise TockLoaderException('No TBF apps')
+
+		return app_sizes.pop()
 
 	def set_size (self, size):
 		'''
 		Force the entire app to be a certain size. If `size` is smaller than the
 		actual app an error will be thrown.
 		'''
-		header_size = self.tbfh.get_header_size()
-		binary_size = len(self.app_binary)
-		current_size = header_size + binary_size
-		if size < current_size:
-			raise TockLoaderException('Cannot make app smaller. Current size: {} bytes'.format(current_size))
-		self.tbfh.set_app_size(size)
+		for tbfh,app_binary in self.tbfs:
+			header_size = tbfh.get_header_size()
+			binary_size = len(app_binary)
+			current_size = header_size + binary_size
+			if size < current_size:
+				raise TockLoaderException('Cannot make app smaller. Current size: {} bytes'.format(current_size))
+			tbfh.set_app_size(size)
 
-	def get_header (self):
+	def has_fixed_addresses(self):
 		'''
-		Return the TBFH object for the header.
+		Return true if any TBF binary in this app is compiled for a fixed
+		address. That likely implies _all_ binaries are compiled for a fixed
+		address.
 		'''
-		return self.tbfh
-
-	def get_header_size (self):
-		'''
-		Return the size of the TBF header in bytes.
-		'''
-		return self.tbfh.get_header_size()
-
-	def get_header_binary (self):
-		'''
-		Get the TBF header as a bytes array.
-		'''
-		return self.tbfh.get_binary()
-
-	def set_app_binary (self, app_binary):
-		'''
-		Update the application binary. Likely this binary would come from the
-		existing contents of flash on a board.
-		'''
-		self.app_binary = app_binary
-		self.modified = True
-
-	def set_address (self, address):
-		'''
-		Set the address of flash where this app is or should go.
-		'''
-		self.address = address
-		self.modified = True
+		has_fixed_addresses = False
+		for tbfh,app_binary in self.tbfs:
+			if tbfh.has_fixed_addresses():
+				has_fixed_addresses = True
+				break
+		return has_fixed_addresses
 
 	def has_app_binary (self):
 		'''
-		Whether we have the actual application binary for this app.
+		Return true if we have an application binary with this app.
 		'''
-		return self.app_binary != None
+		# By definition, a TabApp will have an app binary.
+		return True
 
-	def get_app_binary (self):
-		'''
-		Return just the compiled application code binary. Does not include
-		the TBF header.
-		'''
-		return self.app_binary
-
-	def get_binary (self):
+	def get_binary (self, address):
 		'''
 		Return the binary array comprising the entire application.
+
+		`address` is the address of flash the _start_ of the app will be placed
+		at. This means where the TBF header will go.
 		'''
-		binary = self.tbfh.get_binary() + self.app_binary
+		# See if there is binary that we have that matches the address
+		# requirement.
+		binary = None
+		for tbfh,app_binary in self.tbfs:
+			# If the TBF is not compiled for a fixed address, then we can just
+			# use it.
+			if tbfh.has_fixed_addresses() == False:
+				binary = tbfh.get_binary() + app_binary
+				break
+
+			else:
+				# Check the fixed address, and see if the TBF header ends up at
+				# the correct address.
+				fixed_flash_address = tbfh.get_fixed_addresses()[0]
+				tbf_header_length = tbfh.get_header_size()
+
+				if fixed_flash_address - tbf_header_length == address:
+					binary = tbfh.get_binary() + app_binary
+					break
+
+		# We didn't find a matching binary.
+		if binary == None:
+			return None
 
 		# Check that the binary is not longer than it is supposed to be. This
 		# might happen if the size was changed, but any code using this binary

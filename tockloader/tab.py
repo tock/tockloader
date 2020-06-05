@@ -10,7 +10,7 @@ import urllib.request
 
 import pytoml
 
-from .app import App
+from .app_tab import TabApp
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 
@@ -46,40 +46,44 @@ class TAB:
 
 	def extract_app (self, arch):
 		'''
-		Return an `App` object from this TAB. You must specify the desired
-		MCU architecture so the correct binary can be retrieved.
+		Return an `App` object from this TAB. You must specify the desired MCU
+		architecture so the correct App object can be retrieved. Note that an
+		architecture may have multiple TBF files if the app is compiled for a
+		fixed address, and multiple fixed address versions are included in the
+		TAB.
 		'''
-		try:
-			binary_tarinfo = self.tab.getmember('{}.tbf'.format(arch))
-		except Exception:
-			try:
-				binary_tarinfo = self.tab.getmember('{}.bin'.format(arch))
-			except Exception:
-				raise TockLoaderException('Could not find arch "{}" in TAB file.'.format(arch))
-		binary = self.tab.extractfile(binary_tarinfo).read()
+		# Fine all filenames that start with the architecture name.
+		matching_tbf_filenames = []
+		contained_files = self.tab.getnames()
+		# A TBF name is in the format: <architecture>.<anything>.tbf
+		for contained_file in contained_files:
+			name_pieces = contained_file.split('.')
+			if len(name_pieces) >= 2 and name_pieces[-1] == 'tbf':
+				if name_pieces[0] == arch:
+					matching_tbf_filenames.append(contained_file)
 
-		# First get the TBF header from the correct binary in the TAB
-		tbfh = TBFHeader(binary)
+		# Get all of the TBF headers and app binaries to create a TabApp.
+		tbfs = []
+		for tbf_filename in matching_tbf_filenames:
+			binary_tarinfo = self.tab.getmember(tbf_filename)
+			binary = self.tab.extractfile(binary_tarinfo).read()
 
-		if tbfh.is_valid():
-			name_or_params = tbfh.get_app_name()
-			if isinstance(name_or_params, str):
-				name = name_or_params
+			# First get the TBF header from the correct binary in the TAB
+			tbfh = TBFHeader(binary)
+
+			if tbfh.is_valid():
+				# Check that total size actually matches the binary that we got.
+				if tbfh.get_app_size() < len(binary):
+					# It's fine if the binary is smaller, but the binary cannot be
+					# longer than the amount of reserved space (`total_size` in the
+					# TBF header) for the app.
+					raise TockLoaderException('Invalid TAB, the app binary is longer than its defined total_size')
+
+				tbfs.append((tbfh, binary[tbfh.get_header_size():]))
 			else:
-				start = name_or_params[0]
-				end = start+name_or_params[1]
-				name = binary[start:end].decode('utf-8')
+				raise TockLoaderException('Invalid TBF found in app in TAB')
 
-			# Check that total size actually matches the binary that we got.
-			if tbfh.get_app_size() < len(binary):
-				# It's fine if the binary is smaller, but the binary cannot be
-				# longer than the amount of reserved space (`total_size` in the
-				# TBF header) for the app.
-				raise TockLoaderException('Invalid TAB, the app binary is longer than its defined total_size')
-
-			return App(tbfh, None, name, binary[tbfh.get_header_size():])
-		else:
-			raise TockLoaderException('Invalid TBF found in app in TAB')
+		return TabApp(tbfs)
 
 	def is_compatible_with_board (self, board):
 		'''
@@ -104,12 +108,25 @@ class TAB:
 	def get_supported_architectures (self):
 		'''
 		Return a list of architectures that this TAB has compiled binaries for.
+		Note that this will return all architectures that have any TBF binary,
+		but some of those TBF binaries may be compiled for very specific
+		addresses. That is, there isn't a guarantee that the TBF file will work
+		on any chip with one of the supported architectures.
 		'''
+		archs = set()
 		contained_files = self.tab.getnames()
-		archs = [i[:-4] for i in contained_files if i[-4:] == '.tbf']
+		# A TBF name is in the format: <architecture>.<anything>.tbf
+		for contained_file in contained_files:
+			name_pieces = contained_file.split('.')
+			if len(name_pieces) >= 2 and name_pieces[-1] == 'tbf':
+				archs.add(name_pieces[0])
+
+		# We used to use the format <architecture>.bin, so for backwards
+		# compatibility check that too.
 		if len(archs) == 0:
-			archs = [i[:-4] for i in contained_files if i[-4:] == '.bin']
-		return archs
+			archs = set([i[:-4] for i in contained_files if i[-4:] == '.bin'])
+
+		return sorted(archs)
 
 	def get_tbf_names (self):
 		'''

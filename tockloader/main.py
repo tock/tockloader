@@ -282,7 +282,7 @@ def command_inspect_tab (args):
 		if index < len(tbf_names):
 			print('')
 			print('{}:'.format(tbf_names[index]))
-			app = tab.extract_app(tbf_names[index])
+			app = tab.extract_tbf(tbf_names[index])
 			print(textwrap.indent(str(app.get_header()), '  '))
 
 			# If the user asked for the crt0 header, display that for the

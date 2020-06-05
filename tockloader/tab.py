@@ -46,13 +46,13 @@ class TAB:
 
 	def extract_app (self, arch):
 		'''
-		Return an `App` object from this TAB. You must specify the desired MCU
+		Return a `TabApp` object from this TAB. You must specify the desired MCU
 		architecture so the correct App object can be retrieved. Note that an
 		architecture may have multiple TBF files if the app is compiled for a
 		fixed address, and multiple fixed address versions are included in the
 		TAB.
 		'''
-		# Fine all filenames that start with the architecture name.
+		# Find all filenames that start with the architecture name.
 		matching_tbf_filenames = []
 		contained_files = self.tab.getnames()
 		# A TBF name is in the format: <architecture>.<anything>.tbf
@@ -84,6 +84,30 @@ class TAB:
 				raise TockLoaderException('Invalid TBF found in app in TAB')
 
 		return TabApp(tbfs)
+
+	def extract_tbf (self, tbf_name):
+		'''
+		Return a `TabApp` object from this TAB. You must specify the desired TBF
+		name, and only that TBF will be returned.
+		'''
+		tbf_filename = '{}.tbf'.format(tbf_name)
+		binary_tarinfo = self.tab.getmember(tbf_filename)
+		binary = self.tab.extractfile(binary_tarinfo).read()
+
+		# First get the TBF header from the correct binary in the TAB
+		tbfh = TBFHeader(binary)
+
+		if tbfh.is_valid():
+			# Check that total size actually matches the binary that we got.
+			if tbfh.get_app_size() < len(binary):
+				# It's fine if the binary is smaller, but the binary cannot be
+				# longer than the amount of reserved space (`total_size` in the
+				# TBF header) for the app.
+				raise TockLoaderException('Invalid TAB, the app binary is longer than its defined total_size')
+
+			return TabApp([(tbfh, binary[tbfh.get_header_size():])])
+		else:
+			raise TockLoaderException('Invalid TBF found in app in TAB')
 
 	def is_compatible_with_board (self, board):
 		'''

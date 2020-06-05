@@ -64,6 +64,14 @@ class TabApp:
 
 		return app_sizes.pop()
 
+	def get_header (self):
+		'''
+		Return a header if there is only one.
+		'''
+		if len(self.tbfs) == 1:
+			return self.tbfs[0][0]
+		return None
+
 	def set_size (self, size):
 		'''
 		Force the entire app to be a certain size. If `size` is smaller than the
@@ -146,8 +154,9 @@ class TabApp:
 		doing PIC fixups. We assume this header is positioned immediately
 		after the TBF header.
 		'''
-		header_size = self.tbfh.get_header_size()
-		app_binary_notbfh = self.get_app_binary()
+		tbfh,app_binary = self.tbfs[0]
+		header_size = tbfh.get_header_size()
+		app_binary_notbfh = app_binary
 
 		crt0 = struct.unpack('<IIIIIIIIII', app_binary_notbfh[0:40])
 
@@ -165,23 +174,20 @@ class TabApp:
 
 		return out
 
-	def info (self, verbose=False):
-		'''
-		Get a string describing various properties of the app.
-		'''
-		offset = self.address
-		fields = self.tbfh.fields
+	# def info (self, verbose=False):
+	# 	'''
+	# 	Get a string describing various properties of the app.
+	# 	'''
+	# 	out = ''
+	# 	for tbfh,app_binary in self.tbfs:
+	# 		out += 'Name:                  {}\n'.format(self.get_name())
+	# 		out += 'Enabled:               {}\n'.format(tbfh.is_enabled())
+	# 		out += 'Sticky:                {}\n'.format(tbfh.is_sticky())
+	# 		out += 'Total Size in Flash:   {} bytes\n'.format(self.get_size())
 
-		out = ''
-		out += 'Name:                  {}\n'.format(self.name)
-		out += 'Enabled:               {}\n'.format(self.tbfh.is_enabled())
-		out += 'Sticky:                {}\n'.format(self.tbfh.is_sticky())
-		out += 'Total Size in Flash:   {} bytes\n'.format(self.get_size())
-
-		if verbose:
-			out += 'Address in Flash:      {:#x}\n'.format(offset)
-			out += textwrap.indent(str(self.tbfh), '  ')
-		return out
+	# 		if verbose:
+	# 			out += textwrap.indent(str(tbfh), '  ')
+	# 	return out
 
 	def __str__ (self):
-		return self.name
+		return self.get_name()

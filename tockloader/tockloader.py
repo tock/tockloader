@@ -648,11 +648,19 @@ class TockLoader:
 		board.
 		'''
 
+		#
 		# JUNE 2020: This function can be really complicated (balancing apps
 		# compiled for a fixed address, MPU alignment concerns, ordering
-		# concerns, etc.) and by no means is the current implementation arriving
-		# at an optimal solution. An interested contributor could probably find
-		# many improvements and optimizations.
+		# concerns, handling apps from TABs and already installed etc.) and by
+		# no means is the current implementation arriving at an optimal
+		# solution. An interested contributor could probably find many
+		# improvements and optimizations.
+		#
+
+
+		# Get where the apps live in flash.
+		address = self.channel.get_apps_start_address()
+
 
 		# First, we are going to split the work into two cases: do we have any
 		# app that is compiled for a fixed address, or not? Likely, there won't
@@ -665,6 +673,65 @@ class TockLoader:
 				is_fixed_address_app = True
 
 		if is_fixed_address_app:
+			#
+			# This is the fixed addresses case
+			#
+
+			# Just sort the apps like we normally would. This provides some
+			# guess as to how we can organize them. This is not necessarily the
+			# best idea, but we have to start somewhere.
+			if self.app_options['order'] == 'size_descending':
+				apps.sort(key=lambda app: app.get_size(), reverse=True)
+			else:
+				raise TockLoaderException('Unknown sort order. This is a tockloader bug.')
+
+			# Iterate all of the apps, and see if we can make this work based on
+			# having apps compiled for the correct addresses. If so, great! If
+			# not, error for now.
+			app_address = address
+			for app in apps:
+				if not app.is_loadable_at_address(app_address):
+					logging.error('Trying to find a location for app "{}"'.format(app))
+					logging.error('  Address to use is {:#x}'.format(app_address))
+					raise TockLoaderException('Could not load apps due to address mismatches')
+				app_address += app.get_size()
+
+			# Actually write apps to the board.
+			app_address = address
+			if self.args.bundle_apps:
+				# Tockloader has been configured to bundle all apps as a single
+				# binary. Here we concatenate all apps and then call flash once.
+				#
+				# This should be compatible with all boards, but if there
+				# several existing apps they have to be re-flashed, and that
+				# could add significant overhead. So, we prefer to flash only
+				# what has changed and special case this bundle operation.
+				app_bundle = bytearray()
+				for app in apps:
+					app_bundle += app.get_binary(app_address)
+					app_address += app.get_size()
+				logging.debug('Installing app bundle. Size: {} bytes.'.format(len(app_bundle)))
+				self.channel.flash_binary(address, app_bundle)
+			else:
+				# Flash only apps that have been modified. The only way an app
+				# would not be modified is if it was read off the board and
+				# nothing changed.
+				for app in apps:
+					# If we get a binary, then we need to flash it. Otherwise,
+					# the app is already installed.
+					optional_binary = app.get_binary(app_address)
+					if optional_binary:
+						self.channel.flash_binary(app_address, optional_binary)
+					app_address = app_address + app.get_size()
+
+			# Then erase the next page if we have not already rewritten all
+			# existing apps. This ensures that flash is clean at the end of the
+			# installed apps and makes sure the kernel will find the correct end
+			# of applications.
+			self.channel.erase_page(app_address)
+
+			# Handled fixed address case, do not continue on to run the
+			# non-fixed address case.
 			return
 
 
@@ -678,9 +745,6 @@ class TockLoader:
 			apps.sort(key=lambda app: app.get_size(), reverse=True)
 		else:
 			raise TockLoaderException('Unknown sort order. This is a tockloader bug.')
-
-		# Get where the apps live in flash.
-		address = self.channel.get_apps_start_address()
 
 		# Decide if we need to read the existing binary from flash into memory.
 		# We can need to do this for various reasons:

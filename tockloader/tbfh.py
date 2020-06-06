@@ -288,6 +288,39 @@ class TBFHeader:
 		else:
 			return None
 
+	def adjust_starting_address (self, address):
+		'''
+		Alter this TBF header so the fixed address in flash will be correct
+		if the entire TBF binary is loaded at address `address`.
+		'''
+		# Check if we can even do anything. No fixed address means this is
+		# meaningless.
+		if hasattr(self, 'fixed_addresses'):
+			# Now see if the header is already the right length.
+			if address + self.fields['header_size'] + self.fields['protected_size'] != self.fields['fixed_address_flash']:
+				# Make sure we need to make the header bigger
+				if address + self.fields['header_size'] + self.fields['protected_size'] < self.fields['fixed_address_flash']:
+					# The header is too small, so we can fix it.
+					delta = self.fields['fixed_address_flash'] - (address + self.fields['header_size'] + self.fields['protected_size'])
+					# Increase the protected size to match this.
+					self.fields['protected_size'] += delta
+
+					#####
+					##### NOTE! Based on how things are implemented in the Tock
+					##### universe, it seems we also need to increase the
+					##### `init_fn_offset`, which is calculated from the end of
+					##### the TBF header everywhere, and NOT the beginning of
+					##### the actual application binary (like the documentation
+					##### indicates it should be).
+					#####
+					self.fields['init_fn_offset'] += delta
+
+				else:
+					# The header actually needs to shrink, which we can't do.
+					# We should never hit this case.
+					raise TockLoaderException('Cannot shrink the header. This is a tockloader bug.')
+
+
 	# Return a buffer containing the header repacked as a binary buffer
 	def get_binary (self):
 		'''
@@ -357,6 +390,12 @@ class TBFHeader:
 
 			checksum = self._checksum(buf)
 			struct.pack_into('<I', buf, 12, checksum)
+
+			if 'protected_size' in self.fields and self.fields['protected_size'] > 0:
+				# Add padding to this header binary to account for the
+				# protected region between the header and the application
+				# binary.
+				buf += b'\0'*self.fields['protected_size']
 
 		return buf
 

@@ -32,6 +32,7 @@ class OpenOCD(BoardInterface):
 		self.openocd_commands = getattr(self.args, 'openocd_commands')
 		self.openocd_cmd = getattr(self.args, 'openocd_cmd')
 		self.openocd_prefix = ''
+		self.openocd_address_translator = None
 
 		# If the user specified a board, use that configuration to fill in any
 		# missing settings.
@@ -51,6 +52,8 @@ class OpenOCD(BoardInterface):
 				self.openocd_prefix = board['openocd_prefix']
 			if self.openocd_commands == {} and 'openocd_commands' in board:
 				self.openocd_commands = board['openocd_commands']
+			if 'address_translator' in board:
+				self.openocd_address_translator = board['address_translator']
 
 		if self.openocd_board == None:
 			raise TockLoaderException('Unknown OpenOCD board name. You must pass --openocd-board.')
@@ -158,6 +161,11 @@ You may need to update OpenOCD to the version in latest git master.')
 		if 'program' in self.openocd_commands:
 			command = self.openocd_commands['program']
 
+		# Check if we need to translate the address from MCU address space to
+		# OpenOCD command addressing.
+		if self.openocd_address_translator:
+			address = self.openocd_address_translator(address)
+
 		if self.args.debug:
 			logging.debug('Using program command: "{}"'.format(command))
 
@@ -176,6 +184,11 @@ You may need to update OpenOCD to the version in latest git master.')
 		# Check if the configuration wants to override the default read command.
 		if 'read' in self.openocd_commands:
 			command = self.openocd_commands['read']
+
+		# Check if we need to translate the address from MCU address space to
+		# OpenOCD command addressing.
+		if self.openocd_address_translator:
+			address = self.openocd_address_translator(address)
 
 		if self.args.debug:
 			logging.debug('Using read command: "{}"'.format(command))
@@ -201,6 +214,11 @@ You may need to update OpenOCD to the version in latest git master.')
 	def erase_page (self, address):
 		if self.args.debug:
 			logging.debug('Erasing page at address {:#0x}'.format(address))
+
+		# Check if we need to translate the address from MCU address space to
+		# OpenOCD command addressing.
+		if self.openocd_address_translator:
+			address = self.openocd_address_translator(address)
 
 		# For some reason on the nRF52840DK erasing an entire page causes
 		# previous flash to be reset to 0xFF. This doesn't seem to happen

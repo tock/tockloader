@@ -69,6 +69,18 @@ class InstalledApp:
 		'''
 		return self.tbfh.has_fixed_addresses()
 
+	def is_loadable_at_address (self, address):
+		'''
+		Check if it is possible to load this app at the given address. Returns
+		True if it is possible, False otherwise.
+		'''
+		if not self.has_fixed_addresses():
+			# If there are not fixed addresses, then we can flash this anywhere.
+			return True
+
+		# Check if the flash address matches.
+		return self.tbfh.get_fixed_addresses()[1] - self.tbfh.get_header_size() == address
+
 	def get_header (self):
 		'''
 		Return the TBFH object for the header.
@@ -118,7 +130,7 @@ class InstalledApp:
 		'''
 		Return the binary array comprising the entire application if it needs to
 		be written to the board. Otherwise, if it is already installed, return
-		None
+		`None`.
 		'''
 		if not self.is_modified() and address == self.address:
 			return None
@@ -136,31 +148,6 @@ class InstalledApp:
 			binary = binary[0:size]
 
 		return binary
-
-	def get_crt0_header_str (self):
-		'''
-		Return a string representation of the crt0 header some apps use for
-		doing PIC fixups. We assume this header is positioned immediately
-		after the TBF header.
-		'''
-		header_size = self.tbfh.get_header_size()
-		app_binary_notbfh = self.get_app_binary()
-
-		crt0 = struct.unpack('<IIIIIIIIII', app_binary_notbfh[0:40])
-
-		out = ''
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('got_sym_start', crt0[0], crt0[0])
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('got_start', crt0[1], crt0[1])
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('got_size', crt0[2], crt0[2])
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('data_sym_start', crt0[3], crt0[3])
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('data_start', crt0[4], crt0[4])
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('data_size', crt0[5], crt0[5])
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('bss_start', crt0[6], crt0[6])
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('bss_size', crt0[7], crt0[7])
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('reldata_start', crt0[8], crt0[8])
-		out += '{:<20}: {:>10} {:>#12x}\n'.format('stack_size', crt0[9], crt0[9])
-
-		return out
 
 	def info (self, verbose=False):
 		'''

@@ -1,5 +1,8 @@
+import logging
 import struct
 import textwrap
+
+from .exceptions import TockLoaderException
 
 class TabApp:
 	'''
@@ -52,6 +55,14 @@ class TabApp:
 		for tbfh,binary in self.tbfs:
 			tbfh.set_flag('sticky', True)
 
+	def get_header (self):
+		'''
+		Return a header if there is only one.
+		'''
+		if len(self.tbfs) == 1:
+			return self.tbfs[0][0]
+		return None
+
 	def get_size (self):
 		'''
 		Return the total size (including TBF header) of this app in bytes.
@@ -63,14 +74,6 @@ class TabApp:
 			raise TockLoaderException('No TBF apps')
 
 		return app_sizes.pop()
-
-	def get_header (self):
-		'''
-		Return a header if there is only one.
-		'''
-		if len(self.tbfs) == 1:
-			return self.tbfs[0][0]
-		return None
 
 	def set_size (self, size):
 		'''
@@ -97,6 +100,39 @@ class TabApp:
 				has_fixed_addresses = True
 				break
 		return has_fixed_addresses
+
+	def is_loadable_at_address (self, address):
+		'''
+		Check if it is possible to load this app at the given address. Returns
+		True if it is possible, False otherwise.
+		'''
+		if not self.has_fixed_addresses():
+			# No fixed addresses means we can put the app anywhere.
+			return True
+
+		# Otherwise, see if we have a TBF which can go at the requested address.
+		for tbfh,app_binary in self.tbfs:
+			print('fixed addreess {:#x}'.format(tbfh.get_fixed_addresses()[1]))
+			print('size {}'.format(tbfh.get_header_size()))
+			print('diff {:#x}'.format(tbfh.get_fixed_addresses()[1] - tbfh.get_header_size()))
+			print('address {:#x}'.format(address))
+
+			fixed_flash_address = tbfh.get_fixed_addresses()[1]
+			tbf_header_length = tbfh.get_header_size()
+
+			# Ok, we have to be a little tricky here. What we actually care
+			# about is ensuring that the application binary itself ends up at
+			# the requested fixed address. However, what this function has to do
+			# is see if the start of the TBF header can go at the requested
+			# address. We have some flexibility, since we can make the header
+			# larger so that it pushes the application binary to the correct
+			# address. So, we want to see if we can reasonably do that. If we
+			# are within 128 bytes, we say that we can.
+			if fixed_flash_address >= (address + tbf_header_length) and\
+			   (address + tbf_header_length + 128) > fixed_flash_address:
+			    return True
+
+		return False
 
 	def has_app_binary (self):
 		'''
@@ -125,10 +161,15 @@ class TabApp:
 			else:
 				# Check the fixed address, and see if the TBF header ends up at
 				# the correct address.
-				fixed_flash_address = tbfh.get_fixed_addresses()[0]
+				fixed_flash_address = tbfh.get_fixed_addresses()[1]
 				tbf_header_length = tbfh.get_header_size()
 
-				if fixed_flash_address - tbf_header_length == address:
+				if fixed_flash_address >= (address + tbf_header_length) and\
+				   (address + tbf_header_length + 128) > fixed_flash_address:
+					# Ok, this is the TBF that matched.
+
+					tbfh.adjust_starting_address(address)
+
 					binary = tbfh.get_binary() + app_binary
 					break
 
@@ -144,6 +185,16 @@ class TabApp:
 		# the flash memory the app is not using.
 		size = self.get_size()
 		if len(binary) > size:
+			logging.debug('Binary is larger than what it says in the header. Actual:{}, expected:{}'
+				.format(len(binary), size))
+			logging.debug('Truncating binary to match.')
+
+			# Check on what we would be removing. If it is all zeros, we
+			# determine that it is OK to truncate.
+			to_remove = binary[size:]
+			if len(to_remove) != to_remove.count(0):
+				raise TockLoaderException('Error truncating binary. Not zero.')
+
 			binary = binary[0:size]
 
 		return binary

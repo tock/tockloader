@@ -52,7 +52,10 @@ class BoardInterface:
 		                  'openocd': 'ek-tm4c1294xl.cfg'},
 		'arty': {'description': 'Arty FPGA running SiFive RISC-V core',
 		         'arch': 'rv32imac',
-		         'apps_start_address': 0x430000,
+		         'apps_start_address': 0x40430000,
+		         # arty exposes just the flash to openocd, this does the mapping
+		         # from the address map to what openocd must use.
+		         'address_translator': lambda addr: addr - 0x40000000,
 		         'page_size': 512,
 		         'openocd': 'external', # No supported board in openocd proper
 		         'openocd_options': ['nocmdprefix'],

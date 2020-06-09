@@ -82,7 +82,7 @@ class TBFHeader:
 			self.fields['flags'] = base[2]
 			self.fields['checksum'] = base[3]
 
-			if len(full_buffer) >= self.fields['header_size']:
+			if len(full_buffer) >= self.fields['header_size'] and self.fields['header_size'] >= 16:
 				# Zero out checksum for checksum calculation.
 				nbuf = bytearray(self.fields['header_size'])
 				nbuf[:] = full_buffer[0:self.fields['header_size']]
@@ -475,3 +475,26 @@ class TBFHeader:
 			out += '  {:<20}: {:>10} {:>#12x}\n'.format('fixed_address_flash', self.fields['fixed_address_flash'], self.fields['fixed_address_flash'])
 
 		return out
+
+class TBFHeaderPadding(TBFHeader):
+	'''
+	TBF Header that is only padding between apps. Since apps are packed as
+	linked-list, this allows apps to be pushed to later addresses while
+	preserving the linked-list structure.
+	'''
+
+	def __init__ (self, size):
+		'''
+		Create the TBF header. All we need to know is how long the entire
+		padding should be.
+		'''
+		self.valid = True
+		self.is_app = False
+		self.modified = False
+		self.fields = {}
+
+		self.version = 2
+		# self.fields['header_size'] = 14 # this causes interesting bugs...
+		self.fields['header_size'] = 16
+		self.fields['total_size'] = size
+		self.fields['flags'] = 0

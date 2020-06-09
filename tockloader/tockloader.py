@@ -18,6 +18,7 @@ import time
 
 from . import helpers
 from .app_installed import InstalledApp
+from .app_padding import PaddingApp
 from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
@@ -688,13 +689,31 @@ class TockLoader:
 			# Iterate all of the apps, and see if we can make this work based on
 			# having apps compiled for the correct addresses. If so, great! If
 			# not, error for now.
+			to_flash_apps = []
 			app_address = address
 			for app in apps:
-				if not app.is_loadable_at_address(app_address):
+				# Ask the app where we can put it that is greater than or equal
+				# to the current address we are looking at.
+				next_loadable_address = app.get_next_loadable_address(app_address)
+				if next_loadable_address == app_address:
+					to_flash_apps.append(app)
+					app_address += app.get_size()
+
+				elif next_loadable_address != None:
+					# Need to add padding.
+					padding_app = PaddingApp(next_loadable_address - app_address)
+					to_flash_apps.append(padding_app)
+					app_address += padding_app.get_size()
+
+					to_flash_apps.append(app)
+					app_address += app.get_size()
+
+				else:
+				# if not app.is_loadable_at_address(app_address):
 					logging.error('Trying to find a location for app "{}"'.format(app))
 					logging.error('  Address to use is {:#x}'.format(app_address))
 					raise TockLoaderException('Could not load apps due to address mismatches')
-				app_address += app.get_size()
+
 
 			# Actually write apps to the board.
 			app_address = address
@@ -707,7 +726,7 @@ class TockLoader:
 				# could add significant overhead. So, we prefer to flash only
 				# what has changed and special case this bundle operation.
 				app_bundle = bytearray()
-				for app in apps:
+				for app in to_flash_apps:
 					app_bundle += app.get_binary(app_address)
 					app_address += app.get_size()
 				logging.debug('Installing app bundle. Size: {} bytes.'.format(len(app_bundle)))
@@ -716,7 +735,7 @@ class TockLoader:
 				# Flash only apps that have been modified. The only way an app
 				# would not be modified is if it was read off the board and
 				# nothing changed.
-				for app in apps:
+				for app in to_flash_apps:
 					# If we get a binary, then we need to flash it. Otherwise,
 					# the app is already installed.
 					optional_binary = app.get_binary(app_address)

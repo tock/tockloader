@@ -184,7 +184,6 @@ class TabApp:
 		`address` is the address of flash the _start_ of the app will be placed
 		at. This means where the TBF header will go.
 		'''
-		print('{:#x}'.format(address))
 		# See if there is binary that we have that matches the address
 		# requirement.
 		binary = None

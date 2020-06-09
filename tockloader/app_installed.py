@@ -3,7 +3,8 @@ import textwrap
 
 class InstalledApp:
 	'''
-	Representation of a Tock app installed on a specific board.
+	Representation of a Tock app that is installed on a specific board. This
+	object is created when Tockloader finds an app already installed on a board.
 
 	At the very least this includes the TBF header and an address of where the
 	app is on the board. It can also include the actual app binary which is

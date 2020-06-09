@@ -112,11 +112,6 @@ class TabApp:
 
 		# Otherwise, see if we have a TBF which can go at the requested address.
 		for tbfh,app_binary in self.tbfs:
-			print('fixed addreess {:#x}'.format(tbfh.get_fixed_addresses()[1]))
-			print('size {}'.format(tbfh.get_header_size()))
-			print('diff {:#x}'.format(tbfh.get_fixed_addresses()[1] - tbfh.get_header_size()))
-			print('address {:#x}'.format(address))
-
 			fixed_flash_address = tbfh.get_fixed_addresses()[1]
 			tbf_header_length = tbfh.get_header_size()
 

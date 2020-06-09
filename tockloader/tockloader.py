@@ -866,34 +866,27 @@ class TockLoader:
 			if self.args.force or tab.is_compatible_with_board(self.channel.get_board_name()):
 				app = tab.extract_app(arch)
 
+				# Enforce the minimum app size here.
+				if app.get_size() < self.app_options['size_minimum']:
+					app.set_size(self.app_options['size_minimum'])
 
-#####
-#### TODO PUT THIS LOGIC SOMEWHERE
-#### but it kinda matters for the final app arrangement
-######
-
-
-				# # Enforce the minimum app size here.
-				# if app.get_size() < self.app_options['size_minimum']:
-				# 	app.set_size(self.app_options['size_minimum'])
-
-				# # Enforce other sizing constraints here.
-				# if self.app_options['size_constraint'] == 'powers_of_two':
-				# 	# Make sure the total app size is a power of two.
-				# 	app_size = app.get_size()
-				# 	if (app_size & (app_size - 1)) != 0:
-				# 		# This is not a power of two, but should be.
-				# 		count = 0
-				# 		while app_size != 0:
-				# 			app_size >>= 1
-				# 			count += 1
-				# 		app.set_size(1 << count)
-				# 		if self.args.debug:
-				# 			logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
-				# elif self.app_options['size_constraint'] == 'none':
-				# 	pass
-				# else:
-				# 	raise TockLoaderException('Unknown size constraint. This is a tockloader bug.')
+				# Enforce other sizing constraints here.
+				if self.app_options['size_constraint'] == 'powers_of_two':
+					# Make sure the total app size is a power of two.
+					app_size = app.get_size()
+					if (app_size & (app_size - 1)) != 0:
+						# This is not a power of two, but should be.
+						count = 0
+						while app_size != 0:
+							app_size >>= 1
+							count += 1
+						app.set_size(1 << count)
+						if self.args.debug:
+							logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
+				elif self.app_options['size_constraint'] == 'none':
+					pass
+				else:
+					raise TockLoaderException('Unknown size constraint. This is a tockloader bug.')
 
 				apps.append(app)
 

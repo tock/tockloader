@@ -79,8 +79,23 @@ class InstalledApp:
 			# If there are not fixed addresses, then we can flash this anywhere.
 			return True
 
-		# Check if the flash address matches.
-		return self.tbfh.get_fixed_addresses()[1] - self.tbfh.get_header_size() == address
+
+		fixed_flash_address = self.tbfh.get_fixed_addresses()[1]
+		tbf_header_length = self.tbfh.get_header_size()
+
+		# Ok, we have to be a little tricky here. What we actually care
+		# about is ensuring that the application binary itself ends up at
+		# the requested fixed address. However, what this function has to do
+		# is see if the start of the TBF header can go at the requested
+		# address. We have some flexibility, since we can make the header
+		# larger so that it pushes the application binary to the correct
+		# address. So, we want to see if we can reasonably do that. If we
+		# are within 128 bytes, we say that we can.
+		if fixed_flash_address >= (address + tbf_header_length) and\
+		   (address + tbf_header_length + 128) > fixed_flash_address:
+			return True
+
+		return False
 
 	def get_header (self):
 		'''
@@ -136,6 +151,12 @@ class InstalledApp:
 		if not self.is_modified() and address == self.address:
 			return None
 
+		# Set the starting address for this app. This is only relevant with
+		# fixed addresses, and is a no-op for apps which are not compiled for
+		# fixed addresses.
+		self.tbfh.adjust_starting_address(address)
+
+		# Get the actual app binary.
 		binary = self.tbfh.get_binary() + self.app_binary
 
 		# Check that the binary is not longer than it is supposed to be. This
@@ -146,7 +167,15 @@ class InstalledApp:
 		# the flash memory the app is not using.
 		size = self.get_size()
 		if len(binary) > size:
-			binary = binary[0:size]
+			logging.debug('Binary is larger than what it says in the header. Actual:{}, expected:{}'
+				.format(len(binary), size))
+			logging.debug('Truncating binary to match.')
+
+			# Check on what we would be removing. If it is all zeros, we
+			# determine that it is OK to truncate.
+			to_remove = binary[size:]
+			if len(to_remove) != to_remove.count(0):
+				raise TockLoaderException('Error truncating binary. Not zero.')
 
 		return binary
 

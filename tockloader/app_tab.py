@@ -246,7 +246,7 @@ class TabApp:
 
 		crt0 = struct.unpack('<IIIIIIIIII', app_binary[0:40])
 
-		# Also display the number of relative data items.
+		# Also display the number of relocations in the binary.
 		reldata_start = crt0[8]
 		reldata_len = struct.unpack('<I', app_binary[reldata_start:reldata_start+4])[0]
 
@@ -263,24 +263,7 @@ class TabApp:
 		out += '  {:<18}: {:>10} {:>#12x}\n'.format('[reldata_len]', reldata_len, reldata_len)
 		out += '{:<20}: {:>10} {:>#12x}\n'.format('stack_size', crt0[9], crt0[9])
 
-
-
 		return out
-
-	# def info (self, verbose=False):
-	# 	'''
-	# 	Get a string describing various properties of the app.
-	# 	'''
-	# 	out = ''
-	# 	for tbfh,app_binary in self.tbfs:
-	# 		out += 'Name:                  {}\n'.format(self.get_name())
-	# 		out += 'Enabled:               {}\n'.format(tbfh.is_enabled())
-	# 		out += 'Sticky:                {}\n'.format(tbfh.is_sticky())
-	# 		out += 'Total Size in Flash:   {} bytes\n'.format(self.get_size())
-
-	# 		if verbose:
-	# 			out += textwrap.indent(str(tbfh), '  ')
-	# 	return out
 
 	def __str__ (self):
 		return self.get_name()

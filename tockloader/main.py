@@ -201,6 +201,7 @@ def command_flash (args):
 
 	# Load in all binaries
 	binary = bytes()
+	count = 0
 	for binary_name in args.binary:
 		# check that file isn't a `.hex` file
 		if binary_name.endswith('.hex'):
@@ -211,17 +212,23 @@ def command_flash (args):
 		# add contents to binary
 		with open(binary_name, 'rb') as f:
 			binary += f.read()
+		count += 1
 
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
 	tock_loader.open()
 
-	logging.status('Flashing binar(y|ies) to board...')
+	plural = 'y'
+	if count > 1:
+		plural = 'ies'
+	logging.status('Flashing binar{} to board...'.format(plural))
 	tock_loader.flash_binary(binary, args.address)
 
 
 def command_read (args):
-	# Read the correct flash from the chip
+	'''
+	Read the correct flash range from the chip.
+	'''
 	tock_loader = TockLoader(args)
 	tock_loader.open()
 

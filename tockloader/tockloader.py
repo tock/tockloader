@@ -348,7 +348,7 @@ class TockLoader:
 			# User did not specify apps. Pick from list.
 			if len(app_names) == 0:
 				options = ['** All']
-				options.extend([app.name for app in apps])
+				options.extend([app.get_name() for app in apps])
 				name = helpers.menu(options,
 						return_type='value',
 						prompt='Select app to configure ',

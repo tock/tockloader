@@ -101,6 +101,22 @@ def plural (value):
 	else:
 		return 's'
 
+def text_in_box (string, box_width):
+	'''
+	Return a string like:
+	```
+	┌───────────────┐
+	│ str           │
+	└───────────────┘
+	```
+	'''
+	string_len = box_width - 4
+	truncated_str = (string[:string_len-3] + '...') if len(string) > string_len else string
+	out = '┌{}┐\n'.format('─'*(box_width-2))
+	out += '│ {} |\n'.format(truncated_str.ljust(string_len))
+	out += '└{}┘'.format('─'*(box_width-2))
+	return out
+
 class ListToDictAction(argparse.Action):
 	'''
 	`argparse` action to convert `[['key', 'val'], ['key2', 'val2']]` to

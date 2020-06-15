@@ -969,7 +969,7 @@ class TockLoader:
 		if not quiet:
 			# Print info about each app
 			for i,app in enumerate(apps):
-				print('[App {}]'.format(i))
+				print(helpers.text_in_box('App {}'.format(i), 52))
 
 				# Check if this app is OK with the MPU region requirements.
 				if not self._app_is_aligned_correctly(app.get_address(), app.get_size()):

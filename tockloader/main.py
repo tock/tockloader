@@ -233,6 +233,8 @@ def command_read (args):
 	tock_loader.open()
 
 	logging.status('Reading flash from the board...')
+	logging.status('  Address: {:#x}'.format(args.address))
+	logging.status('  Length:  {} bytes'.format(args.length))
 	tock_loader.read_flash(args.address, args.length)
 
 

@@ -239,13 +239,16 @@ class TabApp:
 		'''
 		Return a string representation of the crt0 header some apps use for
 		doing PIC fixups. We assume this header is positioned immediately
-		after the TBF header.
+		after the TBF header (AKA at the beginning of the application binary).
 		'''
 		tbfh,app_binary = self.tbfs[0]
 		header_size = tbfh.get_header_size()
-		app_binary_notbfh = app_binary
 
-		crt0 = struct.unpack('<IIIIIIIIII', app_binary_notbfh[0:40])
+		crt0 = struct.unpack('<IIIIIIIIII', app_binary[0:40])
+
+		# Also display the number of relative data items.
+		reldata_start = crt0[8]
+		reldata_len = struct.unpack('<I', app_binary[reldata_start:reldata_start+4])[0]
 
 		out = ''
 		out += '{:<20}: {:>10} {:>#12x}\n'.format('got_sym_start', crt0[0], crt0[0])
@@ -257,7 +260,10 @@ class TabApp:
 		out += '{:<20}: {:>10} {:>#12x}\n'.format('bss_start', crt0[6], crt0[6])
 		out += '{:<20}: {:>10} {:>#12x}\n'.format('bss_size', crt0[7], crt0[7])
 		out += '{:<20}: {:>10} {:>#12x}\n'.format('reldata_start', crt0[8], crt0[8])
+		out += '  {:<18}: {:>10} {:>#12x}\n'.format('[reldata_len]', reldata_len, reldata_len)
 		out += '{:<20}: {:>10} {:>#12x}\n'.format('stack_size', crt0[9], crt0[9])
+
+
 
 		return out
 

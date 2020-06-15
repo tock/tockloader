@@ -237,7 +237,7 @@ class TockLoader:
 					logging.info('Only one app on board.')
 				else:
 					options = ['** Delete all']
-					options.extend([app.name for app in apps])
+					options.extend([app.get_name() for app in apps])
 					name = helpers.menu(options,
 							return_type='value',
 							prompt='Select app to uninstall ',
@@ -824,6 +824,7 @@ class TockLoader:
 				# the app is already installed.
 				optional_binary = app.get_binary(app_address)
 				if optional_binary:
+					logging.debug('Flashing app {} binary to board.'.format(app))
 					self.channel.flash_binary(app_address, optional_binary)
 				app_address = app_address + app.get_size()
 

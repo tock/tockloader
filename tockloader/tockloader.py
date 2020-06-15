@@ -247,9 +247,9 @@ class TockLoader:
 					else:
 						app_names = [name]
 
-			print('Attempting to uninstall:')
+			logging.status('Attempting to uninstall:')
 			for app_name in app_names:
-				print('  - {}'.format(app_name))
+				logging.status('  - {}'.format(app_name))
 
 			# Remove the apps if they are there
 			removed = False
@@ -286,10 +286,10 @@ class TockLoader:
 					# And let the user know the state of the world now that we're done
 					apps = self._extract_all_app_headers()
 					if len(apps):
-						print('After uninstall, remaining apps on board: ', end='')
+						logging.info('After uninstall, remaining apps on board: ', end='')
 						self._print_apps(apps, verbose=False, quiet=True)
 					else:
-						print('After uninstall, no apps on board.')
+						loggging.info('After uninstall, no apps on board.')
 
 			else:
 				raise TockLoaderException('Could not find any apps on the board to remove.')
@@ -324,11 +324,11 @@ class TockLoader:
 					address = self.channel.get_apps_start_address()
 					self.channel.erase_page(address)
 
-					print('All apps have been erased.')
+					logging.info('All apps have been erased.')
 				else:
 					self._reshuffle_apps(keep_apps)
 
-					print('After erasing apps, remaining apps on board: ', end='')
+					logging.info('After erasing apps, remaining apps on board: ', end='')
 					self._print_apps(apps, verbose=False, quiet=True)
 
 
@@ -367,9 +367,9 @@ class TockLoader:
 
 			if changed:
 				self._reshuffle_apps(apps)
-				print('Set flag "{}" to "{}" for apps: {}'.format(flag_name, flag_value, ', '.join(app_names)))
+				logging.info('Set flag "{}" to "{}" for apps: {}'.format(flag_name, flag_value, ', '.join(app_names)))
 			else:
-				print('No matching apps found. Nothing changed.')
+				logging.info('No matching apps found. Nothing changed.')
 
 
 	def list_attributes (self):
@@ -979,7 +979,7 @@ class TockLoader:
 				print('')
 
 			if len(apps) == 0:
-				print('No found apps.')
+				logging.info('No found apps.')
 
 		else:
 			# In quiet mode just show the names.

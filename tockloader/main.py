@@ -565,11 +565,11 @@ def main ():
 		parents=[parent, parent_channel],
 		help='Read arbitrary flash memory')
 	flash.set_defaults(func=command_read)
-	flash.add_argument('--address', '-a',
+	flash.add_argument('address',
 		help='Address to read from',
 		type=lambda x: int(x, 0),
 		default=0x30000)
-	flash.add_argument('--length', '-l',
+	flash.add_argument('length',
 		help='Number of bytes to read',
 		type=lambda x: int(x, 0),
 		default=512)

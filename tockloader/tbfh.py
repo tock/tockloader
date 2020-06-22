@@ -260,6 +260,15 @@ class TBFHeader:
 		else:
 			return self.fields['header_size']
 
+	def get_size_before_app (self):
+		'''
+		Get the number of bytes before the actual app binary in the .tbf file.
+		'''
+		if self.version == 1:
+			return 74
+		else:
+			return self.fields['header_size'] + self.fields['protected_size']
+
 	def get_app_name (self):
 		'''
 		Return the package name if it was encoded in the header, otherwise

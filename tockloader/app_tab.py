@@ -132,7 +132,9 @@ class TabApp:
 	def get_next_loadable_address (self, address):
 		'''
 		Calculate the next reasonable address where we can put this app where
-		the address is greater than or equal to `address`.
+		the address is greater than or equal to `address`. The `address`
+		argument is the earliest address the app can be at, either the start of
+		apps or immediately after a previous app.
 
 		If the app doesn't have a fixed address, then we can put it anywhere,
 		and we just return the address. If the app is compiled with fixed

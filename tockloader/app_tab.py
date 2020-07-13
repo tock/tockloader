@@ -242,7 +242,6 @@ class TabApp:
 		after the TBF header (AKA at the beginning of the application binary).
 		'''
 		tbfh,app_binary = self.tbfs[0]
-		header_size = tbfh.get_header_size()
 
 		crt0 = struct.unpack('<IIIIIIIIII', app_binary[0:40])
 

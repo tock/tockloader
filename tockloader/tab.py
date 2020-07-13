@@ -105,7 +105,7 @@ class TAB:
 				# TBF header) for the app.
 				raise TockLoaderException('Invalid TAB, the app binary is longer than its defined total_size')
 
-			return TabApp([(tbfh, binary[tbfh.get_header_size():])])
+			return TabApp([(tbfh, binary[tbfh.get_size_before_app():])])
 		else:
 			raise TockLoaderException('Invalid TBF found in app in TAB')
 

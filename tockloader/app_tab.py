@@ -88,7 +88,7 @@ class TabApp:
 				raise TockLoaderException('Cannot make app smaller. Current size: {} bytes'.format(current_size))
 			tbfh.set_app_size(size)
 
-	def has_fixed_addresses(self):
+	def has_fixed_addresses (self):
 		'''
 		Return true if any TBF binary in this app is compiled for a fixed
 		address. That likely implies _all_ binaries are compiled for a fixed
@@ -100,6 +100,15 @@ class TabApp:
 				has_fixed_addresses = True
 				break
 		return has_fixed_addresses
+
+	def get_fixed_addresses_flash (self):
+		'''
+		Return a list of all addresses in flash this app is compiled for.
+		'''
+		fixed_addresses_flash = []
+		for tbfh,app_binary in self.tbfs:
+			fixed_addresses_flash.append(tbfh.get_fixed_addresses()[1])
+		return fixed_addresses_flash
 
 	def is_loadable_at_address (self, address):
 		'''

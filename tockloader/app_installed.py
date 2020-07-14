@@ -70,6 +70,12 @@ class InstalledApp:
 		'''
 		return self.tbfh.has_fixed_addresses()
 
+	def get_fixed_addresses_flash (self):
+		'''
+		Return a list of all addresses in flash this app is compiled for.
+		'''
+		return [self.tbfh.get_fixed_addresses()[1]]
+
 	def is_loadable_at_address (self, address):
 		'''
 		Check if it is possible to load this app at the given address. Returns

@@ -9,6 +9,7 @@ import binascii
 import contextlib
 import copy
 import functools
+import itertools
 import logging
 import os
 import platform
@@ -70,6 +71,7 @@ class TockLoader:
 	    'nrf52dk': {'size_minimum': 4096},
 	    'edu-ciaa': {'cmd_flags': {'bundle_apps': True,
 	                               'openocd': True}},
+	    'arty': {'size_minimum': 0x10000},
 	}
 
 
@@ -678,13 +680,63 @@ class TockLoader:
 			# This is the fixed addresses case
 			#
 
-			# Just sort the apps like we normally would. This provides some
-			# guess as to how we can organize them. This is not necessarily the
-			# best idea, but we have to start somewhere.
-			if self.app_options['order'] == 'size_descending':
-				apps.sort(key=lambda app: app.get_size(), reverse=True)
-			else:
-				raise TockLoaderException('Unknown sort order. This is a tockloader bug.')
+			def brad_sort (slices):
+				'''
+				Get an ordering of apps where the fixed start addresses are
+				respected and the apps do not overlap.
+
+				Brute force method!
+				'''
+				def is_valid (slices):
+					'''
+					Check if the list of app regions (slices) can fit correctly.
+					'''
+					slices = list(slices)
+					slices.sort(key=lambda x: x[0])
+					end = 0
+					for s in slices:
+						if s[0] < end:
+							return False
+						end = s[0] + s[1]
+					return True
+
+				# Get a list of all possible orderings.
+				options = itertools.product(*slices)
+				# See if any work.
+				for o in options:
+					if is_valid(o):
+						return o
+
+				# Couldn't find a valid ordering.
+				return None
+
+			# Get a list of all possible start and length pairs for each app to
+			# flash. Also keep around the index of the app in original array.
+			slices = []
+			for i,app in enumerate(apps):
+				starting_addresses = app.get_fixed_addresses_flash()
+				app_slices = []
+				for sa in starting_addresses:
+					if sa < address:
+						# Can't use an app below the start of apps address.
+						continue
+					app_slices.append([sa, app.get_size(), i])
+				slices.append(app_slices)
+
+			# See if we can find an ordering that works.
+			valid_order = brad_sort(slices)
+			if valid_order == None:
+				logging.error('Unable to find a valid sort order to flash apps.')
+				return
+
+			# Get sorted apps array.
+			logging.debug('Found sort order:')
+			sorted_apps = []
+			for order in valid_order:
+				app = apps[order[2]]
+				logging.debug('  App "{}" at address {:#x}'.format(app.get_name(), order[0]))
+				sorted_apps.append(app)
+			apps = sorted_apps
 
 			# Iterate all of the apps, and see if we can make this work based on
 			# having apps compiled for the correct addresses. If so, great! If
@@ -709,7 +761,6 @@ class TockLoader:
 					app_address += app.get_size()
 
 				else:
-				# if not app.is_loadable_at_address(app_address):
 					logging.error('Trying to find a location for app "{}"'.format(app))
 					logging.error('  Address to use is {:#x}'.format(app_address))
 					raise TockLoaderException('Could not load apps due to address mismatches')

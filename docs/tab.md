@@ -23,22 +23,24 @@ def extract_app(self, arch)
 
 
 
-Return an `App` object from this TAB. You must specify the desired
-MCU architecture so the correct binary can be retrieved.
+Return a `TabApp` object from this TAB. You must specify the desired MCU
+architecture so the correct App object can be retrieved. Note that an
+architecture may have multiple TBF files if the app is compiled for a
+fixed address, and multiple fixed address versions are included in the
+TAB.
 
 
-### get\_crt0\_header\_str
+### extract\_tbf
 ```py
 
-def get_crt0_header_str(self, arch)
+def extract_tbf(self, tbf_name)
 
 ```
 
 
 
-Return a string representation of the crt0 header some apps use for
-doing PIC fixups. We assume this header is positioned immediately
-after the TBF header.
+Return a `TabApp` object from this TAB. You must specify the desired TBF
+name, and only that TBF will be returned.
 
 
 ### get\_supported\_architectures
@@ -51,20 +53,23 @@ def get_supported_architectures(self)
 
 
 Return a list of architectures that this TAB has compiled binaries for.
+Note that this will return all architectures that have any TBF binary,
+but some of those TBF binaries may be compiled for very specific
+addresses. That is, there isn't a guarantee that the TBF file will work
+on any chip with one of the supported architectures.
 
 
-### get\_tbf\_header
+### get\_tbf\_names
 ```py
 
-def get_tbf_header(self)
+def get_tbf_names(self)
 
 ```
 
 
 
-Return a TBFHeader object with the TBF header from the app in the TAB.
-TBF headers are not architecture specific, so we pull from a random
-binary if there are multiple architectures supported.
+Returns a list of the names of all of the .tbf files contained in the
+TAB, without the extension.
 
 
 ### is\_compatible\_with\_board

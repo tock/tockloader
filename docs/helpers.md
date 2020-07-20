@@ -140,3 +140,20 @@ def set_terminal_title_from_port_info(info)
 
 Set a terminal title from a `pyserial` object.
 
+
+### text\_in\_box
+```py
+
+def text_in_box(string, box_width)
+
+```
+
+
+
+Return a string like:
+```
+┌───────────────┐
+│ str           │
+└───────────────┘
+```
+

@@ -1,17 +1,29 @@
 # Package tockloader.app Documentation
 
-## Class App
-Representation of a Tock app stored on a board.
+## Class TabApp
+Representation of a Tock app for a specific board from a TAB file. This is
+different from a TAB, since a TAB can include compiled binaries for a range
+of architectures, or compiled for various scenarios, which may not be
+applicable for a particular board.
+
+A TabApp need not be a single (TBF header, binary) pair, as an app from a
+TAB can include multiple (header, binary) pairs if the app was compiled
+multiple times. This could be for any reason (e.g. it was signed with
+different keys, or it uses different compiler optimizations), but typically
+this is because it is compiled for specific addresses in flash and RAM, and
+there are multiple linked versions present in the TAB. If so, there will be
+multiple (header, binary) pairs included in this App object, and the correct
+one for the board will be used later.
 ### \_\_init\_\_
 ```py
 
-def __init__(self, tbfh, address, name, app_binary=None)
+def __init__(self, tbfs)
 
 ```
 
 
 
-Initialize self.  See help(type(self)) for accurate signature.
+Create a `TabApp` from a list of (TBF header, app binary) pairs.
 
 
 ### get\_app\_binary
@@ -37,6 +49,32 @@ def get_binary(self)
 
 
 Return the binary array comprising the entire application.
+
+
+### get\_crt0\_header\_str
+```py
+
+def get_crt0_header_str(self)
+
+```
+
+
+
+Return a string representation of the crt0 header some apps use for
+doing PIC fixups. We assume this header is positioned immediately
+after the TBF header.
+
+
+### get\_header
+```py
+
+def get_header(self)
+
+```
+
+
+
+Return the TBFH object for the header.
 
 
 ### get\_header\_binary
@@ -97,32 +135,6 @@ def info(self, verbose=False)
 
 
 Get a string describing various properties of the app.
-
-
-### is\_modified
-```py
-
-def is_modified(self)
-
-```
-
-
-
-Returns whether this app has been modified by tockloader since it was
-initially created by `__init__`.
-
-
-### is\_sticky
-```py
-
-def is_sticky(self)
-
-```
-
-
-
-Returns true if the app is set as sticky and will not be removed with
-a normal app erase command. Sticky apps must be force removed.
 
 
 ### set\_address

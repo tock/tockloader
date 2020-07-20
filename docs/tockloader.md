@@ -85,7 +85,7 @@ def install(self, tabs, replace='yes', erase=False, sticky=False)
 
 Add or update TABs on the board.
 
-- `replace` can be either "yes", "no", or "only"
+- `replace` can be "yes", "no", or "only"
 - `erase` if true means erase all other apps before installing
 
 
@@ -192,7 +192,7 @@ def set_attribute(self, key, value)
 
 
 
-Download all attributes stored on the board.
+Change an attribute stored on the board.
 
 
 ### set\_flag
@@ -267,19 +267,7 @@ def _extract_apps_from_tabs(self, tabs)
 
 
 
-Iterate through the list of TABs and create the app dict for each.
-
-
-### \_get\_app\_name
-```py
-
-def _get_app_name(self, address, length)
-
-```
-
-
-
-Retrieve bytes from the board and interpret them as a string
+Iterate through the list of TABs and create the app object for each.
 
 
 ### \_print\_apps
@@ -328,8 +316,11 @@ def _reshuffle_apps(self, apps)
 
 
 Given an array of apps, some of which are new and some of which exist,
-sort them in flash so they are in descending size order. Then write
-these apps to flash.
+sort them so we can write them to flash.
+
+This function is really the driver of tockloader, and is responsible for
+setting up applications in a way that can be successfully used by the
+board.
 
 
 ### \_start\_communication\_with\_board

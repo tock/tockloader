@@ -61,7 +61,7 @@ def getfunctions(item):
 
         # Get the signature
         out.append ('```py\n')
-        out.append('def %s%s\n' % (func[0], pydoc.inspect.formatargspec(*pydoc.inspect.getfullargspec(func[1]))))
+        out.append('def {}{}\n'.format(func[0], pydoc.inspect.formatargspec(*pydoc.inspect.getfullargspec(func[1]))))
         out.append ('```\n')
 
         # get the docstring
@@ -95,6 +95,9 @@ generatedocs('tockloader.jlinkexe', 'jlinkexe.md')
 generatedocs('tockloader.openocd', 'openocd.md')
 generatedocs('tockloader.app', 'app.md')
 generatedocs('tockloader.tab', 'tab.md')
+generatedocs('tockloader.app_installed', 'app_installed.md')
+generatedocs('tockloader.app_tab', 'app_tab.md')
+generatedocs('tockloader.app_padding', 'app_padding.md')
 generatedocs('tockloader.tbfh', 'tbfh.md')
 generatedocs('tockloader.exceptions', 'exceptions.md')
 generatedocs('tockloader.helpers', 'helpers.md')

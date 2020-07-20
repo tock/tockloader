@@ -151,6 +151,9 @@ def command_read(args)
 
 
 
+Read the correct flash range from the chip.
+
+
 ### command\_remove\_attribute
 ```py
 

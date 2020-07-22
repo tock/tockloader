@@ -77,6 +77,33 @@ class BoardInterface:
 		         'openocd_commands': {'program': 'jtagspi_program {{binary}} {address:#x};',
 		                              'read': 'jtagspi_read {{binary}} {address:#x} {length};',
 		                              'erase': 'flash fillb {address:#x} 0x00 512;'}},
+        'stm32f3discovery': {'description': 'STM32F3-based Discovery Boards',
+                             'arch': 'cortex-m4',
+                             'apps_start_address': 0x08020000,
+                             'page_size': 2048,
+                             'openocd': 'external',
+                             'openocd_prefix': 'interface hla; \
+                                                hla_layout stlink; \
+                                                hla_device_desc "ST-LINK/V2-1"; \
+                                                hla_vid_pid 0x0483 0x374b; \
+                                                set WORKAREASIZE 0xC000; \
+                                                source [find target/stm32f3x.cfg];'},
+        'stm32f4discovery': {'description': 'STM32F4-based Discovery Boards',
+                                'arch': 'cortex-m4',
+                                'apps_start_address': 0x08040000,
+                                'page_size': 2048,
+                                'openocd': 'external',
+                                'openocd_prefix': 'interface hla; \
+                                                   hla_layout stlink; \
+                                                   hla_device_desc "ST-LINK/V2-1"; \
+                                                   hla_vid_pid 0x0483 0x374b; \
+                                                   set WORKAREASIZE 0x40000; \
+                                                   source [find target/stm32f4x.cfg];'},
+		'nucleof4': {'description': 'STM32f4-based Nucleo development boards',
+	                 'arch': 'cortex-m4',
+	                 'apps_start_address': 0x08040000,
+	                 'page_size': 2048,
+	                 'openocd': 'st_nucleo_f4.cfg'},
 		'hifive1': {'description': 'SiFive HiFive1 development board',
 		            'arch': 'rv32imac',
 		            'apps_start_address': 0x20430000,

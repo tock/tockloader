@@ -720,6 +720,11 @@ class TockLoader:
 					if sa < address:
 						# Can't use an app below the start of apps address.
 						continue
+					# HACK! Let's assume no board has more than 2 MB of flash.
+					if sa > (address + 0x200000):
+						if self.args.debug:
+							logging.debug('Ignoring start address {:#x} as too large.'.format(sa))
+						continue
 					app_slices.append([sa, app.get_size(), i])
 				slices.append(app_slices)
 

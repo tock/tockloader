@@ -212,9 +212,9 @@ class InstalledApp:
 		# the flash memory the app is not using.
 		size = self.get_size()
 		if len(binary) > size:
-			logging.debug('Binary is larger than what it says in the header. Actual:{}, expected:{}'
+			logging.info('Binary is larger than what it says in the header. Actual:{}, expected:{}'
 				.format(len(binary), size))
-			logging.debug('Truncating binary to match.')
+			logging.info('Truncating binary to match.')
 
 			# Check on what we would be removing. If it is all zeros, we
 			# determine that it is OK to truncate.

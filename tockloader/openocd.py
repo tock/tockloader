@@ -117,8 +117,7 @@ class OpenOCD(BoardInterface):
 			openocd_cmd=self.openocd_cmd, prefix=prefix, source=source,
 			cmd_prefix=cmd_prefix, cmd=commands, cmd_suffix=cmd_suffix)
 
-		if self.args.debug:
-			logging.debug('Running "{}".'.format(openocd_command))
+		logging.debug('Running "{}".'.format(openocd_command))
 
 		def print_output (subp):
 			response = ''
@@ -126,7 +125,7 @@ class OpenOCD(BoardInterface):
 				response += subp.stdout.decode('utf-8')
 			if subp.stderr:
 				response += subp.stderr.decode('utf-8')
-			logging.debug(response)
+			logging.info(response)
 			return response
 
 		p = subprocess.run(shlex.split(openocd_command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -166,14 +165,12 @@ You may need to update OpenOCD to the version in latest git master.')
 		if self.openocd_address_translator:
 			address = self.openocd_address_translator(address)
 
-		if self.args.debug:
-			logging.debug('Using program command: "{}"'.format(command))
+		logging.debug('Using program command: "{}"'.format(command))
 
 		# Substitute the key arguments.
 		command = command.format(address=address)
 
-		if self.args.debug:
-			logging.debug('Expanded program command: "{}"'.format(command))
+		logging.debug('Expanded program command: "{}"'.format(command))
 
 		self._run_openocd_commands(command, binary)
 
@@ -190,14 +187,12 @@ You may need to update OpenOCD to the version in latest git master.')
 		if self.openocd_address_translator:
 			address = self.openocd_address_translator(address)
 
-		if self.args.debug:
-			logging.debug('Using read command: "{}"'.format(command))
+		logging.debug('Using read command: "{}"'.format(command))
 
 		# Substitute the key arguments.
 		command = command.format(address=address, length=length)
 
-		if self.args.debug:
-			logging.debug('Expanded read command: "{}"'.format(command))
+		logging.debug('Expanded read command: "{}"'.format(command))
 
 		# Always return a valid byte array (like the serial version does)
 		read = bytes()
@@ -212,8 +207,7 @@ You may need to update OpenOCD to the version in latest git master.')
 		return read
 
 	def erase_page (self, address):
-		if self.args.debug:
-			logging.debug('Erasing page at address {:#0x}'.format(address))
+		logging.debug('Erasing page at address {:#0x}'.format(address))
 
 		# Check if we need to translate the address from MCU address space to
 		# OpenOCD command addressing.
@@ -232,14 +226,12 @@ You may need to update OpenOCD to the version in latest git master.')
 		if 'erase' in self.openocd_commands:
 			command = self.openocd_commands['erase']
 
-		if self.args.debug:
-			logging.debug('Using erase command: "{}"'.format(command))
+		logging.debug('Using erase command: "{}"'.format(command))
 
 		# Substitute the key arguments.
 		command = command.format(address=address)
 
-		if self.args.debug:
-			logging.debug('Expanded erase command: "{}"'.format(command))
+		logging.debug('Expanded erase command: "{}"'.format(command))
 
 		self._run_openocd_commands(command, None)
 

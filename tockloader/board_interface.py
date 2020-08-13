@@ -209,8 +209,7 @@ class BoardInterface:
 
 		If this fails for some reason this should return an empty binary array.
 		'''
-		if self.args.debug:
-			logging.debug('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
+		logging.debug('DEBUG => Read Range, address: {:#010x}, length: {}'.format(address, length))
 
 	def erase_page (self, address):
 		'''

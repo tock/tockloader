@@ -328,7 +328,7 @@ def main ():
 	atexit.register(helpers.set_terminal_title, '')
 
 	# Setup logging for displaying background information to the user.
-	logging.basicConfig(style='{', format='[{levelname:<7}] {message}', level=logging.DEBUG)
+	logging.basicConfig(style='{', format='[{levelname:<7}] {message}', level=logging.INFO)
 	# Add a custom status level for logging what tockloader is doing.
 	logging.addLevelName(25, 'STATUS')
 	logging.Logger.status = functools.partialmethod(logging.Logger.log, 25)
@@ -627,6 +627,10 @@ def main ():
 
 	argcomplete.autocomplete(parser)
 	args = parser.parse_args()
+
+	# Change logging level if `--debug` was supplied.
+	if args.debug:
+		logging.getLogger('').setLevel(logging.DEBUG)
 
 	# Concat the args before the command with those that were specified
 	# after the command. This is a workaround because for some reason python

@@ -604,8 +604,7 @@ class TockLoader:
 		length = 14
 		flag = self.channel.read_range(address, length)
 		flag_str = flag.decode('utf-8', 'ignore')
-		if self.args.debug:
-			logging.debug('Read from flags location: {}'.format(flag_str))
+		logging.debug('Read from flags location: {}'.format(flag_str))
 		return flag_str == 'TOCKBOOTLOADER'
 
 	def _update_board_specific_options (self):
@@ -634,7 +633,7 @@ class TockLoader:
 			# users do not have to pass them in every time.
 			if 'cmd_flags' in self.app_options:
 				for flag,setting in self.app_options['cmd_flags'].items():
-					logging.debug('Hardcoding command line argument "{}" to "{}" for board {}.'.format(flag, setting, board))
+					logging.info('Hardcoding command line argument "{}" to "{}" for board {}.'.format(flag, setting, board))
 					setattr(self.args, flag, setting)
 
 	############################################################################
@@ -722,8 +721,7 @@ class TockLoader:
 						continue
 					# HACK! Let's assume no board has more than 2 MB of flash.
 					if sa > (address + 0x200000):
-						if self.args.debug:
-							logging.debug('Ignoring start address {:#x} as too large.'.format(sa))
+						logging.debug('Ignoring start address {:#x} as too large.'.format(sa))
 						continue
 					app_slices.append([sa, app.get_size(), i])
 				slices.append(app_slices)
@@ -735,11 +733,11 @@ class TockLoader:
 				return
 
 			# Get sorted apps array.
-			logging.debug('Found sort order:')
+			logging.info('Found sort order:')
 			sorted_apps = []
 			for order in valid_order:
 				app = apps[order[2]]
-				logging.debug('  App "{}" at address {:#x}'.format(app.get_name(), order[0]))
+				logging.info('  App "{}" at address {:#x}'.format(app.get_name(), order[0]))
 				sorted_apps.append(app)
 			apps = sorted_apps
 
@@ -785,7 +783,7 @@ class TockLoader:
 				for app in to_flash_apps:
 					app_bundle += app.get_binary(app_address)
 					app_address += app.get_size()
-				logging.debug('Installing app bundle. Size: {} bytes.'.format(len(app_bundle)))
+				logging.info('Installing app bundle. Size: {} bytes.'.format(len(app_bundle)))
 				self.channel.flash_binary(address, app_bundle)
 			else:
 				# Flash only apps that have been modified. The only way an app
@@ -846,7 +844,7 @@ class TockLoader:
 			   (self.args.bundle_apps or
 			   	app.get_address() != app_address or
 			   	app.is_modified()):
-					logging.debug('Reading app {} binary from board.'.format(app))
+					logging.info('Reading app {} binary from board.'.format(app))
 					entire_app = self.channel.read_range(app.address, app.get_size())
 					in_flash_tbfh = TBFHeader(entire_app)
 					app.set_app_binary(entire_app[in_flash_tbfh.get_header_size():])
@@ -869,7 +867,7 @@ class TockLoader:
 			for app in apps:
 				app_bundle += app.get_binary(app_address)
 				app_address += app.get_size()
-			logging.debug('Installing app bundle. Size: {} bytes.'.format(len(app_bundle)))
+			logging.info('Installing app bundle. Size: {} bytes.'.format(len(app_bundle)))
 			self.channel.flash_binary(address, app_bundle)
 		else:
 			# Flash only apps that have been modified. The only way an app would
@@ -880,7 +878,7 @@ class TockLoader:
 				# the app is already installed.
 				optional_binary = app.get_binary(app_address)
 				if optional_binary:
-					logging.debug('Flashing app {} binary to board.'.format(app))
+					logging.info('Flashing app {} binary to board.'.format(app))
 					self.channel.flash_binary(app_address, optional_binary)
 				app_address = app_address + app.get_size()
 
@@ -957,8 +955,7 @@ class TockLoader:
 							app_size >>= 1
 							count += 1
 						app.set_size(1 << count)
-						if self.args.debug:
-							logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
+						logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
 				elif self.app_options['size_constraint'] == 'none':
 					pass
 				else:

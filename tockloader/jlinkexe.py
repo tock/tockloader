@@ -109,14 +109,13 @@ class JLinkExe(BoardInterface):
 			jlink_command = '{} -device {} -if {} -speed {} -AutoConnect 1 -jtagconf -1,-1 -CommanderScript {}'.format(
                                 self.jlink_cmd, self.jlink_device, self.jlink_if, self.jlink_speed, jlink_file.name)
 
-			if self.args.debug:
-				logging.debug('Running "{}".'.format(jlink_command))
+			logging.debug('Running "{}".'.format(jlink_command))
 
 			def print_output (subp):
 				if subp.stdout:
-					logging.debug(subp.stdout.decode('utf-8'))
+					logging.info(subp.stdout.decode('utf-8'))
 				if subp.stderr:
-					logging.debug(subp.stderr.decode('utf-8'))
+					logging.info(subp.stderr.decode('utf-8'))
 
 			p = subprocess.run(jlink_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			if p.returncode != 0:
@@ -205,8 +204,7 @@ class JLinkExe(BoardInterface):
 		return read
 
 	def erase_page (self, address):
-		if self.args.debug:
-			logging.debug('Erasing page at address {:#0x}'.format(address))
+		logging.debug('Erasing page at address {:#0x}'.format(address))
 
 		# For some reason on the nRF52840DK erasing an entire page causes
 		# previous flash to be reset to 0xFF. This doesn't seem to happen

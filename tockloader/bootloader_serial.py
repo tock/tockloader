@@ -161,6 +161,16 @@ class BootloaderSerial(BoardInterface):
 
 		# Open the actual serial port
 		self.sp = serial.Serial()
+
+		# We need to monkey patch the serial library so that it does not clear
+		# our receive buffer. For FTDI devices this is not necessary. However,
+		# for CDC-ACM devices, the board can send back data before we are
+		# finished configuring it. We don't want to lose that data, so we
+		# replace the `reset_input_buffer()` function with a no-op.
+		def dummy_function():
+			pass
+		self.sp.reset_input_buffer = dummy_function
+
 		self.sp.port = port
 		self.sp.baudrate = 115200
 		self.sp.parity=serial.PARITY_NONE

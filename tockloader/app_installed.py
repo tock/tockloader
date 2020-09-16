@@ -16,7 +16,13 @@ class InstalledApp:
 		self.app_binary = app_binary # A binary array of the app _after_ the header.
 		self.address = address       # Where on the board this app currently is.
 
-		self.modified = False        # A flag indicating if this app has been modified by tockloader.
+		# Store the length of the TBF header and any padding before the actual
+		# app binary. This allows us to keep track of if the actual application
+		# has to move or not.
+		self.original_size_before_app = tbfh.get_size_before_app()
+
+		# A flag indicating if this app has been modified by tockloader.
+		self.app_binary_modified = False
 
 	def get_name (self):
 		'''
@@ -29,7 +35,7 @@ class InstalledApp:
 		Returns whether this app has been modified by tockloader since it was
 		initially created by `__init__`.
 		'''
-		return self.modified or self.tbfh.is_modified()
+		return self.app_binary_modified or self.tbfh.is_modified()
 
 	def is_sticky (self):
 		'''
@@ -62,7 +68,6 @@ class InstalledApp:
 		if size < current_size:
 			raise TockLoaderException('Cannot make app smaller. Current size: {} bytes'.format(current_size))
 		self.tbfh.set_app_size(size)
-		self.is_modified = True
 
 	def has_fixed_addresses(self):
 		'''
@@ -166,7 +171,7 @@ class InstalledApp:
 		existing contents of flash on a board.
 		'''
 		self.app_binary = app_binary
-		self.modified = True
+		self.app_binary_modified = True
 
 	def get_address (self):
 		'''
@@ -193,6 +198,9 @@ class InstalledApp:
 		be written to the board. Otherwise, if it is already installed, return
 		`None`.
 		'''
+		# Since this is an already installed app, we first check to see if
+		# anything actually changed. If not, then we don't need to re-flash this
+		# app.
 		if not self.is_modified() and address == self.address:
 			return None
 
@@ -201,28 +209,43 @@ class InstalledApp:
 		# fixed addresses.
 		self.tbfh.adjust_starting_address(address)
 
-		# Get the actual app binary.
-		binary = self.tbfh.get_binary() + self.app_binary
+		# Now, we can check if we need to flash the header and the app binary,
+		# or just the header. We need to flash both the header _and_ the app
+		# binary
+		#
+		# - if the length of the header changed, or
+		# - if the app binary itself has changed, or
+		# - if the location of the app has changed
+		if self.tbfh.get_size_before_app() != self.original_size_before_app or \
+			self.app_binary_modified or \
+			address != self.address:
 
-		# Check that the binary is not longer than it is supposed to be. This
-		# might happen if the size was changed, but any code using this binary
-		# has no way to check. If the binary is too long, we truncate the actual
-		# binary blob (which should just be padding) to the correct length. If
-		# it is too short it is ok, since the board shouldn't care what is in
-		# the flash memory the app is not using.
-		size = self.get_size()
-		if len(binary) > size:
-			logging.info('Binary is larger than what it says in the header. Actual:{}, expected:{}'
-				.format(len(binary), size))
-			logging.info('Truncating binary to match.')
+			# Get the actual full app binary.
+			binary = self.tbfh.get_binary() + self.app_binary
 
-			# Check on what we would be removing. If it is all zeros, we
-			# determine that it is OK to truncate.
-			to_remove = binary[size:]
-			if len(to_remove) != to_remove.count(0):
-				raise TockLoaderException('Error truncating binary. Not zero.')
+			# Check that the binary is not longer than it is supposed to be.
+			# This might happen if the size was changed, but any code using this
+			# binary has no way to check. If the binary is too long, we truncate
+			# the actual binary blob (which should just be padding) to the
+			# correct length. If it is too short it is ok, since the board
+			# shouldn't care what is in the flash memory the app is not using.
+			size = self.get_size()
+			if len(binary) > size:
+				logging.info('Binary is larger than what it says in the header. Actual:{}, expected:{}'
+					.format(len(binary), size))
+				logging.info('Truncating binary to match.')
 
-		return binary
+				# Check on what we would be removing. If it is all zeros, we
+				# determine that it is OK to truncate.
+				to_remove = binary[size:]
+				if len(to_remove) != to_remove.count(0):
+					raise TockLoaderException('Error truncating binary. Not zero.')
+
+			return binary
+
+		else:
+			# Only the header needs to be flashed
+			return self.tbfh.get_binary()
 
 	def info (self, verbose=False):
 		'''

@@ -87,8 +87,8 @@ class TAB:
 
 	def extract_tbf (self, tbf_name):
 		'''
-		Return a `TabApp` object from this TAB. You must specify the desired TBF
-		name, and only that TBF will be returned.
+		Return a `TabApp` object from this TAB. You must specify the
+		desired TBF name, and only that TBF will be returned.
 		'''
 		tbf_filename = '{}.tbf'.format(tbf_name)
 		binary_tarinfo = self.tab.getmember(tbf_filename)

@@ -75,11 +75,14 @@ class InstalledApp:
 		'''
 		return self.tbfh.has_fixed_addresses()
 
-	def get_fixed_addresses_flash (self):
+	def get_fixed_addresses_flash_and_sizes (self):
 		'''
-		Return a list of all addresses in flash this app is compiled for.
+		Return a list of tuples of all addresses in flash this app is compiled
+		for and the size of the app at that address.
+
+		[(address, size), (address, size), ...]
 		'''
-		return [self.tbfh.get_fixed_addresses()[1]]
+		return [(self.tbfh.get_fixed_addresses()[1], self.tbfh.get_app_size())]
 
 	def is_loadable_at_address (self, address):
 		'''
@@ -108,7 +111,7 @@ class InstalledApp:
 
 		return False
 
-	def get_next_loadable_address (self, address):
+	def fix_at_next_loadable_address (self, address):
 		'''
 		Calculate the next reasonable address where we can put this app where
 		the address is greater than or equal to `address`. The `address`
@@ -252,7 +255,6 @@ class InstalledApp:
 		Get a string describing various properties of the app.
 		'''
 		offset = self.address
-		fields = self.tbfh.fields
 
 		out = ''
 		out += 'Name:                  {}\n'.format(self.get_name())

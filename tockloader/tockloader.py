@@ -71,7 +71,8 @@ class TockLoader:
 	    'nrf52dk': {'size_minimum': 4096},
 	    'edu-ciaa': {'cmd_flags': {'bundle_apps': True,
 	                               'openocd': True}},
-	    'arty': {'size_minimum': 0x10000},
+	    'arty': {'size_minimum': 0x10000,
+	             'size_constraint': None},
 	}
 
 
@@ -713,23 +714,26 @@ class TockLoader:
 			# flash. Also keep around the index of the app in original array.
 			slices = []
 			for i,app in enumerate(apps):
-				starting_addresses = app.get_fixed_addresses_flash()
+				apps_in_flash = app.get_fixed_addresses_flash_and_sizes()
 				app_slices = []
-				for sa in starting_addresses:
-					if sa < address:
+				for starting_address,size in apps_in_flash:
+					if starting_address < address:
 						# Can't use an app below the start of apps address.
 						continue
 					# HACK! Let's assume no board has more than 2 MB of flash.
-					if sa > (address + 0x200000):
+					if starting_address > (address + 0x200000):
 						logging.debug('Ignoring start address {:#x} as too large.'.format(sa))
 						continue
-					app_slices.append([sa, app.get_size(), i])
+					app_slices.append([starting_address, size, i])
 				slices.append(app_slices)
 
 			# See if we can find an ordering that works.
 			valid_order = brad_sort(slices)
 			if valid_order == None:
 				logging.error('Unable to find a valid sort order to flash apps.')
+				if self.args.debug:
+					for app in apps:
+						logging.debug('{}'.format(app.info(True)))
 				return
 
 			# Get sorted apps array.
@@ -747,9 +751,9 @@ class TockLoader:
 			to_flash_apps = []
 			app_address = address
 			for app in apps:
-				# Ask the app where we can put it that is greater than or equal
-				# to the current address we are looking at.
-				next_loadable_address = app.get_next_loadable_address(app_address)
+				# Get a version of that app that we can put at a desirable address.
+				next_loadable_address = app.fix_at_next_loadable_address(app_address)
+
 				if next_loadable_address == app_address:
 					to_flash_apps.append(app)
 					app_address += app.get_size()
@@ -941,25 +945,10 @@ class TockLoader:
 				app = tab.extract_app(arch)
 
 				# Enforce the minimum app size here.
-				if app.get_size() < self.app_options['size_minimum']:
-					app.set_size(self.app_options['size_minimum'])
+				app.set_minimum_size(self.app_options['size_minimum'])
 
 				# Enforce other sizing constraints here.
-				if self.app_options['size_constraint'] == 'powers_of_two':
-					# Make sure the total app size is a power of two.
-					app_size = app.get_size()
-					if (app_size & (app_size - 1)) != 0:
-						# This is not a power of two, but should be.
-						count = 0
-						while app_size != 0:
-							app_size >>= 1
-							count += 1
-						app.set_size(1 << count)
-						logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
-				elif self.app_options['size_constraint'] == 'none':
-					pass
-				else:
-					raise TockLoaderException('Unknown size constraint. This is a tockloader bug.')
+				app.set_size_constraint(self.app_options['size_constraint'])
 
 				apps.append(app)
 

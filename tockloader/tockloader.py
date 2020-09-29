@@ -722,7 +722,7 @@ class TockLoader:
 						continue
 					# HACK! Let's assume no board has more than 2 MB of flash.
 					if starting_address > (address + 0x200000):
-						logging.debug('Ignoring start address {:#x} as too large.'.format(sa))
+						logging.debug('Ignoring start address {:#x} as too large.'.format(starting_address))
 						continue
 					app_slices.append([starting_address, size, i])
 				slices.append(app_slices)

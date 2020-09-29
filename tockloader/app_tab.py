@@ -222,7 +222,7 @@ class TabApp:
 					best_address = wanted_address
 					best_index = i
 
-		if best_index:
+		if best_index != None:
 			self.tbfs = [self.tbfs[best_index]]
 			return best_address
 		else:

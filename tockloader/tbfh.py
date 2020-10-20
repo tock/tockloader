@@ -105,11 +105,12 @@ class TBFHeader:
 						remaining -= 4
 
 						if tipe == self.HEADER_TYPE_MAIN:
-							if remaining >= 12 and length == 12:
-								base = struct.unpack('<III', buffer[0:12])
+							if remaining >= 16 and length == 16:
+								base = struct.unpack('<IIII', buffer[0:16])
 								self.fields['init_fn_offset'] = base[0]
 								self.fields['protected_size'] = base[1]
 								self.fields['minimum_ram_size'] = base[2]
+								self.fields['app_id'] = base[3]
 
 						elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
 							self.writeable_flash_regions = []
@@ -459,9 +460,10 @@ class TBFHeader:
 		# Main TLV
 		if self.is_app:
 			out += 'TLV: Main ({})\n'.format(self.HEADER_TYPE_MAIN)
-			out += '  {:<20}: {:>10} {:>#12x}\n'.format('init_fn_offset', self.fields['init_fn_offset'], self.fields['init_fn_offset'])
-			out += '  {:<20}: {:>10} {:>#12x}\n'.format('protected_size', self.fields['protected_size'], self.fields['protected_size'])
-			out += '  {:<20}: {:>10} {:>#12x}\n'.format('minimum_ram_size', self.fields['minimum_ram_size'], self.fields['minimum_ram_size'])
+			out += '  {:<20}: {:>12} {:>#12x}\n'.format('init_fn_offset', self.fields['init_fn_offset'], self.fields['init_fn_offset'])
+			out += '  {:<20}: {:>12} {:>#12x}\n'.format('protected_size', self.fields['protected_size'], self.fields['protected_size'])
+			out += '  {:<20}: {:>12} {:>#12x}\n'.format('minimum_ram_size', self.fields['minimum_ram_size'], self.fields['minimum_ram_size'])
+			out += '  {:<20}: {:>12} {:>#12x}\n'.format('app_id', self.fields['app_id'], self.fields['app_id'])
 
 		if hasattr(self, 'package_name'):
 			out += 'TLV: Package Name ({})\n'.format(self.HEADER_TYPE_PACKAGE_NAME)

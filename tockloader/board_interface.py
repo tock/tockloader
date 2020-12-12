@@ -123,6 +123,18 @@ class BoardInterface:
 		             'openocd_options': ['noreset'],
 		             'openocd_commands': {'program': 'flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};',
 		             'erase': 'flash fillb {address:#x} 0x00 512;'}},
+		'microbit_v2': {'description': 'BBC Micro:bit v2',
+                                'arch': 'cortex-m4',
+                                'apps_start_address': 0x00040000,
+                                'page_size': 4096,
+                                'openocd': 'external',
+                                'openocd_prefix': 'source [find interface/cmsis-dap.cfg]; \
+                                                   transport select swd; \
+                                                   source [find target/nrf52.cfg]; \
+												   set WORKAREASIZE 0x40000; \
+												   $_TARGETNAME configure -work-area-phys 0x20000000 -work-area-size $WORKAREASIZE -work-area-backup 0; \
+                                                   flash bank $_CHIPNAME.flash nrf51 0x00000000 0 1 1 $_TARGETNAME; \
+												   '},
 	}
 
 	def __init__ (self, args):

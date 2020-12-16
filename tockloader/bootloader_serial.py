@@ -60,6 +60,7 @@ class BootloaderSerial(BoardInterface):
 	COMMAND_CLKOUT             = 0x19
 	COMMAND_WUSER              = 0x20
 	COMMAND_CHANGE_BAUD_RATE   = 0x21
+	COMMAND_EXIT               = 0x22
 
 	# Responses from the bootloader.
 	RESPONSE_OVERFLOW           = 0x10
@@ -83,15 +84,19 @@ class BootloaderSerial(BoardInterface):
 	# Tell the bootloader to reset its buffer to handle a new command.
 	SYNC_MESSAGE = bytes([0x00, 0xFC, 0x05])
 
-	def open_link_to_board (self, listen=False):
+	def __init__ (self, args):
+		super().__init__(args)
+
+		# The Tock serial bootloader only uses 512 byte pages to simplify the
+		# implementations and reduce uncertainty. Chips implementing the
+		# bootloader are expected to handle data being written or erased in 512
+		# byte chunks.
+		self.page_size = 512
+
+	def _determine_port (self):
 		'''
-		Open the serial port to the chip/bootloader.
-
-		Also sets up a local port for determining when two Tockloader instances
-		are running simultaneously.
-
-		Set the argument `listen` to true if the serial port is being setup
-		because we are planning to run `run_terminal`.
+		Helper function to determine which serial port on the host to use to
+		connect to the board.
 		'''
 		# Check to see if the user specified a serial port or a specific name,
 		# or if we should find a serial port to use.
@@ -158,7 +163,13 @@ class BootloaderSerial(BoardInterface):
 		logging.info('Using "{}".'.format(ports[index]))
 		port = ports[index][0]
 		helpers.set_terminal_title_from_port_info(ports[index])
+		return port
 
+	def _open_serial_port (self, port):
+		'''
+		Helper function to configure the serial port so we can read/write with
+		it.
+		'''
 		# Open the actual serial port
 		self.sp = serial.Serial()
 
@@ -183,7 +194,18 @@ class BootloaderSerial(BoardInterface):
 		self.sp.dtr = 0
 		self.sp.rts = 0
 
+	def open_link_to_board (self, listen=False):
+		'''
+		Open the serial port to the chip/bootloader.
 
+		Also sets up a local port for determining when two Tockloader instances
+		are running simultaneously.
+
+		Set the argument `listen` to true if the serial port is being setup
+		because we are planning to run `run_terminal`.
+		'''
+		port = self._determine_port()
+		self._open_serial_port(port)
 
 		# Only one process at a time can talk to a serial port (reliably).
 		# Before connecting, check whether there is another tockloader process
@@ -355,10 +377,11 @@ class BootloaderSerial(BoardInterface):
 		'''
 		return hashlib.sha1(self.sp.port.encode('utf-8')).hexdigest()
 
-	def _toggle_bootloader_entry (self):
+	def _toggle_bootloader_entry_DTR_RTS (self):
 		'''
-		Reset the chip and assert the bootloader select pin to enter bootloader
-		mode.
+		Use the DTR and RTS lines on UART to reset the chip and assert the
+		bootloader select pin to enter bootloader mode so that the chip will
+		start in bootloader mode.
 		'''
 		# Reset the SAM4L
 		self.sp.dtr = 1
@@ -373,12 +396,40 @@ class BootloaderSerial(BoardInterface):
 		# The select line can go back high
 		self.sp.rts = 0
 
+	def _toggle_bootloader_entry_baud_rate (self):
+		'''
+		Set the baud rate to 1200 so that the chip will restart into the bootloader.
+		'''
+		# Save the name of the currently used port
+		port = self.sp.port
+
+		# Change the baud rate to tell the board to reset into the bootloader.
+		self.sp.baudrate = 1200
+
+		# Wait for the serial port to re-appear.
+		for i in range(0, 30):
+			if i == 1:
+				# Print this message if we actually reset the chip using the
+				# baud rate. Otherwise this was a DTR/RTS chip, and no need to
+				# wait.
+				logging.info('Waiting for the bootloader to start')
+			ports = list(serial.tools.list_ports.grep(port))
+			if len(ports) > 0:
+				break
+			time.sleep(0.5)
+		else:
+			raise TockLoaderException('Bootloader did not start')
+
+		self._open_serial_port(port)
+		self.sp.open()
+
 	def enter_bootloader_mode (self):
 		'''
 		Reset the chip and assert the bootloader select pin to enter bootloader
 		mode. Handle retries if necessary.
 		'''
-		self._toggle_bootloader_entry()
+		self._toggle_bootloader_entry_baud_rate()
+		self._toggle_bootloader_entry_DTR_RTS()
 
 		# Make sure the bootloader is actually active and we can talk to it.
 		try:
@@ -413,6 +464,8 @@ class BootloaderSerial(BoardInterface):
 		'''
 		if self.args.jtag:
 			return
+
+		self._exit_bootloader()
 
 		# Reset the SAM4L
 		self.sp.dtr = 1
@@ -522,6 +575,15 @@ class BootloaderSerial(BoardInterface):
 			if not success:
 				# Something went wrong. Go back to old baud rate
 				self.sp.baudrate = 115200
+
+	def _exit_bootloader (self):
+		'''
+		Tell the bootloader on the board to exit so the main software can run.
+
+		This uses a command sent over the serial port to the bootloader.
+		'''
+		exit_pkt = bytes([self.ESCAPE_CHAR, self.COMMAND_EXIT])
+		self.sp.write(exit_pkt)
 
 	def flash_binary (self, address, binary, pad=True):
 		'''

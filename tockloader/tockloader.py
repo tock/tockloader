@@ -462,6 +462,20 @@ class TockLoader:
 				raise TockLoaderException('Error: Attribute does not exist.')
 
 
+	def set_start_address (self, address):
+		'''
+		Set the address that the bootloader jumps to to run kernel code.
+		'''
+
+		# Enter bootloader mode to get things started
+		with self._start_communication_with_board():
+
+			if not self._bootloader_is_present():
+				raise TockLoaderException('No bootloader found! That means there is nowhere for attributes to go.')
+
+			self.channel.set_start_address(address)
+
+
 	def info (self):
 		'''
 		Print all info about this board.

@@ -61,6 +61,7 @@ class BootloaderSerial(BoardInterface):
 	COMMAND_WUSER              = 0x20
 	COMMAND_CHANGE_BAUD_RATE   = 0x21
 	COMMAND_EXIT               = 0x22
+	COMMAND_SET_START_ADDRESS  = 0x23
 
 	# Responses from the bootloader.
 	RESPONSE_OVERFLOW           = 0x10
@@ -666,6 +667,16 @@ class BootloaderSerial(BoardInterface):
 				raise TockLoaderException('Error: Need to supply erase page with correct 4 byte address.')
 			elif ret[1] == self.RESPONSE_INTERROR:
 				raise TockLoaderException('Error: Internal error when erasing flash page.')
+			else:
+				raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
+
+	def set_start_address (self, address):
+		message = struct.pack('<I', address)
+		success, ret = self._issue_command(self.COMMAND_SET_START_ADDRESS, message, True, 0, self.RESPONSE_OK)
+
+		if not success:
+			if ret[1] == self.RESPONSE_BADARGS:
+				raise TockLoaderException('Error: Need to supply start address.')
 			else:
 				raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
 

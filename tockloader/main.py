@@ -262,6 +262,14 @@ def command_remove_attribute (args):
 	tock_loader.remove_attribute(args.key)
 
 
+def command_set_start_address (args):
+	tock_loader = TockLoader(args)
+	tock_loader.open()
+
+	logging.status('Setting bootloader jump address...')
+	tock_loader.set_start_address(args.address)
+
+
 def command_info (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open()
@@ -596,6 +604,15 @@ def main ():
 	removeattribute.set_defaults(func=command_remove_attribute)
 	removeattribute.add_argument('key',
 		help='Attribute key')
+
+	setstartaddress = subparser.add_parser('set-start-address',
+		parents=[parent, parent_channel],
+		help='Set bootloader jump address')
+	setstartaddress.set_defaults(func=command_set_start_address)
+	setstartaddress.add_argument('address',
+		help='Start address',
+		type=lambda x: int(x, 0),
+		default=0x10000)
 
 	info = subparser.add_parser('info',
 		parents=[parent, parent_apps, parent_channel],

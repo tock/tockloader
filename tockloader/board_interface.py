@@ -257,6 +257,14 @@ class BoardInterface:
 		address = 0x600 + (64 * index)
 		self.flash_binary(address, raw)
 
+	def set_start_address (self, address):
+		'''
+		Set the address the bootloader jumps to to start the actual code.
+		'''
+		# This is only valid if there is a bootloader and this function is
+		# re-implemented.
+		raise TockLoaderException('No bootloader, cannot set start address.')
+
 	def _decode_attribute (self, raw):
 		try:
 			key = raw[0:8].decode('utf-8').strip(bytes([0]).decode('utf-8'))

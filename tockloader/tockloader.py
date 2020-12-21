@@ -526,6 +526,15 @@ class TockLoader:
 			self._print_flash(address, flash)
 
 
+	def write_flash (self, address, length, value):
+		'''
+		Write a byte to some flash contents.
+		'''
+		with self._start_communication_with_board():
+			to_write = bytes([value] * length)
+			self.channel.flash_binary(address, to_write, pad=False)
+
+
 	def run_terminal (self):
 		'''
 		Create an interactive terminal session with the board.

@@ -214,6 +214,14 @@ def command_flash (args):
 			binary += f.read()
 		count += 1
 
+	# Check if the user asked us to pad the binary with some additional bytes.
+	pad = None
+	if args.pad:
+		# First arg is the length, second arg is the value
+		pad = (args.pad[0], args.pad[1])
+		if pad[1] < 0 or pad[1] > 255:
+			raise TockLoaderException('Padding value must be only one byte')
+
 	# Flash the binary to the chip
 	tock_loader = TockLoader(args)
 	tock_loader.open()
@@ -222,7 +230,7 @@ def command_flash (args):
 	if count > 1:
 		plural = 'ies'
 	logging.status('Flashing binar{} to board...'.format(plural))
-	tock_loader.flash_binary(binary, args.address)
+	tock_loader.flash_binary(binary, args.address, pad=pad)
 
 
 def command_read (args):
@@ -588,6 +596,10 @@ def main ():
 		help='Address to flash the binary at',
 		type=lambda x: int(x, 0),
 		default=0x30000)
+	flash.add_argument('--pad',
+		help='Optional number of bytes to pad and value to use',
+		nargs=2,
+		type=lambda x: int(x, 0),)
 
 	read = subparser.add_parser('read',
 		parents=[parent, parent_channel],

@@ -111,16 +111,27 @@ class TockLoader:
 		self.channel.open_link_to_board()
 
 
-	def flash_binary (self, binary, address):
+	def flash_binary (self, binary, address, pad=None):
 		'''
 		Tell the bootloader to save the binary blob to an address in internal
 		flash.
 
 		This will pad the binary as needed, so don't worry about the binary
 		being a certain length.
+
+		This accepts an optional `pad` parameter. If used, the `pad` parameter
+		is a tuple of `(length, value)` signifying the number of bytes to pad,
+		and the particular byte to use for the padding.
 		'''
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
+
+			# Check if we should add padding, which is just pad[0] copies of the
+			# same byte (pad[1]).
+			if pad:
+				extra = bytes([pad[1]] * pad[0])
+				binary = binary + extra
+
 			self.channel.flash_binary(address, binary)
 
 

@@ -772,6 +772,10 @@ class BootloaderSerial(BoardInterface):
 		json_data = ret[1:1+length].decode('utf-8')
 		try:
 			info = json.loads(json_data)
+
+			if self.args.debug:
+				logging.debug(info)
+
 			return info['version']
 		except:
 			# Could not get a valid version from the board.

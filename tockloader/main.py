@@ -238,6 +238,24 @@ def command_read (args):
 	tock_loader.read_flash(args.address, args.length)
 
 
+def command_write (args):
+	'''
+	Write flash range on the chip with a specific value.
+	'''
+	tock_loader = TockLoader(args)
+	tock_loader.open()
+
+	# Only write a single byte.
+	if args.value < 0 or args.value > 0xff:
+		raise TockLoaderException('Can only write multiple copies of a single byte')
+
+	logging.status('Writing flash on the board...')
+	logging.status('  Address: {:#x}'.format(args.address))
+	logging.status('  Length:  {} bytes'.format(args.length))
+	logging.status('  Value:   {:#x}'.format(args.value))
+	tock_loader.write_flash(args.address, args.length, args.value)
+
+
 def command_list_attributes (args):
 	tock_loader = TockLoader(args)
 	tock_loader.open()
@@ -571,18 +589,35 @@ def main ():
 		type=lambda x: int(x, 0),
 		default=0x30000)
 
-	flash = subparser.add_parser('read',
+	read = subparser.add_parser('read',
 		parents=[parent, parent_channel],
 		help='Read arbitrary flash memory')
-	flash.set_defaults(func=command_read)
-	flash.add_argument('address',
+	read.set_defaults(func=command_read)
+	read.add_argument('address',
 		help='Address to read from',
 		type=lambda x: int(x, 0),
 		default=0x30000)
-	flash.add_argument('length',
+	read.add_argument('length',
 		help='Number of bytes to read',
 		type=lambda x: int(x, 0),
 		default=512)
+
+	write = subparser.add_parser('write',
+		parents=[parent, parent_channel],
+		help='Write arbitrary flash memory with constant value')
+	write.set_defaults(func=command_write)
+	write.add_argument('address',
+		help='Address to write to',
+		type=lambda x: int(x, 0),
+		default=0x30000)
+	write.add_argument('length',
+		help='Number of bytes to write',
+		type=lambda x: int(x, 0),
+		default=512)
+	write.add_argument('value',
+		help='Value to write',
+		type=lambda x: int(x, 0),
+		default=0xff)
 
 	listattributes = subparser.add_parser('list-attributes',
 		parents=[parent, parent_channel],

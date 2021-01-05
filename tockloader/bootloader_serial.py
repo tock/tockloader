@@ -415,27 +415,46 @@ class BootloaderSerial(BoardInterface):
 	def _toggle_bootloader_entry_baud_rate (self):
 		'''
 		Set the baud rate to 1200 so that the chip will restart into the
-		bootloader.
+		bootloader (if that feature exists).
+
+		Returns `True` if it successfully started the bootloader, `False`
+		otherwise.
 		'''
 
 		# Change the baud rate to tell the board to reset into the bootloader.
 		self.sp.baudrate = 1200
 
-		# Wait for the serial port to re-appear.
-		for i in range(0, 30):
-			if i == 0:
-				# Print this message if we actually reset the chip using the
-				# baud rate. Otherwise this was a DTR/RTS chip, and no need to
-				# wait.
-				logging.info('Waiting for the bootloader to start')
+		# Now try to read from the serial port. If the changed baud rate caused
+		# the chip to reset into bootloader mode, this read should fail. If it
+		# doesn't fail, then either this chip doesn't support the baud rate chip
+		# (e.g. it has an FTDI chip) or it is already in the bootloader.
+		try:
+			# Give the chip some time to reset
+			time.sleep(0.1)
+			# Read which should timeout quickly.
+			test_read = self.sp.read(10)
+			# If we get here, looks like this entry mode won't work, so we can
+			# exit now.
+			if self.args.debug:
+				logging.debug('Baud rate bootloader entry no-op.')
 
-			# We start by sleeping. This is unfortunate, because if this is a
-			# DTR/RTS then this is just a wasted sleep. However, on Linux the
-			# serial port does not immediately disappear, so if we do not wait
-			# we will immediately discover the serial port again, even if we
-			# _are_ using the baud-rate-to-reset-into-the-bootloader trick. So
-			# we have to wait to give the OS a chance to remove the serial port
-			# before we try to re-discover it once the bootloader has started.
+			# Need to reset the baud rate to its original value.
+			self.sp.baudrate = 115200
+			return False
+		except:
+			# Read failed. This should mean the chip reset. Continue with this
+			# function.
+			pass
+
+		# Wait for the serial port to re-appear, aka the bootloader has started.
+		logging.info('Waiting for the bootloader to start')
+
+		for i in range(0, 30):
+			# We start by sleeping. On Linux the serial port does not
+			# immediately disappear, so if we do not wait we will immediately
+			# discover the serial port again. So we have to wait to give the OS
+			# a chance to remove the serial port before we try to re-discover it
+			# once the bootloader has started.
 			time.sleep(0.5)
 
 			# Try to increase reliability by trying different ways of
@@ -466,7 +485,12 @@ class BootloaderSerial(BoardInterface):
 				ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p.device]
 
 			if len(ports) > 0:
+				if self.args.debug:
+					logging.debug('  On iteration {} found {} port{}'.format(i, len(ports), helpers.plural(len(ports))))
 				break
+			else:
+				if self.args.debug:
+					logging.debug('  Waited iteration {}... Found 0 ports'.format(i))
 
 		else:
 			raise TockLoaderException('Bootloader did not start')
@@ -474,16 +498,27 @@ class BootloaderSerial(BoardInterface):
 		# Use the first port.
 		port = ports[0].device
 
+		if self.args.debug:
+			logging.debug('  Using port {} for the bootloader'.format(port))
+
 		self._configure_serial_port(port)
 		self.sp.open()
+
+		# Board restarted into the bootloader (or at least a new serial port)
+		# and we re-setup self.sp to use it.
+		return True
 
 	def enter_bootloader_mode (self):
 		'''
 		Reset the chip and assert the bootloader select pin to enter bootloader
 		mode. Handle retries if necessary.
 		'''
-		self._toggle_bootloader_entry_baud_rate()
-		self._toggle_bootloader_entry_DTR_RTS()
+		# Try baud rate trick first.
+		entered_bootloader = self._toggle_bootloader_entry_baud_rate()
+		if not entered_bootloader:
+			# If that didn't work, either because the bootloader already active
+			# or board doesn't support it, try the DTR/RTS method.
+			self._toggle_bootloader_entry_DTR_RTS()
 
 		# Make sure the bootloader is actually active and we can talk to it.
 		try:

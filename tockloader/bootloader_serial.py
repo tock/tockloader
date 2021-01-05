@@ -466,16 +466,31 @@ class BootloaderSerial(BoardInterface):
 		if self.args.jtag:
 			return
 
+		# Try to exit with a command to the bootloader. This is a relatively
+		# new feature (as of bootloader v1.1.0), so this may not work on many
+		# boards.
 		self._exit_bootloader()
 
-		# Reset the SAM4L
-		self.sp.dtr = 1
-		# Make sure this line is de-asserted (high)
-		self.sp.rts = 0
-		# Let the reset take effect
-		time.sleep(0.1)
-		# Let the SAM4L startup
-		self.sp.dtr = 0
+		# Also try the "reset to exit" method. This works if the DTR line is
+		# connected to the reset pin on the MCU.
+		try:
+			# Wrap all of this in a try block in case the `_exit_bootloader()`
+			# method worked, at which point the serial port may be invalid when
+			# we get here.
+			self.sp.dtr = 1
+			# Make sure this line is de-asserted (high)
+			self.sp.rts = 0
+			# Let the reset take effect
+			time.sleep(0.1)
+			# Let the SAM4L startup
+			self.sp.dtr = 0
+		except:
+			# I've seen OSError and BrokenPipeError get thrown if the serial
+			# port is invalid. I'm not sure there is any viable way to handle
+			# different errors, and it probably doesn't matter. These are basic
+			# UART config settings, and if they don't work then the chip
+			# hopefully has exited the bootloader.
+			return
 
 	def _ping_bootloader_and_wait_for_response (self):
 		'''

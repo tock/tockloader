@@ -116,14 +116,26 @@ class BootloaderSerial(BoardInterface):
 
 		# Look for a matching port
 		ports = sorted(list(serial.tools.list_ports.grep(device_name)))
-		if must_match and os.path.exists(device_name):
+		if must_match:
 			# In the most specific case a user specified a full path that exists
-			# and we should use that specific serial port. We treat this as a
-			# special case because something like `/dev/ttyUSB5` will also match
+			# and we should use that specific serial port. We need to do more checking, however, as
+			# something like `/dev/ttyUSB5` will also match
 			# `/dev/ttyUSB55`, but it is clear that user expected to use the
 			# serial port specified by the full path.
-			index = 0
-			ports = [serial.tools.list_ports_common.ListPortInfo(device_name)]
+			for i,p in enumerate(ports):
+				if p.device == device_name:
+					# We found an exact name match. Use that.
+					index = i
+					break
+			else:
+				# We found no match. If we get here, then the user did not
+				# specify a full path to a serial port, and we couldn't find
+				# anything on the board that matches what they specified (which
+				# may have just been a short name). Since the user put in the
+				# effort of specifically choosing a port, we error here rather
+				# than just (arbitrarily) choosing something they didn't
+				# specify.
+				raise TockLoaderException('Could not find a board matching "{}".'.format(device_name))
 		elif len(ports) == 1:
 			# Easy case, use the one that matches.
 			index = 0
@@ -133,20 +145,12 @@ class BootloaderSerial(BoardInterface):
 			index = helpers.menu(ports,
 				                 return_type='index',
 				                 title='Multiple serial port options found. Which would you like to use?')
-		elif must_match:
-			# If we get here, then the user did not specify a full path to a
-			# serial port, and we couldn't find anything on the board that
-			# matches what they specified (which may have just been a short
-			# name). Since the user put in the effort of specifically choosing a
-			# port, we error here rather than just (arbitrarily) choosing
-			# something they didn't specify.
-			raise TockLoaderException('Could not find a board matching "{}".'.format(device_name))
 		else:
-			# Just find any port and use the first one.
+			# Just find any port. If one, use that. If multiple, ask user.
 			ports = list(serial.tools.list_ports.comports())
 			# Macs will report Bluetooth devices with serial, which is
 			# almost certainly never what you want, so drop those.
-			ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p[0]]
+			ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p.device]
 
 			if len(ports) == 0:
 				raise TockLoaderException('No serial ports found. Is the board connected?')
@@ -161,12 +165,23 @@ class BootloaderSerial(BoardInterface):
 					                 return_type='index',
 					                 title='Multiple serial port options found. Which would you like to use?')
 
-		logging.info('Using "{}".'.format(ports[index]))
-		port = ports[index][0]
-		helpers.set_terminal_title_from_port_info(ports[index])
-		return port
+		# Choose port. This should be a serial.ListPortInfo type.
+		port = ports[index]
 
-	def _open_serial_port (self, port):
+		logging.info('Using "{}".'.format(port))
+
+		# Save the serial number. This might help us reconnect later if say we
+		# have to boot into the bootloader and the OS assigns a new port name
+		# to the same physical board.
+		self.sp_serial_number = port.serial_number
+
+		# Improve UI for users
+		helpers.set_terminal_title_from_port_info(port)
+
+		# Return serial port device name
+		return port.device
+
+	def _configure_serial_port (self, port):
 		'''
 		Helper function to configure the serial port so we can read/write with
 		it.
@@ -206,7 +221,7 @@ class BootloaderSerial(BoardInterface):
 		because we are planning to run `run_terminal`.
 		'''
 		port = self._determine_port()
-		self._open_serial_port(port)
+		self._configure_serial_port(port)
 
 		# Only one process at a time can talk to a serial port (reliably).
 		# Before connecting, check whether there is another tockloader process
@@ -399,29 +414,67 @@ class BootloaderSerial(BoardInterface):
 
 	def _toggle_bootloader_entry_baud_rate (self):
 		'''
-		Set the baud rate to 1200 so that the chip will restart into the bootloader.
+		Set the baud rate to 1200 so that the chip will restart into the
+		bootloader.
 		'''
-		# Save the name of the currently used port
-		port = self.sp.port
 
 		# Change the baud rate to tell the board to reset into the bootloader.
 		self.sp.baudrate = 1200
 
 		# Wait for the serial port to re-appear.
 		for i in range(0, 30):
-			if i == 1:
+			if i == 0:
 				# Print this message if we actually reset the chip using the
 				# baud rate. Otherwise this was a DTR/RTS chip, and no need to
 				# wait.
 				logging.info('Waiting for the bootloader to start')
-			ports = list(serial.tools.list_ports.grep(port))
+
+			# We start by sleeping. This is unfortunate, because if this is a
+			# DTR/RTS then this is just a wasted sleep. However, on Linux the
+			# serial port does not immediately disappear, so if we do not wait
+			# we will immediately discover the serial port again, even if we
+			# _are_ using the baud-rate-to-reset-into-the-bootloader trick. So
+			# we have to wait to give the OS a chance to remove the serial port
+			# before we try to re-discover it once the bootloader has started.
+			time.sleep(0.5)
+
+			# Try to increase reliability by trying different ways of
+			# re-discovering the serial port.
+			if i < 10:
+				# To start we try to find a serial device with the same serial
+				# number as the one that we connected to originally.
+				ports = list(serial.tools.list_ports.grep(self.sp_serial_number))
+
+			elif i < 20:
+				# If that isn't working, it is possible that the serial number
+				# is different between the kernel (which we connected to first)
+				# and the bootloader (which is what is now setting up the serial
+				# port). The bootloader should have the name "tock" in it,
+				# however, so we look for that.
+				#
+				# Note, this can be problematic if the user has multiple tock
+				# boards connected to the computer, since this might find a
+				# different board leading to weird behavior.
+				ports = list(serial.tools.list_ports.grep('tock'))
+
+			else:
+				# In the last case, we try to connect to any available serial port
+				# and hope that it is the tock bootloader.
+				ports = list(serial.tools.list_ports.comports())
+				# Macs will report Bluetooth devices with serial, which is
+				# almost certainly never what you want, so drop those.
+				ports = [p for p in ports if 'Bluetooth-Incoming-Port' not in p.device]
+
 			if len(ports) > 0:
 				break
-			time.sleep(0.5)
+
 		else:
 			raise TockLoaderException('Bootloader did not start')
 
-		self._open_serial_port(port)
+		# Use the first port.
+		port = ports[0].device
+
+		self._configure_serial_port(port)
 		self.sp.open()
 
 	def enter_bootloader_mode (self):

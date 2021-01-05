@@ -437,6 +437,8 @@ class BootloaderSerial(BoardInterface):
 			# exit now.
 			if self.args.debug:
 				logging.debug('Baud rate bootloader entry no-op.')
+				if len(test_read) > 0:
+					logging.debug('Read "{}" from board'.format(test_read))
 
 			# Need to reset the baud rate to its original value.
 			self.sp.baudrate = 115200

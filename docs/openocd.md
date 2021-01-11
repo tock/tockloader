@@ -244,6 +244,18 @@ def set_attribute(self, index, raw)
 Set a single attribute.
 
 
+### set\_start\_address
+```py
+
+def set_start_address(self, address)
+
+```
+
+
+
+Set the address the bootloader jumps to to start the actual code.
+
+
 ### \_configure\_from\_known\_boards
 ```py
 

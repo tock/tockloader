@@ -172,6 +172,15 @@ def command_set_attribute(args)
 
 
 
+### command\_set\_start\_address
+```py
+
+def command_set_start_address(args)
+
+```
+
+
+
 ### command\_sticky\_app
 ```py
 
@@ -206,6 +215,18 @@ def command_update(args)
 
 ```
 
+
+
+### command\_write
+```py
+
+def command_write(args)
+
+```
+
+
+
+Write flash range on the chip with a specific value.
 
 
 ### main

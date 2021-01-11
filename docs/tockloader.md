@@ -49,7 +49,7 @@ overwrite the header of the first app.
 ### flash\_binary
 ```py
 
-def flash_binary(self, binary, address)
+def flash_binary(self, binary, address, pad=None)
 
 ```
 
@@ -60,6 +60,10 @@ flash.
 
 This will pad the binary as needed, so don't worry about the binary
 being a certain length.
+
+This accepts an optional `pad` parameter. If used, the `pad` parameter
+is a tuple of `(length, value)` signifying the number of bytes to pad,
+and the particular byte to use for the padding.
 
 
 ### info
@@ -207,6 +211,18 @@ def set_flag(self, app_names, flag_name, flag_value)
 Set a flag in the TBF header.
 
 
+### set\_start\_address
+```py
+
+def set_start_address(self, address)
+
+```
+
+
+
+Set the address that the bootloader jumps to to run kernel code.
+
+
 ### uninstall\_app
 ```py
 
@@ -218,6 +234,18 @@ def uninstall_app(self, app_names)
 
 If an app by this name exists, remove it from the chip. If no name is
 given, present the user with a list of apps to remove.
+
+
+### write\_flash
+```py
+
+def write_flash(self, address, length, value)
+
+```
+
+
+
+Write a byte to some flash contents.
 
 
 ### \_app\_is\_aligned\_correctly

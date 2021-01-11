@@ -19,6 +19,30 @@ def __init__(self, tbfh, address, app_binary=None)
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### fix\_at\_next\_loadable\_address
+```py
+
+def fix_at_next_loadable_address(self, address)
+
+```
+
+
+
+Calculate the next reasonable address where we can put this app where
+the address is greater than or equal to `address`. The `address`
+argument is the earliest address the app can be at, either the start of
+apps or immediately after a previous app.
+
+If the app doesn't have a fixed address, then we can put it anywhere,
+and we just return the address. If the app is compiled with fixed
+addresses, then we need to calculate an address. We do a little bit of
+"reasonable assuming" here. Fixed addresses are based on where the _app
+binary_ must be located. Therefore, the start of the app where the TBF
+header goes must be before that. This can be at any address (as long as
+the header will fit), but we want to make this simpler, so we just
+assume the TBF header should start on a 1024 byte alignment.
+
+
 ### get\_address
 ```py
 
@@ -58,16 +82,19 @@ be written to the board. Otherwise, if it is already installed, return
 `None`.
 
 
-### get\_fixed\_addresses\_flash
+### get\_fixed\_addresses\_flash\_and\_sizes
 ```py
 
-def get_fixed_addresses_flash(self)
+def get_fixed_addresses_flash_and_sizes(self)
 
 ```
 
 
 
-Return a list of all addresses in flash this app is compiled for.
+Return a list of tuples of all addresses in flash this app is compiled
+for and the size of the app at that address.
+
+[(address, size), (address, size), ...]
 
 
 ### get\_header
@@ -116,30 +143,6 @@ def get_name(self)
 
 
 Return the app name.
-
-
-### get\_next\_loadable\_address
-```py
-
-def get_next_loadable_address(self, address)
-
-```
-
-
-
-Calculate the next reasonable address where we can put this app where
-the address is greater than or equal to `address`. The `address`
-argument is the earliest address the app can be at, either the start of
-apps or immediately after a previous app.
-
-If the app doesn't have a fixed address, then we can put it anywhere,
-and we just return the address. If the app is compiled with fixed
-addresses, then we need to calculate an address. We do a little bit of
-"reasonable assuming" here. Fixed addresses are based on where the _app
-binary_ must be located. Therefore, the start of the app where the TBF
-header goes must be before that. This can be at any address (as long as
-the header will fit), but we want to make this simpler, so we just
-assume the TBF header should start on a 1024 byte alignment.
 
 
 ### get\_size

@@ -249,6 +249,18 @@ def set_attribute(self, index, raw)
 Set a single attribute.
 
 
+### set\_start\_address
+```py
+
+def set_start_address(self, address)
+
+```
+
+
+
+Set the address the bootloader jumps to to start the actual code.
+
+
 ### \_change\_baud\_rate
 ```py
 
@@ -298,6 +310,19 @@ attribute to be set, and then we can use KNOWN_BOARDS to fill in the
 rest.
 
 
+### \_configure\_serial\_port
+```py
+
+def _configure_serial_port(self, port)
+
+```
+
+
+
+Helper function to configure the serial port so we can read/write with
+it.
+
+
 ### \_decode\_attribute
 ```py
 
@@ -305,6 +330,33 @@ def _decode_attribute(self, raw)
 
 ```
 
+
+
+### \_determine\_port
+```py
+
+def _determine_port(self)
+
+```
+
+
+
+Helper function to determine which serial port on the host to use to
+connect to the board.
+
+
+### \_exit\_bootloader
+```py
+
+def _exit_bootloader(self)
+
+```
+
+
+
+Tell the bootloader on the board to exit so the main software can run.
+
+This uses a command sent over the serial port to the bootloader.
 
 
 ### \_get\_crc\_internal\_flash
@@ -345,6 +397,21 @@ def _issue_command(self, command, message, sync, response_len, response_code, sh
 Setup a command to send to the bootloader and handle the response.
 
 
+### \_open\_serial\_port
+```py
+
+def _open_serial_port(self)
+
+```
+
+
+
+Helper function for calling `self.sp.open()`.
+
+Serial ports on different OSes and systems can be finicky, and this
+enables retries to try to hide failures.
+
+
 ### \_ping\_bootloader\_and\_wait\_for\_response
 ```py
 
@@ -366,17 +433,46 @@ def _server_thread(self)
 
 
 
-### \_toggle\_bootloader\_entry
+### \_toggle\_bootloader\_entry\_DTR\_RTS
 ```py
 
-def _toggle_bootloader_entry(self)
+def _toggle_bootloader_entry_DTR_RTS(self)
 
 ```
 
 
 
-Reset the chip and assert the bootloader select pin to enter bootloader
-mode.
+Use the DTR and RTS lines on UART to reset the chip and assert the
+bootloader select pin to enter bootloader mode so that the chip will
+start in bootloader mode.
+
+
+### \_toggle\_bootloader\_entry\_baud\_rate
+```py
+
+def _toggle_bootloader_entry_baud_rate(self)
+
+```
+
+
+
+Set the baud rate to 1200 so that the chip will restart into the
+bootloader (if that feature exists).
+
+Returns `True` if it successfully started the bootloader, `False`
+otherwise.
+
+
+### \_wait\_for\_bootloader\_serial\_port
+```py
+
+def _wait_for_bootloader_serial_port(self)
+
+```
+
+
+
+Wait for the serial port to re-appear, aka the bootloader has started.
 
 
 

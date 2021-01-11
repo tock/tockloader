@@ -39,8 +39,8 @@ def extract_tbf(self, tbf_name)
 
 
 
-Return a `TabApp` object from this TAB. You must specify the desired TBF
-name, and only that TBF will be returned.
+Return a `TabApp` object from this TAB. You must specify the
+desired TBF name, and only that TBF will be returned.
 
 
 ### get\_supported\_architectures

@@ -465,6 +465,11 @@ def main ():
 		title='Commands',
 		metavar='')
 
+	# Command Groups
+	#
+	# Python argparse doesn't support grouping commands in subparsers as of
+	# January 2021 :(. The best we can do now is order them logically.
+
 	listen = subparser.add_parser('listen',
 		parents=[parent],
 		help='Open a terminal to receive UART data')
@@ -501,17 +506,6 @@ def main ():
 		help='The interface type to pass to JLinkExe. Only used with --rtt.')
 	listen.set_defaults(func=command_listen)
 
-	listcmd = subparser.add_parser('list',
-		parents=[parent, parent_apps, parent_channel],
-		help='List the apps installed on the board')
-	listcmd.set_defaults(func=command_list)
-	listcmd.add_argument('--verbose', '-v',
-		help='Print more information',
-		action='store_true')
-	listcmd.add_argument('--quiet', '-q',
-		help='Print just a list of application names',
-		action='store_true')
-
 	install = subparser.add_parser('install',
 		parents=[parent, parent_apps, parent_channel],
 		help='Install apps on the board')
@@ -547,6 +541,22 @@ def main ():
 	uninstall.add_argument('name',
 		help='The name of the app(s) to remove',
 		nargs='*')
+
+	listcmd = subparser.add_parser('list',
+		parents=[parent, parent_apps, parent_channel],
+		help='List the apps installed on the board')
+	listcmd.set_defaults(func=command_list)
+	listcmd.add_argument('--verbose', '-v',
+		help='Print more information',
+		action='store_true')
+	listcmd.add_argument('--quiet', '-q',
+		help='Print just a list of application names',
+		action='store_true')
+
+	info = subparser.add_parser('info',
+		parents=[parent, parent_apps, parent_channel],
+		help='Verbose information about the connected board')
+	info.set_defaults(func=command_info)
 
 	eraseapps = subparser.add_parser('erase-apps',
 		parents=[parent, parent_apps, parent_channel],
@@ -631,6 +641,14 @@ def main ():
 		type=lambda x: int(x, 0),
 		default=0xff)
 
+	dump_flash_page = subparser.add_parser('dump-flash-page',
+		parents=[parent, parent_channel],
+		help='Read a page of flash from the board')
+	dump_flash_page.set_defaults(func=command_dump_flash_page)
+	dump_flash_page.add_argument('page',
+		help='The number of the page to read',
+		type=lambda x: int(x, 0))
+
 	listattributes = subparser.add_parser('list-attributes',
 		parents=[parent, parent_channel],
 		help='List attributes stored on the board')
@@ -661,11 +679,6 @@ def main ():
 		type=lambda x: int(x, 0),
 		default=0x10000)
 
-	info = subparser.add_parser('info',
-		parents=[parent, parent_apps, parent_channel],
-		help='Verbose information about the connected board')
-	info.set_defaults(func=command_info)
-
 	inspect_tab = subparser.add_parser('inspect-tab',
 		parents=[parent],
 		help='Get details about a TAB')
@@ -676,14 +689,6 @@ def main ():
 	inspect_tab.add_argument('tab',
 		help='The TAB or TABs to inspect',
 		nargs='*')
-
-	dump_flash_page = subparser.add_parser('dump-flash-page',
-		parents=[parent, parent_channel],
-		help='Read a page of flash from the board')
-	dump_flash_page.set_defaults(func=command_dump_flash_page)
-	dump_flash_page.add_argument('page',
-		help='The number of the page to read',
-		type=lambda x: int(x, 0))
 
 	list_known_boards = subparser.add_parser('list-known-boards',
 		help='List the boards that Tockloader explicitly knows about')

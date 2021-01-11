@@ -777,13 +777,16 @@ class BootloaderSerial(BoardInterface):
 			if not success:
 				logging.error('Error when flashing page')
 				if ret[1] == self.RESPONSE_BADADDR:
-					raise TockLoaderException('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X}'.format(address + (i*self.page_size)))
+					raise TockLoaderException('Error: RESPONSE_BADADDR: Invalid address for page to write (address: 0x{:X})'.format(address + (i*self.page_size)))
 				elif ret[1] == self.RESPONSE_INTERROR:
 					raise TockLoaderException('Error: RESPONSE_INTERROR: Internal error when writing flash')
 				elif ret[1] == self.RESPONSE_BADARGS:
 					raise TockLoaderException('Error: RESPONSE_BADARGS: Invalid length for flash page write')
 				else:
 					raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
+
+			if self.args.debug:
+				logging.debug('  [{}] Wrote page {}/{}'.format(datetime.datetime.now(), i, len(binary) // self.page_size))
 
 		# And check the CRC
 		self._check_crc(address, binary)

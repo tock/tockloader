@@ -284,30 +284,37 @@ class BootloaderSerial(BoardInterface):
 
 			self.client_sock.sendall('Version 1\n'.encode('utf-8'))
 			self.client_sock.sendall('Stop Listening\n'.encode('utf-8'))
+
 			r = ''
-			while '\n' not in r:
-				r += self.client_sock.recv(100).decode('utf-8')
-			if r == 'Busy\n':
-				raise TockLoaderException('Another tockloader process is active on this serial port')
-			elif r == 'Killing\n':
-				def restart_listener(path):
-					sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-					try:
-						sock.connect(path)
-						sock.sendall('Version 1\n'.encode('utf-8'))
-						sock.sendall('Start Listening\n'.encode('utf-8'))
-						sock.close()
-						logging.info('Resumed other tockloader listen session')
-					except:
-						logging.warning('Error restarting other tockloader listen process.')
-						logging.warning('You may need to manually begin listening again.')
-				atexit.register(restart_listener, self.comm_path)
-				self.client_sock.close()
-				while os.path.exists(self.comm_path):
-					time.sleep(.1)
-				logging.info('Paused an active tockloader listen in another session.')
-			else:
-				raise TockLoaderException('Internal error: Got >{}< from IPC'.format(r))
+			while(True):
+
+				while '\n' not in r:
+					r += self.client_sock.recv(100).decode('utf-8')
+
+				if r[:len('Busy\n')] == 'Busy\n':
+					r = r[len('Busy\n'):]
+					raise TockLoaderException('Another tockloader process is active on this serial port')
+
+				if r[:len('Pausing\n')] == 'Pausing\n':
+					r = r[len('Pausing\n'):]
+					def restart_listener(path):
+						sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+						try:
+							sock.connect(path)
+							sock.sendall('Version 1\n'.encode('utf-8'))
+							sock.sendall('Start Listening\n'.encode('utf-8'))
+							sock.close()
+							logging.info('Resumed other tockloader listen session')
+						except:
+							logging.warning('Error restarting other tockloader listen process.')
+							logging.warning('You may need to manually begin listening again.')
+					atexit.register(restart_listener, self.comm_path)
+
+				if r[:len('Paused\n')] == 'Paused\n':
+					r = r[len('Paused\n'):]
+					logging.info('Paused an active tockloader listen in another session.')
+					break
+
 		else:
 			self.server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 			flags = fcntl.fcntl(self.server_sock, fcntl.F_GETFD)
@@ -320,16 +327,13 @@ class BootloaderSerial(BoardInterface):
 					daemon=True,
 					)
 			self.server_thread.start()
+
+			# Set function to run when tockloader finishes
 			def server_cleanup():
 				if self.server_sock is not None:
 					self.server_sock.close()
 					os.unlink(self.comm_path)
 			atexit.register(server_cleanup)
-
-			if hasattr(self.args, 'wait_to_listen') and self.args.wait_to_listen:
-				logging.info('Waiting for other tockloader to finish before listening')
-				self.server_event.wait()
-				logging.info('Resuming listening...')
 
 		self._open_serial_port()
 
@@ -345,16 +349,21 @@ class BootloaderSerial(BoardInterface):
 	# While tockloader has a serial connection open, it leaves a unix socket
 	# open for other tockloader processes. For most of the time, this will
 	# simply report 'Busy\n' and new tockloader processes will back off and not
-	# steal the serial port. If miniterm is active, however, this process will
-	# send back 'Killing\n', terminate this process (due to miniterm
-	# architecture, there's no good way to programmatically kill & restart
-	# miniterm threads), and restart this process with --wait-to-listen
+	# steal the serial port. If miniterm is active, however, this process will:
+	#
+	# 1. Send back 'Pausing\n'
+	# 2. Stop the miniterm session and close the serial port.
+	# 3. Send 'Paused\n'
+	# 4. Wait until a new socket connection is made to receive further
+	#    instructions.
 	def _server_thread (self):
 		while True:
 			connection, client_address = self.server_sock.accept()
+
 			r = ''
 			while '\n' not in r:
 				r += connection.recv(100).decode('utf-8')
+
 			if r[:len('Version 1\n')] != 'Version 1\n':
 				logging.warning('Got unexpected connection: >{}< ; dropping'.format(r))
 				connection.close()
@@ -374,6 +383,7 @@ class BootloaderSerial(BoardInterface):
 				connection.close()
 				continue
 
+			# The only other command is 'Stop Listening'
 			if r != 'Stop Listening\n':
 				logging.warning('Got unexpected command: >{}< ; dropping'.format(r))
 				connection.close()
@@ -385,32 +395,32 @@ class BootloaderSerial(BoardInterface):
 				connection.close()
 				continue
 
-			# Since there's no great way to kill & restart miniterm, we just
-			# redo the whole process, only tacking on a --wait-to-listen
-			logging.info('Received request to pause from another tockloader process. Disconnecting...')
-			# And let them know we've progressed
-			connection.sendall('Killing\n'.encode('utf-8'))
+			# If we get here, stop `tockloader listen` for a bit, and resume
+			# with other tockloader session is finished.
+
+
+			# Notify other tockloader we are working on it.
+			connection.sendall('Pausing\n'.encode('utf-8'))
+
+			# Set the reason so the main thread knows what to do.
+			self.miniterm.miniterm_exit_reason = 'paused_another_tockloader'
+
+			# Stop miniterm. We do this in a very specific way so that miniterm
+			# ends up in the correct state and we can exit with ctrl-c as
+			# expected.
+			self.miniterm._stop_reader()
+			self.miniterm.stop()
+			self.miniterm.console.cancel()
+
+			# Close the serial port since we want to release this so the other
+			# tockloader can use it.
+			self.sp.close()
+
+			# Now tell the other tockloader we have paused.
+			connection.sendall('Paused\n'.encode('utf-8'))
+
+			# That's it for this connection.
 			connection.close()
-			self.server_sock.close()
-			os.unlink(self.comm_path)
-			# Need to run miniterm's atexit handler
-			self.miniterm.console.cleanup()
-
-			# Prep arguments for next tockloader
-			args = list(sys.argv)
-
-			# Need to wait for the process that killed this session to be done
-			args.append('--wait-to-listen')
-
-			# If there are multiple devices plugged in, we want the resuming
-			# tockloader to auto-choose the one it was already listening to.
-			# We can blindly append here as argument parsing will use the last
-			# -p option it finds, thus no warning/error if the user had already
-			# supplied a -p when first invoked
-			args.append('-p')
-			args.append(self.sp.port)
-
-			os.execvp(args[0], args)
 
 	def _get_serial_port_hash (self):
 		'''
@@ -1083,6 +1093,20 @@ class BootloaderSerial(BoardInterface):
 		# And go!
 		self.miniterm.start()
 
+		def reconnect_terminal (self):
+			# Now we have to wait for the serial port to come back. When it
+			# does, configure it and open it.
+			new_port = self._wait_for_serial_port()
+			self._configure_serial_port(new_port)
+			self._open_serial_port()
+
+			# We have a new object for the serial port at this point. Notify
+			# miniterm of the new sp object.
+			self.miniterm.serial = self.sp
+
+			# And finally we can re-start the listener.
+			self.miniterm.start()
+
 		# Now wait for miniterm to finish in a loop. This allows us to try again
 		# as needed.
 		while (True):
@@ -1105,19 +1129,28 @@ class BootloaderSerial(BoardInterface):
 				# won't let us reconnect if it thinks the port is already open.
 				self.sp.close()
 
-				# Now we have to wait for the serial port to come back. When it
-				# does, configure it and open it.
-				new_port = self._wait_for_serial_port()
-				self._configure_serial_port(new_port)
-				self._open_serial_port()
+				# Restart miniterm
+				reconnect_terminal(self)
 
-				# We have a new object for the serial port at this point. Notify
-				# miniterm of the new sp object.
-				self.miniterm.serial = self.sp
+			elif self.miniterm.miniterm_exit_reason == 'paused_another_tockloader':
+				# Miniterm exited because of another tockloader instance trying
+				# to run and use the same serial port. We wait until the other
+				# tockloader has finished.
 
-				# And finally we can re-start the listener.
-				self.miniterm.start()
+				# Reset flag.
+				self.miniterm.miniterm_exit_reason = None
+
+				logging.info(' ----- Paused listen for another tockloader session...')
+
+				# This is our wait flag.
+				self.server_event.wait()
+				self.server_event.clear()
+
+				# Restart miniterm
+				reconnect_terminal(self)
+
 			else:
+				# Normal exit (ctrl-c).
 				break
 
 		# Done with the serial port, close everything for miniterm.

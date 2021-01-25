@@ -476,9 +476,6 @@ def main ():
 	listen.add_argument('--port', '-p', '--device', '-d',
 		help='The serial port or device name to use',
 		metavar='STR')
-	listen.add_argument('--wait-to-listen',
-		help='Wait until contacted on server socket to actually listen',
-		action='store_true')
 	listen.add_argument('--timestamp',
 		help='Prepend output with a timestamp',
 		action='store_true')

@@ -439,13 +439,10 @@ class BootloaderSerial(BoardInterface):
 		# The select line can go back high
 		self.sp.rts = 0
 
-	def _wait_for_bootloader_serial_port (self):
+	def _wait_for_serial_port (self):
 		'''
 		Wait for the serial port to re-appear, aka the bootloader has started.
 		'''
-
-		logging.info('Waiting for the bootloader to start')
-
 		for i in range(0, 30):
 			# We start by sleeping. On Linux the serial port does not
 			# immediately disappear, so if we do not wait we will immediately
@@ -536,7 +533,8 @@ class BootloaderSerial(BoardInterface):
 			# function.
 			pass
 
-		port = self._wait_for_bootloader_serial_port()
+		logging.info('Waiting for the bootloader to start')
+		port = self._wait_for_serial_port()
 		self._configure_serial_port(port)
 		self._open_serial_port()
 
@@ -570,7 +568,8 @@ class BootloaderSerial(BoardInterface):
 				# PING/PONG check below should catch it. Let's be optimistic.
 				#
 				# Find bootloader port and try to use it.
-				port = self._wait_for_bootloader_serial_port()
+				logging.info('Waiting for the bootloader to start')
+				port = self._wait_for_serial_port()
 				self._configure_serial_port(port)
 				self._open_serial_port()
 
@@ -1034,6 +1033,33 @@ class BootloaderSerial(BoardInterface):
 		if self.args.count:
 			filters.append('counter')
 
+
+		# Hack the miniterm library for two reasons:
+		#
+		# 1. We want to know _why_ the miniterm session ended. If it ended
+		#    because the user hit ctrl-c, then we want to just exit. However, if
+		#    it ended because the serial port failed, then we want to try to
+		#    reconnect. The serial port can come-and-go if the device is running
+		#    a CDC over UART stack on the microcontroller, and the device was
+		#    reset (i.e. the reset button was pressed). That will cause the USB
+		#    stack to reset and the serial port to dissapear until the stack is
+		#    reinitialized. Rather than force the user to re-run `tockloader
+		#    listen`, we try to automatically reconnect.
+		#
+		# 2. We need to catch the exception that comes with the serial port
+		#    failing (i.e. disappearing). If we don't, then it crashes. Miniterm
+		#    just raises this exception and crashes by default.
+		r = serial.tools.miniterm.Miniterm.reader
+		def my_miniterm_reader(self):
+			try:
+				# Run the existing reader function.
+				r(self)
+			except Exception as e:
+				# Mark that the failure occurred on the read side (this occurs
+				# if the serial port is closed/removed).
+				self.miniterm_exit_reason = 'serial_port_failure'
+		serial.tools.miniterm.Miniterm.reader = my_miniterm_reader
+
 		# Use trusty miniterm
 		self.miniterm = serial.tools.miniterm.Miniterm(
 			self.sp,
@@ -1043,15 +1069,56 @@ class BootloaderSerial(BoardInterface):
 
 		# Ctrl+c to exit.
 		self.miniterm.exit_character = serial.tools.miniterm.unichr(0x03)
+
+		# Set encoding.
 		self.miniterm.set_rx_encoding('UTF-8')
 		self.miniterm.set_tx_encoding('UTF-8')
 
-		self.miniterm.start()
-		try:
-			self.miniterm.join(True)
-		except KeyboardInterrupt:
-			pass
+		# Hack to add our own flag. If this is `None` then miniterm exited for
+		# normal reasons (i.e. a ctrl-c) and we want to exit. However, we set
+		# this value if miniterm exists for other reasons, and this lets us know
+		# when to try to reconnect.
+		self.miniterm.miniterm_exit_reason = None
 
-		self.miniterm.stop()
-		self.miniterm.join()
+		# And go!
+		self.miniterm.start()
+
+		# Now wait for miniterm to finish in a loop. This allows us to try again
+		# as needed.
+		while (True):
+			self.miniterm.join(True)
+
+			# If we get here, miniterm ended. We want to find out why, so we can
+			# maybe restart.
+			if self.miniterm.miniterm_exit_reason == 'serial_port_failure':
+				# Failure happened due to a closed serial port (or some other
+				# serial port exception). Try to reconnect and resume listening.
+
+				# Reset flag.
+				self.miniterm.miniterm_exit_reason = None
+
+				# Notify user.
+				logging.info(' ----- Serial port crashed. Waiting to reconnect...')
+
+				# Close the port on our end. This fixes up internal pyserial
+				# state, since the OS-level serial port is gone, but pyserial
+				# won't let us reconnect if it thinks the port is already open.
+				self.sp.close()
+
+				# Now we have to wait for the serial port to come back. When it
+				# does, configure it and open it.
+				new_port = self._wait_for_serial_port()
+				self._configure_serial_port(new_port)
+				self._open_serial_port()
+
+				# We have a new object for the serial port at this point. Notify
+				# miniterm of the new sp object.
+				self.miniterm.serial = self.sp
+
+				# And finally we can re-start the listener.
+				self.miniterm.start()
+			else:
+				break
+
+		# Done with the serial port, close everything for miniterm.
 		self.miniterm.close()

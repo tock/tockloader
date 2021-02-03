@@ -8,6 +8,7 @@ channel specific code is in other files.
 import binascii
 import contextlib
 import copy
+import ctypes
 import functools
 import itertools
 import logging
@@ -101,11 +102,44 @@ class TockLoader:
 
 		# Get an object that allows talking to the board.
 		if hasattr(self.args, 'jlink') and self.args.jlink:
+			# User passed `--jlink`. Force the jlink channel.
 			self.channel = JLinkExe(self.args)
 		elif hasattr(self.args, 'openocd') and self.args.openocd:
+			# User passed `--openocd`. Force the OpenOCD channel.
 			self.channel = OpenOCD(self.args)
 		else:
-			self.channel = BootloaderSerial(self.args)
+			# Try to do some magic to determine the correct channel to use. Our
+			# goal is to automatically choose the correct setting so that
+			# `tockloader` just works without having to specify a board and any
+			# flags.
+
+			# Loop so we can `break`. This will never execute more than once.
+			while (True):
+
+				# One issue is that JTAG connections often expose both a JTAG
+				# and a serial port. So, if we try to use the serial port first
+				# we will incorrectly detect that serial port. So, we start with
+				# the less likely jtag channel. We start with jlinkexe because
+				# it has been in tockloader longer. Let me know if this is the
+				# wrong decision.
+				jlink_channel = JLinkExe(self.args)
+				if jlink_channel.attached_board_exists():
+					self.channel = jlink_channel
+					break
+
+				# Next try openocd.
+				openocd_channel = OpenOCD(self.args)
+				if openocd_channel.attached_board_exists():
+					self.channel = openocd_channel
+					break
+
+				# Default to using the serial bootloader. This is how tockloader
+				# has worked for a long time. We may want to change this, but
+				# for now we don't change the default behavior.
+				self.channel = BootloaderSerial(self.args)
+
+				# Exit while(1) loop, do not remove this break!
+				break
 
 		# And make sure the channel is open (e.g. open a serial port).
 		self.channel.open_link_to_board()

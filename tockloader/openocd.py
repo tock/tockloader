@@ -26,13 +26,35 @@ class OpenOCD(BoardInterface):
 		# Must call the generic init first.
 		super().__init__(args)
 
+		self.openocd_cmd = getattr(self.args, 'openocd_cmd')
+
+
+	def attached_board_exists (self):
+		# Get a list of attached devices, check if that list has at least
+		# one entry.
+		emulators = self._list_emulators()
+		return len(emulators) > 0
+
+
+	def open_link_to_board (self):
 		# Use command line arguments to set the necessary settings.
 		self.openocd_board = getattr(self.args, 'openocd_board')
 		self.openocd_options = getattr(self.args, 'openocd_options')
 		self.openocd_commands = getattr(self.args, 'openocd_commands')
-		self.openocd_cmd = getattr(self.args, 'openocd_cmd')
 		self.openocd_prefix = ''
 		self.openocd_address_translator = None
+
+		# It's very important that we know the openocd_board. There are three
+		# ways we can learn that: 1) use the known boards struct, 2) have it
+		# passed in via a command line option, 3) guess it from what we can see
+		# attached to the host. If options 1 and 2 aren't done, then we try
+		# number 3!
+		if self.board == None and self.openocd_board == None:
+			emulators = self._list_emulators()
+			if len(emulators) > 0:
+				# Just use the first one. Should be good enough to just assume
+				# there is only one for now.
+				self.board = emulators[0]
 
 		# If the user specified a board, use that configuration to fill in any
 		# missing settings.
@@ -54,6 +76,9 @@ class OpenOCD(BoardInterface):
 				self.openocd_commands = board['openocd_commands']
 			if 'address_translator' in board:
 				self.openocd_address_translator = board['address_translator']
+
+			# And we may need to setup other common board settings.
+			self._configure_from_known_boards()
 
 		if self.openocd_board == None:
 			raise TockLoaderException('Unknown OpenOCD board name. You must pass --openocd-board.')
@@ -113,11 +138,11 @@ class OpenOCD(BoardInterface):
 		if 'resume' in self.openocd_options:
 			cmd_suffix = 'soft_reset_halt; resume;'
 
-		openocd_command = '{openocd_cmd} -c "{prefix} {source} {cmd_prefix} {cmd} {cmd_suffix} exit"'.format(
+		openocd_command = '{openocd_cmd} -c "{prefix} {source} {cmd_prefix} {cmd} {cmd_suffix} exit" --debug'.format(
 			openocd_cmd=self.openocd_cmd, prefix=prefix, source=source,
 			cmd_prefix=cmd_prefix, cmd=commands, cmd_suffix=cmd_suffix)
 
-		logging.debug('Running "{}".'.format(openocd_command))
+		logging.debug('Running "{}".'.format(openocd_command.replace('$', '\$')))
 
 		def print_output (subp):
 			response = ''
@@ -148,6 +173,63 @@ You may need to update OpenOCD to the version in latest git master.')
 			# Wanted to read binary, so lets pull that
 			temp_bin.seek(0, 0)
 			return temp_bin.read()
+
+	def _list_emulators (self):
+		'''
+		Return a list of board names that are attached to the host.
+		'''
+		openocd_commands = []
+
+		# I'm not sure there is a magic way to discover all attached OpenOCD
+		# compatible devices. So, we do our best and try some.
+		openocd_commands.append('{openocd_cmd} -c "interface jlink"'.format(openocd_cmd=self.openocd_cmd))
+		openocd_commands.append('{openocd_cmd} -c "interface cmsis-dap"'.format(openocd_cmd=self.openocd_cmd))
+		openocd_commands.append('{openocd_cmd} -c "source [find interface/ftdi/digilent-hs1.cfg]; ftdi_device_desc \\"Digilent USB Device\\"; adapter_khz 10000; transport select jtag; init; exit"'.format(openocd_cmd=self.openocd_cmd))
+
+		# These are the magic strings in the output of openocd we are looking
+		# for. If there is a better way to do this then we should change. But,
+		# this is the best I got for now. Magic string is what we want to see in
+		# openocd output, board is the name in the known boards struct.
+		magic_strings_boards = [
+			('J-Link OB-SAM3U128-V2-NordicSemi', 'nrf52dk'),
+			('(mfg: 0x049 (Xilinx), part: 0x3631, ver: 0x1)', 'arty'),
+			('microbitv2 NEED TO FILL IN', 'microbit_v2'),
+		]
+
+		emulators = []
+
+		def print_output (subp):
+			response = ''
+			if subp.stdout:
+				response += subp.stdout.decode('utf-8')
+			if subp.stderr:
+				response += subp.stderr.decode('utf-8')
+			logging.info(response)
+			return response
+
+		try:
+			for openocd_command in openocd_commands:
+				logging.debug('Running "{}".'.format(openocd_command))
+				p = subprocess.run(shlex.split(openocd_command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				if self.args.debug:
+					print_output(p)
+
+				# Parse all output to look for a device.
+				stdouterr = p.stdout.decode('utf-8') + p.stderr.decode('utf-8')
+
+				for magic_string,board in magic_strings_boards:
+					if magic_string in stdouterr:
+						emulators.append(board)
+		except FileNotFoundError as e:
+			if self.args.debug:
+				logging.debug('OpenOCD does not seem to exist.')
+				logging.debug(e)
+		except:
+			# Any other error just ignore...this is only for convenience.
+			pass
+
+		return emulators
+
 
 	def flash_binary (self, address, binary):
 		'''

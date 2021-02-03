@@ -94,10 +94,13 @@ class BootloaderSerial(BoardInterface):
 		# byte chunks.
 		self.page_size = 512
 
-	def _determine_port (self):
+	def _determine_port (self, any=False):
 		'''
 		Helper function to determine which serial port on the host to use to
 		connect to the board.
+
+		Set `any` to true to return a device without prompting the user (i.e.
+		just return any port if there are multiple).
 		'''
 		# Check to see if the user specified a serial port or a specific name,
 		# or if we should find a serial port to use.
@@ -140,11 +143,14 @@ class BootloaderSerial(BoardInterface):
 			# Easy case, use the one that matches.
 			index = 0
 		elif len(ports) > 1:
-			# If we get multiple matches then we ask the user to choose from a
-			# list.
-			index = helpers.menu(ports,
-				                 return_type='index',
-				                 title='Multiple serial port options found. Which would you like to use?')
+			if any:
+				index = 0
+			else:
+				# If we get multiple matches then we ask the user to choose from
+				# a list.
+				index = helpers.menu(ports,
+				                     return_type='index',
+				                     title='Multiple serial port options found. Which would you like to use?')
 		else:
 			# Just find any port. If one, use that. If multiple, ask user.
 			ports = list(serial.tools.list_ports.comports())
@@ -158,7 +164,7 @@ class BootloaderSerial(BoardInterface):
 			logging.info('No serial port with device name "{}" found.'.format(device_name))
 			logging.info('Found {} serial port{}.'.format(len(ports), ('s', '')[len(ports) == 1]))
 
-			if len(ports) == 1:
+			if len(ports) == 1 or any:
 				index = 0
 			else:
 				index = helpers.menu(ports,
@@ -236,6 +242,15 @@ class BootloaderSerial(BoardInterface):
 			logging.error('Failed to open serial port.')
 			logging.error('Error: {}'.format(saved_exception))
 			raise TockLoaderException('Unable to open serial port')
+
+	def attached_board_exists (self):
+		try:
+			# If `_determine_port()` returns, then it found a port, if it
+			# raises an exception then it did not.
+			self._determine_port(any=True)
+			return True
+		except:
+			return False
 
 	def open_link_to_board (self, listen=False):
 		'''

@@ -192,6 +192,14 @@ class BoardInterface:
 		# methods need. There may be flags specific to a particular
 		# communication interface.
 
+	def attached_board_exists (self):
+		'''
+		For this particular board communication channel, check if there appears
+		to be a valid board attached to the host that tockloader can communicate
+		with.
+		'''
+		return False
+
 	def open_link_to_board (self):
 		'''
 		Open a connection to the board.

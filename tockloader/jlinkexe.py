@@ -26,10 +26,43 @@ class JLinkExe(BoardInterface):
 		# Must call the generic init first.
 		super().__init__(args)
 
+		# Determine the name of the binary to run.
+		self.jlink_cmd = getattr(self.args, 'jlink_cmd')
+		# If not specified we use the default, but this is different on Windows
+		# vs. not Windows.
+		if self.jlink_cmd == None:
+			self.jlink_cmd = 'JLinkExe'
+			if platform.system() == 'Windows':
+				self.jlink_cmd = 'JLink'
+
+	def attached_board_exists (self):
+		# Get a list of attached jlink devices, check if that list has at least
+		# one entry.
+		emulators = self._list_emulators()
+		return len(emulators) > 0
+
+	def open_link_to_board (self):
 		# Use command line arguments to set the necessary options.
 		self.jlink_device = getattr(self.args, 'jlink_device')
 		self.jlink_speed = getattr(self.args, 'jlink_speed')
 		self.jlink_if = getattr(self.args, 'jlink_if')
+
+		# It's very important that we know the jlink-device. There are three
+		# ways we can learn that: 1) use the known boards struct, 2) have it
+		# passed in via a command line option, 3) guess it from the jlink
+		# device. If options 1 and 2 aren't done, then we try number 3!
+		if self.board == None and self.jlink_device == 'cortex-m0':
+			emulators = self._list_emulators()
+			if len(emulators) > 0:
+				# Just use the first one. Should be good enough to just assume
+				# there is only one for now.
+				emulator = emulators[0]
+				# Check for known JTAG board.
+				if emulator['ProductName'] == 'J-Link OB-SAM3U128-V2-NordicSem':
+					# This seems to match both the nRF52dk (PCA10040) and the
+					# nRF52840dk (PCA10056). From a jlink perspective, they are
+					# the same, which is nice.
+					self.board = 'nrf52dk'
 
 		# If the user specified a board, use that configuration to fill in any
 		# missing settings.
@@ -48,6 +81,9 @@ class JLinkExe(BoardInterface):
 			if self.jlink_speed == None and 'jlink_speed' in board:
 				self.jlink_speed = board['jlink_speed']
 
+			# And we may need to setup other common board settings.
+			self._configure_from_known_boards()
+
 		if self.jlink_device == 'cortex-m0':
 			raise TockLoaderException('Unknown JLink Device type. You must pass --jlink-device.')
 
@@ -57,14 +93,7 @@ class JLinkExe(BoardInterface):
 		if self.jlink_speed == None:
 			self.jlink_speed = 1200
 
-		# Determine the name of the binary to run.
-		self.jlink_cmd = getattr(self.args, 'jlink_cmd')
-		# If not specified we use the default, but this is different on Windows
-		# vs. not Windows.
-		if self.jlink_cmd == None:
-			self.jlink_cmd = 'JLinkExe'
-			if platform.system() == 'Windows':
-				self.jlink_cmd = 'JLink'
+
 
 	def _run_jtag_commands (self, commands, binary, write=True):
 		'''
@@ -155,6 +184,75 @@ class JLinkExe(BoardInterface):
 			# Wanted to read binary, so lets pull that
 			temp_bin.seek(0, 0)
 			return temp_bin.read()
+
+	def _list_emulators (self):
+		'''
+		Retrieve a list of JLink compatible devices.
+		'''
+		# On Windows, do not delete temp files because they delete too fast.
+		delete = platform.system() != 'Windows'
+		if self.args.debug:
+			delete = False
+
+		emulators = []
+
+		with tempfile.NamedTemporaryFile(mode='w', delete=delete) as jlink_file:
+			jlink_file.write('ShowEmuList\nq')
+			jlink_file.flush()
+
+			if platform.system() == 'Windows':
+				jlink_file.close()
+
+			jlink_command = '{} -CommanderScript {}'.format(self.jlink_cmd, jlink_file.name)
+
+			logging.debug('Running "{}".'.format(jlink_command))
+
+			def print_output (subp):
+				if subp.stdout:
+					logging.info(subp.stdout.decode('utf-8'))
+				if subp.stderr:
+					logging.info(subp.stderr.decode('utf-8'))
+
+			try:
+				p = subprocess.run(jlink_command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				if p.returncode != 0:
+					logging.error('ERROR: JTAG returned with error code ' + str(p.returncode))
+					print_output(p)
+					raise TockLoaderException('JTAG error')
+				elif self.args.debug:
+					print_output(p)
+
+				# check that there was a JTAG programmer and that it found a device
+				stdout = p.stdout.decode('utf-8')
+
+				# Parse out the connected emulators
+				for l in stdout.split('\n'):
+					if 'J-Link[' in l:
+						emulator = {}
+						parameters_string = l.split(':', 1)[1]
+						parameters = parameters_string.split(',')
+						for parameter in parameters:
+							kvs = parameter.split(':')
+							emulator[kvs[0].strip()] = kvs[1].strip()
+						emulators.append(emulator)
+			except FileNotFoundError as e:
+				if self.args.debug:
+					logging.debug('JLink tool does not seem to exist.')
+					logging.debug(e)
+			except:
+				# Any other error just ignore...this is only for convenience.
+				pass
+
+		# On Windows we need to re-open files to do a possible read, and cleanup
+		# files that we could not set to auto delete.
+		if platform.system() == 'Windows':
+			# Cleanup files on Windows if needed.
+			if not self.args.debug:
+				os.remove(jlink_file.name)
+				os.remove(temp_bin.name)
+
+		return emulators
+
 
 	def flash_binary (self, address, binary):
 		'''

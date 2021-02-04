@@ -125,12 +125,14 @@ class TockLoader:
 				jlink_channel = JLinkExe(self.args)
 				if jlink_channel.attached_board_exists():
 					self.channel = jlink_channel
+					logging.info('Using jlink channel to communicate with the board.')
 					break
 
 				# Next try openocd.
 				openocd_channel = OpenOCD(self.args)
 				if openocd_channel.attached_board_exists():
 					self.channel = openocd_channel
+					logging.info('Using openocd channel to communicate with the board.')
 					break
 
 				# Default to using the serial bootloader. This is how tockloader

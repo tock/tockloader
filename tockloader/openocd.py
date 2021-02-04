@@ -183,7 +183,7 @@ You may need to update OpenOCD to the version in latest git master.')
 		# I'm not sure there is a magic way to discover all attached OpenOCD
 		# compatible devices. So, we do our best and try some.
 		openocd_commands.append('{openocd_cmd} -c "interface jlink"'.format(openocd_cmd=self.openocd_cmd))
-		openocd_commands.append('{openocd_cmd} -c "source [find interface/cmsis-dap.cfg]; transport select swd; source [find target/nrf52.cfg];"'.format(openocd_cmd=self.openocd_cmd))
+		openocd_commands.append('{openocd_cmd} -c "interface cmsis-dap; transport select swd; source [find target/nrf52.cfg]; init; exit;"'.format(openocd_cmd=self.openocd_cmd))
 		openocd_commands.append('{openocd_cmd} -c "source [find interface/ftdi/digilent-hs1.cfg]; ftdi_device_desc \\"Digilent USB Device\\"; adapter_khz 10000; transport select jtag; init; exit"'.format(openocd_cmd=self.openocd_cmd))
 
 		# These are the magic strings in the output of openocd we are looking

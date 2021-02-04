@@ -694,10 +694,6 @@ def main ():
 	argcomplete.autocomplete(parser)
 	args = parser.parse_args()
 
-	# Change logging level if `--debug` was supplied.
-	if args.debug:
-		logging.getLogger('').setLevel(logging.DEBUG)
-
 	# Concat the args before the command with those that were specified
 	# after the command. This is a workaround because for some reason python
 	# won't parse a set of parent options before the "command" option
@@ -705,6 +701,10 @@ def main ():
 	for key,value in vars(before_command_args[0]).items():
 		if getattr(args, key) != value:
 			setattr(args, key, value)
+
+	# Change logging level if `--debug` was supplied.
+	if args.debug:
+		logging.getLogger('').setLevel(logging.DEBUG)
 
 	# Handle deprecated arguments.
 	# --jtag is now --jlink. If --jtag was passed copy it to --jlink.

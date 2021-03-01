@@ -1022,6 +1022,13 @@ class TockLoader:
 
 				apps.append(app)
 
+			else:
+				logging.info('App "{}" is not compatible with your board.'.format(tab.get_app_name()))
+				if self.args.debug:
+					logging.debug('Supported boards for app "{}":'.format(tab.get_app_name()))
+					for board in tab.get_compatible_boards():
+						logging.debug('- {}'.format(board))
+
 		if len(apps) == 0:
 			raise TockLoaderException('No valid apps for this board were provided. Use --force to override.')
 

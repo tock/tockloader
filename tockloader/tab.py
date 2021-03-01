@@ -121,13 +121,29 @@ class TAB:
 		else:
 			raise TockLoaderException('Unable to understand version {} of metadata'.format(metadata['tab-version']))
 
+	def get_compatible_boards (self):
+		'''
+		Return a list of compatible boards from the metadata file.
+		'''
+		metadata = self.parse_metadata()
+		if metadata['tab-version'] == 1:
+			if 'only-for-boards' in metadata:
+				return metadata['only-for-boards'].split(',')
+		return ['']
+
 	def parse_metadata (self):
 		'''
 		Open and parse the included metadata file in the TAB.
 		'''
+		# Use cached value.
+		if hasattr(self, 'metadata'):
+			return self.metadata
+
+		# Otherwise parse f.toml file.
 		metadata_tarinfo = self.tab.getmember('metadata.toml')
 		metadata_str = self.tab.extractfile(metadata_tarinfo).read().decode('utf-8')
-		return pytoml.loads(metadata_str)
+		self.metadata = pytoml.loads(metadata_str)
+		return self.metadata
 
 	def get_supported_architectures (self):
 		'''
@@ -162,6 +178,12 @@ class TAB:
 			if f[-4:] == '.tbf':
 				tbfs.append(f[:-4])
 		return tbfs
+
+	def get_app_name (self):
+		'''
+		Return the app name from the metadata file.
+		'''
+		return self.parse_metadata()['name']
 
 	def __str__ (self):
 		out = ''

@@ -43,6 +43,30 @@ Return a `TabApp` object from this TAB. You must specify the
 desired TBF name, and only that TBF will be returned.
 
 
+### get\_app\_name
+```py
+
+def get_app_name(self)
+
+```
+
+
+
+Return the app name from the metadata file.
+
+
+### get\_compatible\_boards
+```py
+
+def get_compatible_boards(self)
+
+```
+
+
+
+Return a list of compatible boards from the metadata file.
+
+
 ### get\_supported\_architectures
 ```py
 
@@ -84,16 +108,20 @@ def is_compatible_with_board(self, board)
 Check if the Tock app is compatible with a particular Tock board.
 
 
-### parse\_metadata
+### is\_compatible\_with\_kernel\_version
 ```py
 
-def parse_metadata(self)
+def is_compatible_with_kernel_version(self, kernel_version)
 
 ```
 
 
 
-Open and parse the included metadata file in the TAB.
+Check if the Tock app is compatible with the version of the kernel.
+Default to yes unless we can be confident the answer is no.
+
+`kernel_version` should be a string, or None if the kernel API version
+is unknown.
 
 
 ### \_\_str\_\_
@@ -106,6 +134,31 @@ def __str__(self)
 
 
 Return str(self).
+
+
+### \_get\_metadata\_key
+```py
+
+def _get_metadata_key(self, key)
+
+```
+
+
+
+Return the value for a specific key from the metadata file.
+
+
+### \_parse\_metadata
+```py
+
+def _parse_metadata(self)
+
+```
+
+
+
+Open and parse the included metadata file in the TAB, returning the
+key-value pairs as a dict.
 
 
 

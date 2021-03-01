@@ -113,37 +113,34 @@ class TAB:
 		'''
 		Check if the Tock app is compatible with a particular Tock board.
 		'''
-		metadata = self.parse_metadata()
-		if metadata['tab-version'] == 1:
-			return 'only-for-boards' not in metadata or \
-			       board in metadata['only-for-boards'] or \
-			       metadata['only-for-boards'].strip() == ''
-		else:
-			raise TockLoaderException('Unable to understand version {} of metadata'.format(metadata['tab-version']))
+		only_for_boards = self._get_metadata_key('only-for-boards')
+		return only_for_boards == None or \
+		       board in only_for_boards or \
+		       only_for_boards == ''
 
 	def get_compatible_boards (self):
 		'''
 		Return a list of compatible boards from the metadata file.
 		'''
-		metadata = self.parse_metadata()
-		if metadata['tab-version'] == 1:
-			if 'only-for-boards' in metadata:
-				return [b.strip() for b in metadata['only-for-boards'].split(',')]
-		return ['']
+		only_for_boards = self._get_metadata_key('only-for-boards') or ''
+		return [b.strip() for b in only_for_boards.split(',')]
 
-	def parse_metadata (self):
+	def is_compatible_with_kernel_version (self, kernel_version):
 		'''
-		Open and parse the included metadata file in the TAB.
-		'''
-		# Use cached value.
-		if hasattr(self, 'metadata'):
-			return self.metadata
+		Check if the Tock app is compatible with the version of the kernel.
+		Default to yes unless we can be confident the answer is no.
 
-		# Otherwise parse f.toml file.
-		metadata_tarinfo = self.tab.getmember('metadata.toml')
-		metadata_str = self.tab.extractfile(metadata_tarinfo).read().decode('utf-8')
-		self.metadata = pytoml.loads(metadata_str)
-		return self.metadata
+		`kernel_version` should be a string, or None if the kernel API version
+		is unknown.
+		'''
+		if kernel_version == None:
+			# Bail out early if kernel version is unknown.
+			return True
+
+		tock_kernel_version = self._get_metadata_key('tock-kernel-version')
+		return tock_kernel_version == None or \
+		       tock_kernel_version == kernel_version or \
+		       tock_kernel_version == ''
 
 	def get_supported_architectures (self):
 		'''
@@ -183,11 +180,41 @@ class TAB:
 		'''
 		Return the app name from the metadata file.
 		'''
-		return self.parse_metadata()['name']
+		return self._get_metadata_key('name') or ''
+
+	def _parse_metadata (self):
+		'''
+		Open and parse the included metadata file in the TAB, returning the
+		key-value pairs as a dict.
+		'''
+		# Use cached value.
+		if hasattr(self, 'metadata'):
+			return self.metadata
+
+		# Otherwise parse f.toml file.
+		metadata_tarinfo = self.tab.getmember('metadata.toml')
+		metadata_str = self.tab.extractfile(metadata_tarinfo).read().decode('utf-8')
+		self.metadata = pytoml.loads(metadata_str)
+		return self.metadata
+
+	def _get_metadata_key (self, key):
+		'''
+		Return the value for a specific key from the metadata file.
+		'''
+		metadata = self._parse_metadata()
+		if metadata['tab-version'] == 1:
+			if key in metadata:
+				return metadata[key].strip()
+		else:
+			# If unknown version, print warning.
+			logging.warning('Unknown TAB version. You probably need to update tockloader.')
+
+		# Default to returning None if key is not found or file is not understood.
+		return None
 
 	def __str__ (self):
 		out = ''
-		metadata = self.parse_metadata()
+		metadata = self._parse_metadata()
 		out += 'TAB: {}\n'.format(metadata['name'])
 		for k,v in sorted(metadata.items()):
 			if k == 'name':

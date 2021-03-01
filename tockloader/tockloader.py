@@ -1011,23 +1011,36 @@ class TockLoader:
 		arch = self.channel.get_board_arch()
 
 		for tab in tabs:
-			if self.args.force or tab.is_compatible_with_board(self.channel.get_board_name()):
-				app = tab.extract_app(arch)
-
-				# Enforce the minimum app size here.
-				app.set_minimum_size(self.app_options['size_minimum'])
-
-				# Enforce other sizing constraints here.
-				app.set_size_constraint(self.app_options['size_constraint'])
-
-				apps.append(app)
-
-			else:
+			# Check if this app is specifically marked as compatible with
+			# certain boards, and if so, if the board being programmed is one of
+			# them.
+			if not self.args.force and not tab.is_compatible_with_board(self.channel.get_board_name()):
+				# App is marked for certain boards, and this is not one.
 				logging.info('App "{}" is not compatible with your board.'.format(tab.get_app_name()))
 				if self.args.debug:
 					logging.debug('Supported boards for app "{}":'.format(tab.get_app_name()))
 					for board in tab.get_compatible_boards():
 						logging.debug('- {}'.format(board))
+				continue
+
+			# Check if this app was compiled for the version of the Tock kernel
+			# currently on the board. If not, print a notice.
+			if not self.args.force and not tab.is_compatible_with_kernel_version(None):
+				# App needs a different kernel version than what is on the board.
+				logging.info('App "{}" requires kernel version "2", which is different from what is installed on your board.'.format(tab.get_app_name()))
+				continue
+
+			# This app is good to install, continue the process.
+
+			app = tab.extract_app(arch)
+
+			# Enforce the minimum app size here.
+			app.set_minimum_size(self.app_options['size_minimum'])
+
+			# Enforce other sizing constraints here.
+			app.set_size_constraint(self.app_options['size_constraint'])
+
+			apps.append(app)
 
 		if len(apps) == 0:
 			raise TockLoaderException('No valid apps for this board were provided. Use --force to override.')

@@ -18,6 +18,20 @@ def __init__(self, args)
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### attached\_board\_exists
+```py
+
+def attached_board_exists(self)
+
+```
+
+
+
+For this particular board communication channel, check if there appears
+to be a valid board attached to the host that tockloader can communicate
+with.
+
+
 ### bootloader\_is\_present
 ```py
 
@@ -335,7 +349,7 @@ def _decode_attribute(self, raw)
 ### \_determine\_port
 ```py
 
-def _determine_port(self)
+def _determine_port(self, any=False)
 
 ```
 
@@ -343,6 +357,9 @@ def _determine_port(self)
 
 Helper function to determine which serial port on the host to use to
 connect to the board.
+
+Set `any` to true to return a device without prompting the user (i.e.
+just return any port if there are multiple).
 
 
 ### \_exit\_bootloader
@@ -463,10 +480,10 @@ Returns `True` if it successfully started the bootloader, `False`
 otherwise.
 
 
-### \_wait\_for\_bootloader\_serial\_port
+### \_wait\_for\_serial\_port
 ```py
 
-def _wait_for_bootloader_serial_port(self)
+def _wait_for_serial_port(self)
 
 ```
 

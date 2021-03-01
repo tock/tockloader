@@ -24,6 +24,20 @@ def __init__(self, args)
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### attached\_board\_exists
+```py
+
+def attached_board_exists(self)
+
+```
+
+
+
+For this particular board communication channel, check if there appears
+to be a valid board attached to the host that tockloader can communicate
+with.
+
+
 ### bootloader\_is\_present
 ```py
 
@@ -286,6 +300,18 @@ def _decode_attribute(self, raw)
 
 ```
 
+
+
+### \_list\_emulators
+```py
+
+def _list_emulators(self)
+
+```
+
+
+
+Return a list of board names that are attached to the host.
 
 
 ### \_run\_openocd\_commands

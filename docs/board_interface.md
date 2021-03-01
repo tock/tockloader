@@ -23,6 +23,20 @@ def __init__(self, args)
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### attached\_board\_exists
+```py
+
+def attached_board_exists(self)
+
+```
+
+
+
+For this particular board communication channel, check if there appears
+to be a valid board attached to the host that tockloader can communicate
+with.
+
+
 ### bootloader\_is\_present
 ```py
 

@@ -113,16 +113,26 @@ Show the contents of a page of flash.
 
 Read arbitrary flash memory from the board.
 
+#### `tockloader write [address] [# bytes] [value]`
+
+Write arbitrary flash memory on the board with a specific value.
+
 #### `tockloader list-known-boards`
 
 Print which boards tockloader has default settings for built-in.
+
+#### `tockloader set-start-address [address]`
+
+Set the jump address the bootloader uses for the location of the kernel.
+
 
 Specifying the Board
 --------------------
 
 For tockloader to know how to interface with a particular hardware board, it
 typically reads attributes from the bootloader to identify properties of the
-board. If those are unavailable, they can be specified as command line
+board. Tockloader also attempts to automatically discover boards using JLink and
+OpenOCD as well. If those are unavailable, they can be specified as command line
 arguments.
 
     tockloader [command] --arch [arch] --board [board]

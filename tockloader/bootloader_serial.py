@@ -94,6 +94,10 @@ class BootloaderSerial(BoardInterface):
 		# byte chunks.
 		self.page_size = 512
 
+		# We cache attributes so we don't read them more than once. Create a
+		# local data structure to hold them.
+		self.attributes = ['uncached'] * 16
+
 	def _determine_port (self, any=False):
 		'''
 		Helper function to determine which serial port on the host to use to
@@ -908,6 +912,11 @@ class BootloaderSerial(BoardInterface):
 			logging.info('CRC check passed. Binaries successfully loaded.')
 
 	def get_attribute (self, index):
+		# Check for cached value.
+		if self.attributes[index] != 'uncached':
+			return self.attributes[index]
+
+		# Otherwise read from board.
 		message = struct.pack('<B', index)
 		success, ret = self._issue_command(self.COMMAND_GET_ATTRIBUTE, message, True, 64, self.RESPONSE_GET_ATTRIBUTE)
 
@@ -918,7 +927,12 @@ class BootloaderSerial(BoardInterface):
 				raise TockLoaderException('Error: Need to supply a correct attribute index.')
 			else:
 				raise TockLoaderException('Error: 0x{:X}'.format(ret[1]))
-		return self._decode_attribute(ret)
+		attribute = self._decode_attribute(ret)
+
+		# Cache attribute
+		self.attributes[index] = attribute
+
+		return attribute
 
 	def get_all_attributes (self):
 		attributes = []
@@ -927,6 +941,9 @@ class BootloaderSerial(BoardInterface):
 		return attributes
 
 	def set_attribute (self, index, raw):
+		# Clear cached entry just in case.
+		self.attributes[index] = 'uncached'
+
 		message = struct.pack('<B', index) + raw
 		success, ret = self._issue_command(self.COMMAND_SET_ATTRIBUTE, message, True, 0, self.RESPONSE_OK)
 

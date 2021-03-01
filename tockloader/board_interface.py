@@ -252,18 +252,30 @@ class BoardInterface:
 		'''
 		Get all attributes on a board. Returns an array of attribute dicts.
 		'''
+		# Check for cached attributes.
+		if hasattr(self, 'attributes'):
+			return self.attributes
+
 		# Read the entire block of attributes directly from flash.
 		# This is much faster.
 		def chunks(l, n):
 			for i in range(0, len(l), n):
 				yield l[i:i + n]
 		raw = self.read_range(0x600, 64*16)
-		return [self._decode_attribute(r) for r in chunks(raw, 64)]
+		attributes = [self._decode_attribute(r) for r in chunks(raw, 64)]
+
+		# Cache what we get in case this gets called again.
+		self.attributes = attributes
+
+		return attributes
 
 	def set_attribute (self, index, raw):
 		'''
 		Set a single attribute.
 		'''
+		# Remove any cached attributes
+		del self.attributes
+
 		address = 0x600 + (64 * index)
 		self.flash_binary(address, raw)
 

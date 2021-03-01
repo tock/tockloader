@@ -117,7 +117,7 @@ class TAB:
 		if metadata['tab-version'] == 1:
 			return 'only-for-boards' not in metadata or \
 			       board in metadata['only-for-boards'] or \
-			       metadata['only-for-boards'] == ''
+			       metadata['only-for-boards'].strip() == ''
 		else:
 			raise TockLoaderException('Unable to understand version {} of metadata'.format(metadata['tab-version']))
 
@@ -128,7 +128,7 @@ class TAB:
 		metadata = self.parse_metadata()
 		if metadata['tab-version'] == 1:
 			if 'only-for-boards' in metadata:
-				return metadata['only-for-boards'].split(',')
+				return [b.strip() for b in metadata['only-for-boards'].split(',')]
 		return ['']
 
 	def parse_metadata (self):

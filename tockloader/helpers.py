@@ -10,8 +10,9 @@ import colorama
 
 
 def set_terminal_title (title):
-	sys.stdout.write(colorama.ansi.set_title(title))
-	sys.stdout.flush()
+	if sys.stdout.isatty():
+		sys.stdout.write(colorama.ansi.set_title(title))
+		sys.stdout.flush()
 
 def set_terminal_title_from_port_info (info):
 	'''

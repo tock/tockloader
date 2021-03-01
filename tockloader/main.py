@@ -607,6 +607,10 @@ def main ():
 		help='Optional number of bytes to pad and value to use',
 		nargs=2,
 		type=lambda x: int(x, 0),)
+	flash.add_argument('--set-attribute',
+		help='Key-value attribute pair to set if not already set',
+		nargs=2,
+		action='append')
 
 	read = subparser.add_parser('read',
 		parents=[parent, parent_channel],

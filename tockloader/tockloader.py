@@ -170,6 +170,16 @@ class TockLoader:
 
 			self.channel.flash_binary(address, binary)
 
+			# Flash command can optionally set attributes.
+			if self.args.set_attribute != None:
+				for k,v in self.args.set_attribute:
+					logging.debug('Setting attribute {}={}'.format(k, v))
+					ret = self._set_attribute(k, v, log_status=False)
+
+					if ret:
+						logging.debug('Unable to set attribute after flash command.')
+						logging.debug(ret)
+
 
 	def list_apps (self, verbose, quiet):
 		'''
@@ -439,47 +449,16 @@ class TockLoader:
 		'''
 		Change an attribute stored on the board.
 		'''
-		# Do some checking
-		if len(key.encode('utf-8')) > 8:
-			raise TockLoaderException('Key is too long. Must be 8 bytes or fewer.')
-		if len(value.encode('utf-8')) > 55:
-			raise TockLoaderException('Value is too long. Must be 55 bytes or fewer.')
 
 		# Enter bootloader mode to get things started
 		with self._start_communication_with_board():
 
-			if not self._bootloader_is_present():
-				raise TockLoaderException('No bootloader found! That means there is nowhere for attributes to go.')
+			# Use helper function to do all of the work.
+			ret = self._set_attribute(key, value)
 
-			# Create the buffer to write as the attribute
-			out = bytes([])
-			# Add key
-			out += key.encode('utf-8')
-			out += bytes([0] * (8-len(out)))
-			# Add length
-			out += bytes([len(value.encode('utf-8'))])
-			# Add value
-			out += value.encode('utf-8')
-
-			# Find if this attribute key already exists
-			open_index = -1
-			for index, attribute in enumerate(self.channel.get_all_attributes()):
-				if attribute:
-					if attribute['key'] == key:
-						logging.status('Found existing key at slot {}. Overwriting.'.format(index))
-						self.channel.set_attribute(index, out)
-						break
-				else:
-					# Save where we should put this attribute if it does not
-					# already exist.
-					if open_index == -1:
-						open_index = index
-			else:
-				if open_index == -1:
-					raise TockLoaderException('Error: No open space to save this attribute.')
-				else:
-					logging.status('Key not found. Writing new attribute to slot {}'.format(open_index))
-					self.channel.set_attribute(open_index, out)
+			if ret:
+				# Some error occurred!
+				raise TockLoaderException(ret)
 
 
 	def remove_attribute (self, key):
@@ -706,6 +685,67 @@ class TockLoader:
 				for flag,setting in self.app_options['cmd_flags'].items():
 					logging.info('Hardcoding command line argument "{}" to "{}" for board {}.'.format(flag, setting, board))
 					setattr(self.args, flag, setting)
+
+	############################################################################
+	## Helper Functions for Shared Code
+	############################################################################
+
+	def _set_attribute (self, key, value, log_status=True):
+		'''
+		Internal function for setting an attribute stored on the board.
+
+		Bootloader mode must be active.
+
+		Returns None if successful and an error string if not.
+		'''
+		# By default log status. However, that is not always appropriate, so
+		# if `log_status` is False then send that to debug output.
+		logging_fn = logging.status
+		if log_status == False:
+			logging_fn = logging.debug
+
+		# Do some checking
+		if len(key.encode('utf-8')) > 8:
+			return 'Key is too long. Must be 8 bytes or fewer.'
+		if len(value.encode('utf-8')) > 55:
+			return 'Value is too long. Must be 55 bytes or fewer.'
+
+		# Check for the bootloader, and importantly the attributes section.
+		if not self._bootloader_is_present():
+			return 'No bootloader found! That means there is nowhere for attributes to go.'
+
+		# Create the buffer to write as the attribute
+		out = bytes([])
+		# Add key
+		out += key.encode('utf-8')
+		out += bytes([0] * (8-len(out)))
+		# Add length
+		out += bytes([len(value.encode('utf-8'))])
+		# Add value
+		out += value.encode('utf-8')
+
+		# Find if this attribute key already exists
+		open_index = -1
+		for index, attribute in enumerate(self.channel.get_all_attributes()):
+			if attribute:
+				if attribute['key'] == key:
+					if attribute['value'] == value:
+						logging_fn('Found existing key,value at slot {}. Nothing to do.'.format(index))
+					else:
+						logging_fn('Found existing key at slot {}. Overwriting.'.format(index))
+						self.channel.set_attribute(index, out)
+					break
+			else:
+				# Save where we should put this attribute if it does not
+				# already exist.
+				if open_index == -1:
+					open_index = index
+		else:
+			if open_index == -1:
+				return 'No open space to save this attribute.'
+			else:
+				logging_fn('Key not found. Writing new attribute to slot {}'.format(open_index))
+				self.channel.set_attribute(open_index, out)
 
 	############################################################################
 	## Helper Functions for Manipulating Binaries and TBF

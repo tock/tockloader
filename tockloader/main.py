@@ -696,7 +696,13 @@ def main ():
 	list_known_boards.set_defaults(func=command_list_known_boards)
 
 	argcomplete.autocomplete(parser)
-	args = parser.parse_args()
+	args, unknown_args = parser.parse_known_args()
+
+	# Warn about unknown arguments, suggest tockloader update.
+	if len(unknown_args) > 0:
+		logging.warning('Unknown arguments passed. You may need to update tockloader.')
+		for unknown_arg in unknown_args:
+			logging.warning('Unknown argument "{}"'.format(unknown_arg))
 
 	# Concat the args before the command with those that were specified
 	# after the command. This is a workaround because for some reason python

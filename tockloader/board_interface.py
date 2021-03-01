@@ -343,6 +343,23 @@ class BoardInterface:
 		self.apps_start_address = 0x30000
 		return self.apps_start_address
 
+	def get_kernel_version (self):
+		'''
+		Return the kernel ABI version installed on the board. If the version
+		cannot be determined, return `None`.
+		'''
+		# Check if there is an attribute we can use.
+		attributes = self.get_all_attributes()
+		for attribute in attributes:
+			if attribute and attribute['key'] == 'kernver':
+				kernver = attribute['value'].strip()
+				logging.debug('Determined kernel version is "{}".'.format(kernver))
+				return kernver
+
+		# If not in an attribute we give up and return None.
+		logging.debug('Could not determine kernel version.')
+		return None
+
 	def determine_current_board (self):
 		'''
 		Figure out which board we are connected to. Most likely done by reading

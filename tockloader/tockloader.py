@@ -1025,9 +1025,10 @@ class TockLoader:
 
 			# Check if this app was compiled for the version of the Tock kernel
 			# currently on the board. If not, print a notice.
-			if not self.args.force and not tab.is_compatible_with_kernel_version(None):
+			if not self.args.force and not tab.is_compatible_with_kernel_version(self.channel.get_kernel_version()):
 				# App needs a different kernel version than what is on the board.
-				logging.info('App "{}" requires kernel version "2", which is different from what is installed on your board.'.format(tab.get_app_name()))
+				logging.info('App "{}" requires kernel version "2", but tockloader determined your kernel version is "{}".'
+					.format(tab.get_app_name(), self.channel.get_kernel_version()))
 				continue
 
 			# This app is good to install, continue the process.

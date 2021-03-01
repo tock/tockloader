@@ -187,6 +187,19 @@ Return the version string of the bootloader. Should return a value
 like `0.5.0`, or `None` if it is unknown.
 
 
+### get\_kernel\_version
+```py
+
+def get_kernel_version(self)
+
+```
+
+
+
+Return the kernel ABI version installed on the board. If the version
+cannot be determined, return `None`.
+
+
 ### get\_page\_size
 ```py
 

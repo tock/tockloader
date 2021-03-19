@@ -107,6 +107,9 @@ class TockLoader:
 		elif hasattr(self.args, 'openocd') and self.args.openocd:
 			# User passed `--openocd`. Force the OpenOCD channel.
 			self.channel = OpenOCD(self.args)
+		elif hasattr(self.args, 'serial') and self.args.serial:
+			# User passed `--serial`. Force the serial bootloader channel.
+			self.channel = BootloaderSerial(self.args)
 		else:
 			# Try to do some magic to determine the correct channel to use. Our
 			# goal is to automatically choose the correct setting so that

@@ -406,6 +406,9 @@ def main ():
 	parent_channel.add_argument('--port', '-p', '--device', '-d',
 		help='The serial port or device name to use',
 		metavar='STR')
+	parent_channel.add_argument('--serial',
+		action='store_true',
+		help='Use the serial bootloader to flash.')
 	parent_channel.add_argument('--jtag',
 		action='store_true',
 		help='Use JTAG and JLinkExe to flash. Deprecated. Use --jlink instead.')

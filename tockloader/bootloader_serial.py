@@ -337,19 +337,42 @@ class BootloaderSerial(BoardInterface):
 					break
 
 		else:
+			# We seem to be the only tockloader instance. In that case, we want
+			# to spawn a background thread that listens on a socket in case
+			# another tockloader instance starts.
+			#
+			# This thread will handle two cases. In case one, this instance of
+			# tockloader is performing an active task, like installing a new app
+			# or listing the already installed apps. In that case we will tell
+			# the new tockloader instance to wait until we are finished.
+			#
+			# In case two, we are doing a passive listen on the socket for
+			# `printf()` messages from the board. In this case we will pause our
+			# listen, allow the other tockloader instance to complete, and then
+			# resume listening.
+
+			# Create the socket we will listen on.
 			self.server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+			# Close the file descriptor if exec() is called (apparently). I'm
+			# not sure why we need this (or if we do).
 			flags = fcntl.fcntl(self.server_sock, fcntl.F_GETFD)
 			fcntl.fcntl(self.server_sock, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+
+			# Finish setting up the socket, and spawn a thread to listen on that
+			# socket.
 			self.server_sock.bind(self.comm_path)
 			self.server_sock.listen(1)
 			self.server_event = threading.Event()
 			self.server_thread = threading.Thread(
 					target=self._server_thread,
 					daemon=True,
+					name='Tockloader server listen thread',
 					)
 			self.server_thread.start()
 
-			# Set function to run when tockloader finishes
+			# Set function to run when tockloader finishes that closes the
+			# thread and removes the unix socket path.
 			def server_cleanup():
 				if self.server_sock is not None:
 					self.server_sock.close()
@@ -379,7 +402,13 @@ class BootloaderSerial(BoardInterface):
 	#    instructions.
 	def _server_thread (self):
 		while True:
-			connection, client_address = self.server_sock.accept()
+			try:
+				connection, client_address = self.server_sock.accept()
+			except Exception:
+				# `accept()` seems to throw an exception on some platforms
+				# when `self.server_sock.close()` is called. If this happens,
+				# we just call it quits on this listen.
+				return
 
 			r = ''
 			while '\n' not in r:
@@ -1128,6 +1157,8 @@ class BootloaderSerial(BoardInterface):
 		self.miniterm.start()
 
 		def reconnect_terminal (self):
+			logging.info(' ----- Waiting for serial port to reconnect...')
+
 			# Now we have to wait for the serial port to come back. When it
 			# does, configure it and open it.
 			new_port = self._wait_for_serial_port()
@@ -1176,9 +1207,12 @@ class BootloaderSerial(BoardInterface):
 
 				logging.info(' ----- Paused listen for another tockloader session...')
 
-				# This is our wait flag.
+				# This is our wait flag. When this flag is set and `wait()`
+				# returns we can continue listening.
 				self.server_event.wait()
 				self.server_event.clear()
+
+				logging.info(' ----- Resuming listen...')
 
 				# Restart miniterm
 				reconnect_terminal(self)

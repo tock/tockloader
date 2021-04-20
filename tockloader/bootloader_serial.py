@@ -733,10 +733,18 @@ class BootloaderSerial(BoardInterface):
 		# need to read in.
 		bytes_to_read = 2 + response_len
 
-		# Loop to read in that number of bytes. Only unescape the newest bytes.
-		# Start with the header we know we are going to get. This makes
-		# checking for dangling escape characters easier.
-		ret = self.sp.read(2)
+		# Receive the header bytes. Try up to three times in case the command
+		# takes longer than we expect.
+		ret = b''
+		for attempt in range(0, 3):
+			# Loop to read in that number of bytes. Only unescape the newest
+			# bytes. Start with the header we know we are going to get. This
+			# makes checking for dangling escape characters easier.
+			ret = self.sp.read(2)
+
+			# Check if we got two bytes. Otherwise, try the read again.
+			if len(ret) == 2:
+				break
 
 		# Check for errors in the header we just got. We have to stop at this
 		# point since otherwise we loop waiting on data we will not get.

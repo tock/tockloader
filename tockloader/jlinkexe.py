@@ -39,7 +39,31 @@ class JLinkExe(BoardInterface):
 		# Get a list of attached jlink devices, check if that list has at least
 		# one entry.
 		emulators = self._list_emulators()
-		return len(emulators) > 0
+		return self._get_tockloader_board_from_emulators(emulators) != None
+
+	def _get_tockloader_board_from_emulators (self, emulators):
+		'''
+		Returns None or a board name if we can parse the emulators list
+		and find a valid board.
+		'''
+		if len(emulators) > 0:
+			# Just use the first one. Should be good enough to just assume
+			# there is only one for now.
+			emulator = emulators[0]
+			# Check for known JTAG board.
+			if emulator['ProductName'] == 'J-Link OB-SAM3U128-V2-NordicSem':
+				# This seems to match both the nRF52dk (PCA10040) and the
+				# nRF52840dk (PCA10056). From a jlink perspective, they are
+				# the same, which is nice.
+				return 'nrf52dk'
+			if emulator['ProductName'] == 'J-Link' and emulator['Serial number'].startswith('97900'):
+				# SiFive did us no favors with how they set the Product Name.
+				# But two boards had the same numbers to start the serial
+				# number, so we try to leverage those as well. Who knows how
+				# well this will work.
+				return 'hifive1b'
+
+		return None
 
 	def open_link_to_board (self):
 		# Use command line arguments to set the necessary options.
@@ -53,16 +77,9 @@ class JLinkExe(BoardInterface):
 		# device. If options 1 and 2 aren't done, then we try number 3!
 		if self.board == None and self.jlink_device == 'cortex-m0':
 			emulators = self._list_emulators()
-			if len(emulators) > 0:
-				# Just use the first one. Should be good enough to just assume
-				# there is only one for now.
-				emulator = emulators[0]
-				# Check for known JTAG board.
-				if emulator['ProductName'] == 'J-Link OB-SAM3U128-V2-NordicSem':
-					# This seems to match both the nRF52dk (PCA10040) and the
-					# nRF52840dk (PCA10056). From a jlink perspective, they are
-					# the same, which is nice.
-					self.board = 'nrf52dk'
+			board = self._get_tockloader_board_from_emulators(emulators)
+			if board:
+				self.board = board
 
 		# If the user specified a board, use that configuration to fill in any
 		# missing settings.

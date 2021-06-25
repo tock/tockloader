@@ -321,6 +321,19 @@ def _decode_attribute(self, raw)
 
 
 
+### \_get\_tockloader\_board\_from\_emulators
+```py
+
+def _get_tockloader_board_from_emulators(self, emulators)
+
+```
+
+
+
+Returns None or a board name if we can parse the emulators list
+and find a valid board.
+
+
 ### \_list\_emulators
 ```py
 

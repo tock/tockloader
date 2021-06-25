@@ -351,6 +351,22 @@ setting up applications in a way that can be successfully used by the
 board.
 
 
+### \_set\_attribute
+```py
+
+def _set_attribute(self, key, value, log_status=True)
+
+```
+
+
+
+Internal function for setting an attribute stored on the board.
+
+Bootloader mode must be active.
+
+Returns None if successful and an error string if not.
+
+
 ### \_start\_communication\_with\_board
 ```py
 

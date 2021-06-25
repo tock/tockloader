@@ -25,6 +25,15 @@ def __init__(self, option_strings, dest, nargs=None, const=None, default=None, t
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### format\_usage
+```py
+
+def format_usage(self)
+
+```
+
+
+
 ### \_\_call\_\_
 ```py
 

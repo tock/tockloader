@@ -16,6 +16,7 @@ class TBFHeader:
 	HEADER_TYPE_PACKAGE_NAME            = 0x03
 	HEADER_TYPE_PIC_OPTION_1            = 0x04
 	HEADER_TYPE_FIXED_ADDRESSES         = 0x05
+	HEADER_TYPE_KERNEL_VERSION         	= 0x07
 
 	def __init__ (self, buffer):
 		# Flag that records if this TBF header is valid. This is calculated once
@@ -145,6 +146,13 @@ class TBFHeader:
 								self.fields['fixed_address_ram'] = base[0]
 								self.fields['fixed_address_flash'] = base[1]
 								self.fixed_addresses = True
+
+						elif tipe == self.HEADER_TYPE_KERNEL_VERSION:
+							if remaining >= 4 and length == 4:
+								base = struct.unpack('<HH', buffer[0:4])
+								self.fields['kernel_major'] = base[0]
+								self.fields['kernel_minor'] = base[1]
+								self.kernel_version = True
 
 						else:
 							logging.warning('Unknown TLV block in TBF header.')
@@ -294,6 +302,22 @@ class TBFHeader:
 		'''
 		if hasattr(self, 'fixed_addresses'):
 			return (self.fields['fixed_address_ram'], self.fields['fixed_address_flash'])
+		else:
+			return None
+
+	def has_kernel_version (self):
+		'''
+		Return true if this TBF header includes the kernel version TLV.
+		'''
+		return hasattr(self, 'kernel_version')
+
+	def get_kernel_version (self):
+		'''
+		Return (kernel_major, kernel_minor) if there is kernel version
+		present, or None.
+		'''
+		if hasattr(self, 'kernel_version'):
+			return (self.fields['kernel_major'], self.fields['kernel_minor'])
 		else:
 			return None
 
@@ -482,6 +506,10 @@ class TBFHeader:
 			out += 'TLV: Fixed Addresses ({})\n'.format(self.HEADER_TYPE_FIXED_ADDRESSES)
 			out += '  {:<20}: {:>10} {:>#12x}\n'.format('fixed_address_ram', self.fields['fixed_address_ram'], self.fields['fixed_address_ram'])
 			out += '  {:<20}: {:>10} {:>#12x}\n'.format('fixed_address_flash', self.fields['fixed_address_flash'], self.fields['fixed_address_flash'])
+
+		if hasattr(self, 'kernel_version'):
+			out += 'TLV: Kernel Version ({})\n'.format(self.HEADER_TYPE_KERNEL_VERSION)
+			out += '  {:<20}: ^{}.{}\n'.format('kernel version', self.fields['kernel_major'], self.fields['kernel_minor'])
 
 		return out
 

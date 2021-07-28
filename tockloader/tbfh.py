@@ -16,7 +16,7 @@ class TBFHeader:
 	HEADER_TYPE_PACKAGE_NAME            = 0x03
 	HEADER_TYPE_PIC_OPTION_1            = 0x04
 	HEADER_TYPE_FIXED_ADDRESSES         = 0x05
-	HEADER_TYPE_KERNEL_VERSION         	= 0x07
+	HEADER_TYPE_KERNEL_VERSION         	= 0x08
 
 	def __init__ (self, buffer):
 		# Flag that records if this TBF header is valid. This is calculated once

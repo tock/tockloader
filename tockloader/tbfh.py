@@ -410,6 +410,11 @@ class TBFHeader:
 						self.HEADER_TYPE_FIXED_ADDRESSES, 8,
 						self.fields['fixed_address_ram'],
 						self.fields['fixed_address_flash'])
+				if hasattr(self, 'kernel_version'):
+					buf += struct.pack('<HHHH',
+						self.HEADER_TYPE_KERNEL_VERSION, 4,
+						self.fields['kernel_major'],
+						self.fields['kernel_minor'])
 				if hasattr(self, 'unknown'):
 					# Add back any unknown headers so they are preserved in the
 					# binary.

@@ -175,7 +175,7 @@ class JLinkExe(BoardInterface):
 			stdout = p.stdout.decode('utf-8')
 			if 'USB...FAILED' in stdout:
 				raise TockLoaderException('ERROR: Cannot find JLink hardware. Is USB attached?')
-			if 'Can not connect to target.' in stdout:
+			if 'Can not connect to target.' in stdout or 'Cannot connect to target.' in stdout:
 				raise TockLoaderException('ERROR: Cannot find device. Is JTAG connected?')
 			if 'Error while programming flash' in stdout:
 				raise TockLoaderException('ERROR: Problem flashing.')

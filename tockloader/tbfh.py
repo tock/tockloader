@@ -5,6 +5,187 @@ import struct
 def roundup (x, to):
 	return x if x % to == 0 else x + to - x % to
 
+class TBFTLV:
+	def get_tlvid (self):
+		return self.TLVID
+
+class TBFTLVUnknown(TBFTLV):
+	def __init__ (self, tipe, buffer):
+		self.tipe = tipe
+		self.buffer = buffer
+
+	def get_tlvid (self):
+		return self.tipe
+
+	def pack (self):
+		out = struct.pack('<HH', self.tipe, len(self.buffer))
+		out += self.buffer
+		return out
+
+class TBFTLVMain(TBFTLV):
+	TLVID = 0x01
+
+	def __init__ (self, buffer):
+		self.valid = False
+
+		if len(buffer) == 12:
+			base = struct.unpack('<III', buffer)
+			self.init_fn_offset = base[0]
+			self.protected_size = base[1]
+			self.minimum_ram_size = base[2]
+			self.valid = True
+
+	def pack (self):
+		return struct.pack('<HHIII',
+		                   self.TLVID,
+		                   12,
+		                   self.init_fn_offset,
+		                   self.protected_size,
+		                   self.minimum_ram_size)
+
+	def __str__ (self):
+		out =  'TLV: Main ({})\n'.format(self.TLVID)
+		out += '  {:<20}: {:>10} {:>#12x}\n'.format('init_fn_offset', self.init_fn_offset, self.init_fn_offset)
+		out += '  {:<20}: {:>10} {:>#12x}\n'.format('protected_size', self.protected_size, self.protected_size)
+		out += '  {:<20}: {:>10} {:>#12x}\n'.format('minimum_ram_size', self.minimum_ram_size, self.minimum_ram_size)
+		return out
+
+class TBFTLVWriteableFlashRegions(TBFTLV):
+	TLVID = 0x02
+
+	def __init__ (self, buffer):
+		self.valid = False
+
+		# Must be a multiple of 8 bytes
+		if len(buffer) % 8 == 0:
+			self.writeable_flash_regions = []
+			for i in range(0, int(len(buffer) / 8)):
+				base = struct.unpack('<II', buffer[i*8:(i+1)*8])
+				# Add offset,length.
+				self.writeable_flash_regions.append((base[0], base[1]))
+			self.valid = True
+
+	def pack (self):
+		out = struct.pack('<HH',
+		                  self.TLVID,
+		                  len(self.writeable_flash_regions) * 8)
+		for wfr in self.writeable_flash_regions:
+			out += struct.pack('<II', wfr[0], wfr[1])
+		return out
+
+	def __str__ (self):
+		out =  'TLV: Writeable Flash Regions ({})\n'.format(self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS)
+		for i, wfr in enumerate(self.writeable_flash_regions):
+			out += '  writeable flash region {}\n'.format(i)
+			out += '    {:<18}: {:>8} {:>#12x}\n'.format('offset', wfr[0], wfr[0])
+			out += '    {:<18}: {:>8} {:>#12x}\n'.format('length', wfr[1], wfr[1])
+		return out
+
+class TBFTLVPackageName(TBFTLV):
+	TLVID = 0x03
+
+	def __init__ (self, buffer):
+		self.package_name = buffer.decode('utf-8')
+		self.valid = True
+
+	def pack (self):
+		encoded_name = self.package_name.encode('utf-8')
+		out = struct.pack('<HH', self.TLVID, len(encoded_name))
+		out += encoded_name
+		# May need to add padding.
+		padding_length = roundup(len(encoded_name), 4) - len(encoded_name)
+		if padding_length > 0:
+			out += b'\0'*padding_length
+		return out
+
+	def __str__ (self):
+		out =  'TLV: Package Name ({})\n'.format(self.TLVID)
+		out += '  {:<20}: {}\n'.format('package_name', self.package_name)
+		return out
+
+class TBFTLVPicOption1(TBFTLV):
+	TLVID = 0x04
+
+	def __init__ (self, buffer):
+		self.valid = False
+
+		if len(buffer) == 40:
+			base = struct.unpack('<IIIIIIIIII', buffer)
+			self.text_offset = base[0]
+			self.data_offset = base[1]
+			self.data_size = base[2]
+			self.bss_memory_offset = base[3]
+			self.bss_size = base[4]
+			self.relocation_data_offset = base[5]
+			self.relocation_data_size = base[6]
+			self.got_offset = base[7]
+			self.got_size = base[8]
+			self.minimum_stack_length = base[9]
+
+			self.valid = True
+
+	def pack (self):
+		return struct.pack('<HHIIIIIIIIII',
+			self.TLVID, 40,
+			self.text_offset, self.data_offset,
+			self.data_size, self.bss_memory_offset,
+			self.bss_size, self.relocation_data_offset,
+			self.relocation_data_size, self.got_offset,
+			self.got_size, self.minimum_stack_length)
+
+	def __str__ (self):
+		out =  'TLV: PIC Option 1 ({})\n'.format(self.TLVID)
+		out += '  {:<20}: {}\n'.format('PIC', 'C Style')
+		return out
+
+class TBFTLVFixedAddress(TBFTLV):
+	TLVID = 0x05
+
+	def __init__ (self, buffer):
+		self.valid = False
+
+		if len(buffer) == 8:
+			base = struct.unpack('<II', buffer)
+			self.fixed_address_ram = base[0]
+			self.fixed_address_flash = base[1]
+			self.valid = True
+
+	def pack (self):
+		return struct.pack('<HHII',
+			self.TLVID, 8,
+			self.fields['fixed_address_ram'],
+			self.fields['fixed_address_flash'])
+
+	def __str__ (self):
+		out =  'TLV: Fixed Addresses ({})\n'.format(self.TLVID)
+		out += '  {:<20}: {:>10} {:>#12x}\n'.format('fixed_address_ram', self.fixed_address_ram, self.fixed_address_ram)
+		out += '  {:<20}: {:>10} {:>#12x}\n'.format('fixed_address_flash', self.fixed_address_flash, self.fixed_address_flash)
+		return out
+
+class TBFTLVKernelVersion(TBFTLV):
+	TLVID = 0x08
+
+	def __init__ (self, buffer):
+		self.valid = False
+
+		if len(buffer) == 4:
+			base = struct.unpack('<HH', buffer)
+			self.kernel_major = base[0]
+			self.kernel_minor = base[1]
+			self.valid = True
+
+	def pack (self):
+		return struct.pack('<HHHH',
+		                   self.TLVID, 4,
+		                   self.fields['kernel_major'],
+		                   self.fields['kernel_minor'])
+
+	def __str__ (self):
+		out =  'TLV: Kernel Version ({})\n'.format(self.TLVID)
+		out += '  {:<20}: ^{}.{}\n'.format('kernel version', self.kernel_major, self.kernel_minor)
+		return out
+
+
 class TBFHeader:
 	'''
 	Tock Binary Format header class. This can parse TBF encoded headers and
@@ -35,7 +216,10 @@ class TBFHeader:
 		# re-flash the TBF header to the board.
 		self.modified = False
 
+		# The base fields in the TBF header.
 		self.fields = {}
+		# A list of TLV entries.
+		self.tlvs = []
 
 		full_buffer = buffer;
 
@@ -107,52 +291,27 @@ class TBFHeader:
 
 						if tipe == self.HEADER_TYPE_MAIN:
 							if remaining >= 12 and length == 12:
-								base = struct.unpack('<III', buffer[0:12])
-								self.fields['init_fn_offset'] = base[0]
-								self.fields['protected_size'] = base[1]
-								self.fields['minimum_ram_size'] = base[2]
+								self.tlvs.append(TBFTLVMain(buffer[0:12]))
 
 						elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
-							self.writeable_flash_regions = []
 							if remaining >= length:
-								for i in range(0, int(length / 8)):
-									base = struct.unpack('<II', buffer[i*8:(i+1)*8])
-									# Add offset,length.
-									self.writeable_flash_regions.append((base[0], base[1]))
+								self.tlvs.append(TBFTLVWriteableFlashRegions(buffer[0:length]))
 
 						elif tipe == self.HEADER_TYPE_PACKAGE_NAME:
 							if remaining >= length:
-								self.package_name = buffer[0:length].decode('utf-8')
+								self.tlvs.append(TBFTLVPackageName(buffer[0:length]))
 
 						elif tipe == self.HEADER_TYPE_PIC_OPTION_1:
 							if remaining >= 40 and length == 40:
-								base = struct.unpack('<IIIIIIIIII', buffer[0:40])
-								self.fields['text_offset'] = base[0]
-								self.fields['data_offset'] = base[1]
-								self.fields['data_size'] = base[2]
-								self.fields['bss_memory_offset'] = base[3]
-								self.fields['bss_size'] = base[4]
-								self.fields['relocation_data_offset'] = base[5]
-								self.fields['relocation_data_size'] = base[6]
-								self.fields['got_offset'] = base[7]
-								self.fields['got_size'] = base[8]
-								self.fields['minimum_stack_length'] = base[9]
-
-								self.pic_strategy = 'C Style'
+								self.tlvs.append(TBFTLVPicOption1(buffer[0:40]))
 
 						elif tipe == self.HEADER_TYPE_FIXED_ADDRESSES:
 							if remaining >= 8 and length == 8:
-								base = struct.unpack('<II', buffer[0:8])
-								self.fields['fixed_address_ram'] = base[0]
-								self.fields['fixed_address_flash'] = base[1]
-								self.fixed_addresses = True
+								self.tlvs.append(TBFTLVFixedAddress(buffer[0:8]))
 
 						elif tipe == self.HEADER_TYPE_KERNEL_VERSION:
 							if remaining >= 4 and length == 4:
-								base = struct.unpack('<HH', buffer[0:4])
-								self.fields['kernel_major'] = base[0]
-								self.fields['kernel_minor'] = base[1]
-								self.kernel_version = True
+								self.tlvs.append(TBFTLVKernelVersion(buffer[0:4]))
 
 						else:
 							logging.warning('Unknown TLV block in TBF header.')
@@ -160,9 +319,7 @@ class TBFHeader:
 
 							# Add the unknown data to the stored state so we can
 							# put it back afterwards.
-							if not hasattr(self, 'unknown'):
-								self.unknown = []
-							self.unknown.append((tipe, length, buffer[0:length]))
+							self.tlvs.append(TBFTLVUnknown(tipe, buffer[0:length]))
 
 						# All blocks are padded to four byte, so we may need to
 						# round up.
@@ -275,15 +432,21 @@ class TBFHeader:
 		if self.version == 1:
 			return 74
 		else:
-			return self.fields['header_size'] + self.fields['protected_size']
+			header_size = self.fields['header_size']
+
+			main_tlv = self._get_tlv(self.HEADER_TYPE_MAIN)
+			protected_size = main_tlv.protected_size
+
+			return header_size + protected_size
 
 	def get_app_name (self):
 		'''
 		Return the package name if it was encoded in the header, otherwise
 		return a tuple of (package_name_offset, package_name_size).
 		'''
-		if hasattr(self, 'package_name'):
-			return self.package_name
+		tlv = self._get_tlv(self.HEADER_TYPE_PACKAGE_NAME)
+		if tlv:
+			return tlv.package_name
 		elif 'package_name_offset' in self.fields and 'package_name_size' in self.fields:
 			return (self.fields['package_name_offset'], self.fields['package_name_size'])
 		else:
@@ -293,15 +456,16 @@ class TBFHeader:
 		'''
 		Return true if this TBF header includes the fixed addresses TLV.
 		'''
-		return hasattr(self, 'fixed_addresses')
+		return self._get_tlv(self.HEADER_TYPE_FIXED_ADDRESSES) != None
 
 	def get_fixed_addresses (self):
 		'''
 		Return (fixed_address_ram, fixed_address_flash) if there are fixed
 		addresses, or None.
 		'''
-		if hasattr(self, 'fixed_addresses'):
-			return (self.fields['fixed_address_ram'], self.fields['fixed_address_flash'])
+		tlv = self._get_tlv(self.HEADER_TYPE_FIXED_ADDRESSES)
+		if tlv:
+			return (tlv.fixed_address_ram, tlv.fixed_address_flash)
 		else:
 			return None
 
@@ -309,17 +473,32 @@ class TBFHeader:
 		'''
 		Return true if this TBF header includes the kernel version TLV.
 		'''
-		return hasattr(self, 'kernel_version')
+		return self._get_tlv(self.HEADER_TYPE_KERNEL_VERSION) != None
 
 	def get_kernel_version (self):
 		'''
-		Return (kernel_major, kernel_minor) if there is kernel version
-		present, or None.
+		Return (kernel_major, kernel_minor) if there is kernel version present,
+		or None.
 		'''
-		if hasattr(self, 'kernel_version'):
-			return (self.fields['kernel_major'], self.fields['kernel_minor'])
+		tlv = self._get_tlv(self.HEADER_TYPE_KERNEL_VERSION)
+		if tlv:
+			return (tlv.kernel_major, tlv.kernel_minor)
 		else:
 			return None
+
+	def delete_tlv (self, tlvid):
+		'''
+		Delete a particular TLV by ID if it exists.
+		'''
+		indices = []
+		for i,tlv in enumerate(self.tlv):
+			if tlv.get_tlvid() == tlvid:
+				# Reverse the list
+				indices.prepend(i)
+		# Pop starting with the last match
+		for index in indices:
+			logging.debug('Removing TLV at index {}'.format(index))
+			self.tlvs.pop(index)
 
 	def adjust_starting_address (self, address):
 		'''
@@ -328,15 +507,17 @@ class TBFHeader:
 		'''
 		# Check if we can even do anything. No fixed address means this is
 		# meaningless.
-		if hasattr(self, 'fixed_addresses'):
+		tlv_fixed_addr = self._get_tlv(self.HEADER_TYPE_FIXED_ADDRESSES)
+		if tlv_fixed_addr:
+			tlv_main = self._get_tlv(self.HEADER_TYPE_MAIN)
 			# Now see if the header is already the right length.
-			if address + self.fields['header_size'] + self.fields['protected_size'] != self.fields['fixed_address_flash']:
+			if address + self.fields['header_size'] + tlv_main.protected_size != tlv_fixed_addr.fixed_address_flash:
 				# Make sure we need to make the header bigger
-				if address + self.fields['header_size'] + self.fields['protected_size'] < self.fields['fixed_address_flash']:
+				if address + self.fields['header_size'] + tlv_main.protected_size < tlv_fixed_addr.fixed_address_flash:
 					# The header is too small, so we can fix it.
-					delta = self.fields['fixed_address_flash'] - (address + self.fields['header_size'] + self.fields['protected_size'])
+					delta = tlv_fixed_addr.fixed_address_flash - (address + self.fields['header_size'] + tlv_main.protected_size)
 					# Increase the protected size to match this.
-					self.fields['protected_size'] += delta
+					tlv_main.protected_size += delta
 
 					#####
 					##### NOTE! Based on how things are implemented in the Tock
@@ -346,7 +527,7 @@ class TBFHeader:
 					##### the actual application binary (like the documentation
 					##### indicates it should be).
 					#####
-					self.fields['init_fn_offset'] += delta
+					tlv_main.init_fn_offset += delta
 
 				else:
 					# The header actually needs to shrink, which we can't do.
@@ -378,49 +559,8 @@ class TBFHeader:
 				self.version, self.fields['header_size'], self.fields['total_size'],
 				self.fields['flags'], 0)
 			if self.is_app:
-				buf += struct.pack('<HHIII',
-					self.HEADER_TYPE_MAIN, 12,
-					self.fields['init_fn_offset'], self.fields['protected_size'],
-					self.fields['minimum_ram_size'])
-				if hasattr(self, 'writeable_flash_regions'):
-					buf += struct.pack('<HH',
-						self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS,
-						len(self.writeable_flash_regions) * 8)
-					for wfr in self.writeable_flash_regions:
-						buf += struct.pack('<II', wfr[0], wfr[1])
-				if hasattr(self, 'pic_strategy'):
-					if self.pic_strategy == 'C Style':
-						buf += struct.pack('<HHIIIIIIIIII',
-							self.HEADER_TYPE_PIC_OPTION_1, 40,
-							self.fields['text_offset'], self.fields['data_offset'],
-							self.fields['data_size'], self.fields['bss_memory_offset'],
-							self.fields['bss_size'], self.fields['relocation_data_offset'],
-							self.fields['relocation_data_size'], self.fields['got_offset'],
-							self.fields['got_size'], self.fields['minimum_stack_length'])
-				if hasattr(self, 'package_name'):
-					encoded_name = self.package_name.encode('utf-8')
-					buf += struct.pack('<HH', self.HEADER_TYPE_PACKAGE_NAME, len(encoded_name))
-					buf += encoded_name
-					# May need to add padding.
-					padding_length = roundup(len(encoded_name), 4) - len(encoded_name)
-					if padding_length > 0:
-						buf += b'\0'*padding_length
-				if hasattr(self, 'fixed_addresses'):
-					buf += struct.pack('<HHII',
-						self.HEADER_TYPE_FIXED_ADDRESSES, 8,
-						self.fields['fixed_address_ram'],
-						self.fields['fixed_address_flash'])
-				if hasattr(self, 'kernel_version'):
-					buf += struct.pack('<HHHH',
-						self.HEADER_TYPE_KERNEL_VERSION, 4,
-						self.fields['kernel_major'],
-						self.fields['kernel_minor'])
-				if hasattr(self, 'unknown'):
-					# Add back any unknown headers so they are preserved in the
-					# binary.
-					for tipe,length,binary in self.unknown:
-						buf += struct.pack('<HH', tipe, length)
-						buf += binary
+				for tlv in self.tlvs:
+					buf += tlv.pack()
 
 			nbuf = bytearray(len(buf))
 			nbuf[:] = buf
@@ -454,6 +594,15 @@ class TBFHeader:
 
 		return checksum
 
+	def _get_tlv (self, tlvid):
+		'''
+		Return the TLV from the self.tlvs array if it exists.
+		'''
+		for tlv in self.tlvs:
+			if tlv.get_tlvid() == tlvid:
+				return tlv
+		return None
+
 	def __str__ (self):
 		out = ''
 
@@ -485,36 +634,8 @@ class TBFHeader:
 		out += '  {:<20}: {}\n'.format('enabled', ['No', 'Yes'][(self.fields['flags'] >> 0) & 0x01])
 		out += '  {:<20}: {}\n'.format('sticky', ['No', 'Yes'][(self.fields['flags'] >> 1) & 0x01])
 
-		# Main TLV
-		if self.is_app:
-			out += 'TLV: Main ({})\n'.format(self.HEADER_TYPE_MAIN)
-			out += '  {:<20}: {:>10} {:>#12x}\n'.format('init_fn_offset', self.fields['init_fn_offset'], self.fields['init_fn_offset'])
-			out += '  {:<20}: {:>10} {:>#12x}\n'.format('protected_size', self.fields['protected_size'], self.fields['protected_size'])
-			out += '  {:<20}: {:>10} {:>#12x}\n'.format('minimum_ram_size', self.fields['minimum_ram_size'], self.fields['minimum_ram_size'])
-
-		if hasattr(self, 'package_name'):
-			out += 'TLV: Package Name ({})\n'.format(self.HEADER_TYPE_PACKAGE_NAME)
-			out += '  {:<20}: {}\n'.format('package_name', self.package_name)
-
-		if hasattr(self, 'pic_strategy'):
-			out += 'TLV: PIC Option 1 ({})\n'.format(self.HEADER_TYPE_PIC_OPTION_1)
-			out += '  {:<20}: {}\n'.format('PIC', self.pic_strategy)
-
-		if hasattr(self, 'writeable_flash_regions'):
-			out += 'TLV: Writeable Flash Regions ({})\n'.format(self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS)
-			for i, wfr in enumerate(self.writeable_flash_regions):
-				out += '  writeable flash region {}\n'.format(i)
-				out += '    {:<18}: {:>8} {:>#12x}\n'.format('offset', wfr[0], wfr[0])
-				out += '    {:<18}: {:>8} {:>#12x}\n'.format('length', wfr[1], wfr[1])
-
-		if hasattr(self, 'fixed_addresses'):
-			out += 'TLV: Fixed Addresses ({})\n'.format(self.HEADER_TYPE_FIXED_ADDRESSES)
-			out += '  {:<20}: {:>10} {:>#12x}\n'.format('fixed_address_ram', self.fields['fixed_address_ram'], self.fields['fixed_address_ram'])
-			out += '  {:<20}: {:>10} {:>#12x}\n'.format('fixed_address_flash', self.fields['fixed_address_flash'], self.fields['fixed_address_flash'])
-
-		if hasattr(self, 'kernel_version'):
-			out += 'TLV: Kernel Version ({})\n'.format(self.HEADER_TYPE_KERNEL_VERSION)
-			out += '  {:<20}: ^{}.{}\n'.format('kernel version', self.fields['kernel_major'], self.fields['kernel_minor'])
+		for tlv in self.tlvs:
+			out += str(tlv)
 
 		return out
 

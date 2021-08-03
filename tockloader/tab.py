@@ -1,4 +1,5 @@
 import argparse
+import io
 import logging
 import os
 import shutil
@@ -21,6 +22,7 @@ class TAB:
 	'''
 	def __init__ (self, tab_path, args=argparse.Namespace()):
 		self.args = args
+		self.tab_path = tab_path
 
 		if os.path.exists(tab_path):
 			# Fetch it from the local filesystem.
@@ -109,6 +111,49 @@ class TAB:
 			return TabApp([TabTbf(tbf_filename, tbfh, binary[tbfh.get_size_before_app():])])
 		else:
 			raise TockLoaderException('Invalid TBF found in app in TAB')
+
+	def update_tbf (self, app):
+		'''
+		Inserts a new or modified `TabApp` into the .tab file.
+
+		Only works with .tab files stored locally.
+		'''
+
+		# First need to extract everything from the existing tab so we can
+		# replace the files that have not been modified.
+		allmembers = self.tab.getmembers()
+		allfiles = []
+		for member in allmembers:
+			allfiles.append(self.tab.extractfile(member).read())
+
+		# Close the tab we have open since we need to re-open it for writing.
+		self.tab.close()
+
+		# Now need to open tab for writing.
+		tab = tarfile.open(self.tab_path, mode='w')
+
+		# Track which files we replaced with new versions.
+		replaced_names = []
+
+		# Iterate the new versions and add them to the tab
+		names_and_binaries = app.get_names_and_binaries()
+		for filename,binary in names_and_binaries:
+			tarinfo = tarfile.TarInfo(filename)
+			tarinfo.size = len(binary)
+			tab.addfile(tarinfo, io.BytesIO(binary))
+			# Keep track of what we now have.
+			replaced_names.append(filename)
+
+		# Replace what we didn't change.
+		for i,member in enumerate(allmembers):
+			if not member.name in replaced_names:
+				tab.addfile(member, io.BytesIO(allfiles[i]))
+
+		# Close the version for writing.
+		tab.close()
+
+		# Re-open the read version
+		self.tab = tarfile.open(self.tab_path)
 
 	def is_compatible_with_board (self, board):
 		'''

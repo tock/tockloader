@@ -307,6 +307,17 @@ class TabApp:
 		else:
 			raise('Only valid for one TBF file.')
 
+	def get_names_and_binaries (self):
+		'''
+		Return (filename, binary) tuples for each contained TBF. This is for
+		updating a .tab file.
+		'''
+		out = []
+		for tbf in self.tbfs:
+			binary = tbf.tbfh.get_binary() + tbf.binary
+			out.append((tbf.filename, binary))
+		return out
+
 	def get_crt0_header_str (self):
 		'''
 		Return a string representation of the crt0 header some apps use for

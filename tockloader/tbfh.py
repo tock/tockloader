@@ -9,6 +9,9 @@ class TBFTLV:
 	def get_tlvid (self):
 		return self.TLVID
 
+	def get_size (self):
+		return len(self.pack())
+
 class TBFTLVUnknown(TBFTLV):
 	def __init__ (self, tipe, buffer):
 		self.tipe = tipe
@@ -63,7 +66,6 @@ class TBFTLVWriteableFlashRegions(TBFTLV):
 				base = struct.unpack('<II', buffer[i*8:(i+1)*8])
 				# Add offset,length.
 				self.writeable_flash_regions.append((base[0], base[1]))
-			self.valid = True
 
 	def pack (self):
 		out = struct.pack('<HH',
@@ -153,8 +155,8 @@ class TBFTLVFixedAddress(TBFTLV):
 	def pack (self):
 		return struct.pack('<HHII',
 			self.TLVID, 8,
-			self.fields['fixed_address_ram'],
-			self.fields['fixed_address_flash'])
+			self.fixed_address_ram,
+			self.fixed_address_flash)
 
 	def __str__ (self):
 		out =  'TLV: Fixed Addresses ({})\n'.format(self.TLVID)
@@ -177,8 +179,8 @@ class TBFTLVKernelVersion(TBFTLV):
 	def pack (self):
 		return struct.pack('<HHHH',
 		                   self.TLVID, 4,
-		                   self.fields['kernel_major'],
-		                   self.fields['kernel_minor'])
+		                   self.kernel_major,
+		                   self.kernel_minor)
 
 	def __str__ (self):
 		out =  'TLV: Kernel Version ({})\n'.format(self.TLVID)
@@ -491,14 +493,35 @@ class TBFHeader:
 		Delete a particular TLV by ID if it exists.
 		'''
 		indices = []
-		for i,tlv in enumerate(self.tlv):
+		size = 0
+		for i,tlv in enumerate(self.tlvs):
 			if tlv.get_tlvid() == tlvid:
 				# Reverse the list
-				indices.prepend(i)
+				indices.insert(0, i)
+				# Keep track of how much smaller we are making the header.
+				size += tlv.get_size()
 		# Pop starting with the last match
 		for index in indices:
 			logging.debug('Removing TLV at index {}'.format(index))
 			self.tlvs.pop(index)
+			self.modified = True
+
+		# Now update the base information since we have changed the length.
+		self.fields['header_size'] -= size
+
+		# Increase the protected size so that the actual application
+		# binary hasn't moved.
+		tlv_main = self._get_tlv(self.HEADER_TYPE_MAIN)
+		tlv_main.protected_size += size
+		#####
+		##### NOTE! Based on how things are implemented in the Tock
+		##### universe, it seems we also need to increase the
+		##### `init_fn_offset`, which is calculated from the end of
+		##### the TBF header everywhere, and NOT the beginning of
+		##### the actual application binary (like the documentation
+		##### indicates it should be).
+		#####
+		tlv_main.init_fn_offset += size
 
 	def adjust_starting_address (self, address):
 		'''
@@ -569,11 +592,12 @@ class TBFHeader:
 			checksum = self._checksum(buf)
 			struct.pack_into('<I', buf, 12, checksum)
 
-			if 'protected_size' in self.fields and self.fields['protected_size'] > 0:
+			tlv_main = self._get_tlv(self.HEADER_TYPE_MAIN)
+			if tlv_main and tlv_main.protected_size >0:
 				# Add padding to this header binary to account for the
 				# protected region between the header and the application
 				# binary.
-				buf += b'\0'*self.fields['protected_size']
+				buf += b'\0'*tlv_main.protected_size
 
 		return buf
 

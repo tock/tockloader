@@ -252,6 +252,13 @@ class TabApp:
 		for tbf in self.tbfs:
 			tbf.tbfh.delete_tlv(tlvid)
 
+	def modify_tbfh_tlv (self, tlvid, field, value):
+		'''
+		Modify a particular TLV from each TBF header to set field=value.
+		'''
+		for tbf in self.tbfs:
+			tbf.tbfh.modify_tlv(tlvid, field, value)
+
 	def has_app_binary (self):
 		'''
 		Return true if we have an application binary with this app.
@@ -282,25 +289,13 @@ class TabApp:
 				tbfh.adjust_starting_address(address)
 				binary = tbfh.get_binary() + app_binary
 
-			# Check that the binary is not longer than it is supposed to be. This
-			# might happen if the size was changed, but any code using this binary
-			# has no way to check. If the binary is too long, we truncate the actual
-			# binary blob (which should just be padding) to the correct length. If
-			# it is too short it is ok, since the board shouldn't care what is in
-			# the flash memory the app is not using.
-			size = self.get_size()
-			if len(binary) > size:
-				logging.info('Binary is larger than what it says in the header. Actual:{}, expected:{}'
-					.format(len(binary), size))
-				logging.info('Truncating binary to match.')
-
-				# Check on what we would be removing. If it is all zeros, we
-				# determine that it is OK to truncate.
-				to_remove = binary[size:]
-				if len(to_remove) != to_remove.count(0):
-					raise TockLoaderException('Error truncating binary. Not zero.')
-
-				binary = binary[0:size]
+			# Check that the binary is not longer than it is supposed to be.
+			# This might happen if the size was changed, but any code using this
+			# binary has no way to check. If the binary is too long, we truncate
+			# the actual binary blob (which should just be padding) to the
+			# correct length. If it is too short it is ok, since the board
+			# shouldn't care what is in the flash memory the app is not using.
+			binary = self._truncate_binary(binary)
 
 			return binary
 
@@ -315,6 +310,8 @@ class TabApp:
 		out = []
 		for tbf in self.tbfs:
 			binary = tbf.tbfh.get_binary() + tbf.binary
+			# Truncate in case the header grew and elf2tab padded the binary.
+			binary = self._truncate_binary(binary)
 			out.append((tbf.filename, binary))
 		return out
 
@@ -360,6 +357,26 @@ class TabApp:
 			for tbf in self.tbfs:
 				out += textwrap.indent(str(tbf.tbfh), '  ')
 		return out
+
+	def _truncate_binary (self, binary):
+		'''
+		Optionally truncate binary if the header+protected size has grown, and
+		the actual machine code binary is now too long.
+		'''
+		size = self.get_size()
+		if len(binary) > size:
+			logging.info('Binary is larger than what it says in the header. Actual:{}, expected:{}'
+				.format(len(binary), size))
+			logging.info('Truncating binary to match.')
+
+			# Check on what we would be removing. If it is all zeros, we
+			# determine that it is OK to truncate.
+			to_remove = binary[size:]
+			if len(to_remove) != to_remove.count(0):
+				raise TockLoaderException('Error truncating binary. Not zero.')
+
+			binary = binary[0:size]
+		return binary
 
 	def __str__ (self):
 		return self.get_name()

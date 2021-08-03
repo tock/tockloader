@@ -523,6 +523,19 @@ class TBFHeader:
 		#####
 		tlv_main.init_fn_offset += size
 
+	def modify_tlv (self, tlvid, field, value):
+		'''
+		Modify a TLV by setting a particular field in the TLV object to value.
+		'''
+		for tlv in self.tlvs:
+			if tlv.get_tlvid() == tlvid:
+				try:
+					getattr(tlv, field)
+				except:
+					raise TockLoaderException('{} is not in TLV {}'.format(field, tlvid))
+				setattr(tlv, field, value)
+				self.modified = True
+
 	def adjust_starting_address (self, address):
 		'''
 		Alter this TBF header so the fixed address in flash will be correct

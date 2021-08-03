@@ -11,6 +11,7 @@ import urllib.request
 import pytoml
 
 from .app_tab import TabApp
+from .app_tab import TabTbf
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 
@@ -79,7 +80,7 @@ class TAB:
 					# TBF header) for the app.
 					raise TockLoaderException('Invalid TAB, the app binary is longer than its defined total_size')
 
-				tbfs.append((tbfh, binary[tbfh.get_size_before_app():]))
+				tbfs.append(TabTbf(tbf_filename, tbfh, binary[tbfh.get_size_before_app():]))
 			else:
 				raise TockLoaderException('Invalid TBF found in app in TAB')
 
@@ -105,7 +106,7 @@ class TAB:
 				# TBF header) for the app.
 				raise TockLoaderException('Invalid TAB, the app binary is longer than its defined total_size')
 
-			return TabApp([(tbfh, binary[tbfh.get_size_before_app():])])
+			return TabApp([TabTbf(tbf_filename, tbfh, binary[tbfh.get_size_before_app():])])
 		else:
 			raise TockLoaderException('Invalid TBF found in app in TAB')
 

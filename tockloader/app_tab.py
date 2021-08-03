@@ -4,6 +4,24 @@ import textwrap
 
 from .exceptions import TockLoaderException
 
+class TabTbf:
+	'''
+	Representation of a compiled app in the Tock Binary Format for use in
+	Tockloader.
+
+	This correlates to a specific .tbf file storing a .tab file.
+	'''
+
+	def __init__ (self, filename, tbfh, binary):
+		'''
+		- `filename` is the identifier used in the .tab.
+		- `tbfh` is the header object
+		- `binary` is the actual compiled binary code
+		'''
+		self.filename = filename
+		self.tbfh = tbfh
+		self.binary = binary
+
 class TabApp:
 	'''
 	Representation of a Tock app for a specific architecture and board from a
@@ -11,27 +29,26 @@ class TabApp:
 	binaries for a range of architectures, or compiled for various scenarios,
 	which may not be applicable for a particular board.
 
-	A TabApp need not be a single (TBF header, binary) pair, as an app from a
-	TAB can include multiple (header, binary) pairs if the app was compiled
-	multiple times. This could be for any reason (e.g. it was signed with
-	different keys, or it uses different compiler optimizations), but typically
-	this is because it is compiled for specific addresses in flash and RAM, and
-	there are multiple linked versions present in the TAB. If so, there will be
-	multiple (header, binary) pairs included in this App object, and the correct
-	one for the board will be used later.
+	A TabApp need not be a single TabTbf, as an app from a TAB can include
+	multiple TabTbfs if the app was compiled multiple times. This could be for
+	any reason (e.g. it was signed with different keys, or it uses different
+	compiler optimizations), but typically this is because it is compiled for
+	specific addresses in flash and RAM, and there are multiple linked versions
+	present in the TAB. If so, there will be multiple TabTbfs included in this
+	App object, and the correct one for the board will be used later.
 	'''
 
 	def __init__ (self, tbfs):
 		'''
-		Create a `TabApp` from a list of (TBF header, app binary) pairs.
+		Create a `TabApp` from a list of TabTbfs.
 		'''
-		self.tbfs = tbfs # A list of (TBF header, app binary) pairs.
+		self.tbfs = tbfs # A list of TabTbfs.
 
 	def get_name (self):
 		'''
 		Return the app name.
 		'''
-		app_names = set([tbf[0].get_app_name() for tbf in self.tbfs])
+		app_names = set([tbf.tbfh.get_app_name() for tbf in self.tbfs])
 		if len(app_names) > 1:
 			raise TockLoaderException('Different names inside the same TAB?')
 		elif len(app_names) == 0:
@@ -52,15 +69,15 @@ class TabApp:
 		Mark this app as "sticky" in the app's header. This makes it harder to
 		accidentally remove this app if it is a core service or debug app.
 		'''
-		for tbfh,binary in self.tbfs:
-			tbfh.set_flag('sticky', True)
+		for tbf in self.tbfs:
+			tbf.tbfh.set_flag('sticky', True)
 
 	def get_header (self):
 		'''
 		Return a header if there is only one.
 		'''
 		if len(self.tbfs) == 1:
-			return self.tbfs[0][0]
+			return self.tbfs[0].tbfh
 		return None
 
 	def get_size (self):
@@ -70,7 +87,7 @@ class TabApp:
 		This is only valid if there is only one TBF.
 		'''
 		if len(self.tbfs) == 1:
-			return self.tbfs[0][0].get_app_size()
+			return self.tbfs[0].tbfh.get_app_size()
 		else:
 			raise TockLoaderException('Size only valid with one TBF')
 
@@ -79,25 +96,25 @@ class TabApp:
 		Force the entire app to be a certain size. If `size` is smaller than the
 		actual app an error will be thrown.
 		'''
-		for tbfh,app_binary in self.tbfs:
-			header_size = tbfh.get_header_size()
-			binary_size = len(app_binary)
+		for tbf in self.tbfs:
+			header_size = tbf.tbfh.get_header_size()
+			binary_size = len(tbf.binary)
 			current_size = header_size + binary_size
 			if size < current_size:
 				raise TockLoaderException('Cannot make app smaller. Current size: {} bytes'.format(current_size))
-			tbfh.set_app_size(size)
+			tbf.tbfh.set_app_size(size)
 
 	def set_minimum_size (self, size):
 		'''
 		Force each version of the entire app to be a certain size. If `size` is
 		smaller than the actual app nothing happens.
 		'''
-		for tbfh,app_binary in self.tbfs:
-			header_size = tbfh.get_header_size()
-			binary_size = len(app_binary)
+		for tbf in self.tbfs:
+			header_size = tbf.tbfh.get_header_size()
+			binary_size = len(tbf.binary)
 			current_size = header_size + binary_size
 			if size > current_size:
-				tbfh.set_app_size(size)
+				tbf.tbfh.set_app_size(size)
 
 	def set_size_constraint (self, constraint):
 		'''
@@ -110,15 +127,15 @@ class TabApp:
 		'''
 		if constraint == 'powers_of_two':
 			# Make sure the total app size is a power of two.
-			for tbfh,app_binary in self.tbfs:
-				current_size = tbfh.get_app_size()
+			for tbf in self.tbfs:
+				current_size = tbf.tbfh.get_app_size()
 				if (current_size & (current_size - 1)) != 0:
 					# This is not a power of two, but should be.
 					count = 0
 					while current_size != 0:
 						current_size >>= 1
 						count += 1
-					tbfh.set_app_size(1 << count)
+					tbf.tbfh.set_app_size(1 << count)
 					logging.debug('Rounding app up to ^2 size ({} bytes)'.format(1 << count))
 
 	def has_fixed_addresses (self):
@@ -128,8 +145,8 @@ class TabApp:
 		address.
 		'''
 		has_fixed_addresses = False
-		for tbfh,app_binary in self.tbfs:
-			if tbfh.has_fixed_addresses():
+		for tbf in self.tbfs:
+			if tbf.tbfh.has_fixed_addresses():
 				has_fixed_addresses = True
 				break
 		return has_fixed_addresses
@@ -142,8 +159,8 @@ class TabApp:
 		[(address, size), (address, size), ...]
 		'''
 		apps_in_flash = []
-		for tbfh,app_binary in self.tbfs:
-			apps_in_flash.append((tbfh.get_fixed_addresses()[1], tbfh.get_app_size()))
+		for tbf in self.tbfs:
+			apps_in_flash.append((tbf.tbfh.get_fixed_addresses()[1], tbf.tbfh.get_app_size()))
 		return apps_in_flash
 
 	def is_loadable_at_address (self, address):
@@ -156,9 +173,9 @@ class TabApp:
 			return True
 
 		# Otherwise, see if we have a TBF which can go at the requested address.
-		for tbfh,app_binary in self.tbfs:
-			fixed_flash_address = tbfh.get_fixed_addresses()[1]
-			tbf_header_length = tbfh.get_header_size()
+		for tbf in self.tbfs:
+			fixed_flash_address = tbf.tbfh.get_fixed_addresses()[1]
+			tbf_header_length = tbf.tbfh.get_header_size()
 
 			# Ok, we have to be a little tricky here. What we actually care
 			# about is ensuring that the application binary itself ends up at
@@ -208,8 +225,8 @@ class TabApp:
 		# Find the binary with the lowest valid address that is above `address`.
 		best_address = None
 		best_index = None
-		for i,(tbfh,app_binary) in enumerate(self.tbfs):
-			fixed_flash_address = tbfh.get_fixed_addresses()[1]
+		for i,tbf in enumerate(self.tbfs):
+			fixed_flash_address = tbf.tbfh.get_fixed_addresses()[1]
 
 			# Align to get a reasonable address for this app.
 			wanted_address = align_down_to(fixed_flash_address, 1024)
@@ -227,6 +244,13 @@ class TabApp:
 			return best_address
 		else:
 			return None
+
+	def delete_tbfh_tlv (self, tlvid):
+		'''
+		Delete a particular TLV from each TBF header.
+		'''
+		for tbf in self.tbfs:
+			tbf.tbfh.delete_tlv(tlvid)
 
 	def has_app_binary (self):
 		'''
@@ -246,8 +270,8 @@ class TabApp:
 		'''
 
 		if len(self.tbfs) == 1:
-			tbfh = self.tbfs[0][0]
-			app_binary = self.tbfs[0][1]
+			tbfh = self.tbfs[0].tbfh
+			app_binary = self.tbfs[0].binary
 
 			# If the TBF is not compiled for a fixed address, then we can just
 			# use it.
@@ -289,7 +313,8 @@ class TabApp:
 		doing PIC fixups. We assume this header is positioned immediately
 		after the TBF header (AKA at the beginning of the application binary).
 		'''
-		tbfh,app_binary = self.tbfs[0]
+		tbfh = self.tbfs[0].tbfh
+		app_binary = self.tbfs[0].binary
 
 		crt0 = struct.unpack('<IIIIIIIIII', app_binary[0:40])
 
@@ -322,7 +347,7 @@ class TabApp:
 
 		if verbose:
 			for tbf in self.tbfs:
-				out += textwrap.indent(str(tbf[0]), '  ')
+				out += textwrap.indent(str(tbf.tbfh), '  ')
 		return out
 
 	def __str__ (self):

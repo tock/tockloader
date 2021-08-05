@@ -96,6 +96,9 @@ class BootloaderSerial(BoardInterface):
 		# byte chunks.
 		self.page_size = 512
 
+		# The Tock bootloader always has an attribute table.
+		self.no_attribute_table = False
+
 		# We cache attributes so we don't read them more than once. Create a
 		# local data structure to hold them.
 		self.attributes = ['uncached'] * 16

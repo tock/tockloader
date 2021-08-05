@@ -613,6 +613,7 @@ class TockLoader:
 		then = time.time()
 		try:
 			if not self.args.no_bootloader_entry:
+				logging.debug('start: Enter bootloader mode')
 				self.channel.enter_bootloader_mode()
 			else:
 				time.sleep(0.2)
@@ -620,9 +621,11 @@ class TockLoader:
 			# Now that we have connected to the board and the bootloader
 			# if necessary, make sure we know what kind of board we are
 			# talking to.
+			logging.debug('start: Determine current board')
 			self.channel.determine_current_board()
 
 			# Set any board-specific options that tockloader needs to use.
+			logging.debug('start: Update board specific options')
 			self._update_board_specific_options()
 
 			yield
@@ -1019,6 +1022,7 @@ class TockLoader:
 		# Jump through the linked list of apps
 		while (True):
 			header_length = 200 # Version 2
+			logging.debug('Reading for app header @{:#x}, {} bytes', address, header_length)
 			flash = self.channel.read_range(address, header_length)
 
 			# if there was an error, the binary array will be empty

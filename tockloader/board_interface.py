@@ -30,12 +30,14 @@ class BoardInterface:
 		            'jlink_device': 'nrf51422',
 		            'page_size': 1024,
 		            'openocd': 'nordic_nrf51_dk.cfg',
-		            'openocd_options': ['workareazero']},
+		            'openocd_options': ['workareazero'],
+		            'no_attribute_table': True},
 		'nrf52dk': {'description': 'Nordic nRF52-based development kit',
 		            'arch': 'cortex-m4',
 		            'jlink_device': 'nrf52',
 		            'page_size': 4096,
-		            'openocd': 'nordic_nrf52_dk.cfg'},
+		            'openocd': 'nordic_nrf52_dk.cfg',
+		            'no_attribute_table': True},
 		'nano33ble': {'description': 'Arduino Nano 33 BLE board',
 		              'arch': 'cortex-m4'},
 		'launchxl-cc26x2r1': {'description': 'TI CC26x2-based launchpad',
@@ -47,11 +49,13 @@ class BoardInterface:
 		                      'openocd': 'ti_cc26x2_launchpad.cfg',
 		                      'openocd_options': ['noreset', 'resume'],
 		                      'openocd_commands': {'program': 'flash write_image erase {{binary}} {address:#x};\
-		                                                       verify_image {{binary}} {address:#x};'}},
+		                                                       verify_image {{binary}} {address:#x};'},
+		                      'no_attribute_table': True},
 		'ek-tm4c1294xl': {'description': 'TI TM4C1294-based launchpad',
 		                  'arch': 'cortex-m4',
 		                  'page_size': 512,
-		                  'openocd': 'ek-tm4c1294xl.cfg'},
+		                  'openocd': 'ek-tm4c1294xl.cfg',
+		                  'no_attribute_table': True},
 		'arty': {'description': 'Arty FPGA running SiFive RISC-V core',
 		         'arch': 'rv32imac',
 		         'apps_start_address': 0x40430000,
@@ -78,7 +82,8 @@ class BoardInterface:
 		            	                '..', 'bitfiles', 'bscan_spi_xc7a100t.bit')),
 		         'openocd_commands': {'program': 'jtagspi_program {{binary}} {address:#x};',
 		                              'read': 'jtagspi_read {{binary}} {address:#x} {length};',
-		                              'erase': 'flash fillb {address:#x} 0x00 512;'}},
+		                              'erase': 'flash fillb {address:#x} 0x00 512;'},
+		         'no_attribute_table': True},
 		'stm32f3discovery': {'description': 'STM32F3-based Discovery Boards',
 		                     'arch': 'cortex-m4',
 		                     'apps_start_address': 0x08020000,
@@ -89,35 +94,40 @@ class BoardInterface:
 		                                        hla_device_desc "ST-LINK/V2-1"; \
 		                                        hla_vid_pid 0x0483 0x374b; \
 		                                        set WORKAREASIZE 0xC000; \
-		                                        source [find target/stm32f3x.cfg];'},
+		                                        source [find target/stm32f3x.cfg];',
+		                     'no_attribute_table': True},
 		'stm32f4discovery': {'description': 'STM32F4-based Discovery Boards',
-		                        'arch': 'cortex-m4',
-		                        'apps_start_address': 0x08040000,
-		                        'page_size': 2048,
-		                        'openocd': 'external',
-		                        'openocd_prefix': 'interface hla; \
-		                                           hla_layout stlink; \
-		                                           hla_device_desc "ST-LINK/V2-1"; \
-		                                           hla_vid_pid 0x0483 0x374b; \
-		                                           set WORKAREASIZE 0x40000; \
-		                                           source [find target/stm32f4x.cfg];'},
+		                     'arch': 'cortex-m4',
+		                     'apps_start_address': 0x08040000,
+		                     'page_size': 2048,
+		                     'openocd': 'external',
+		                     'openocd_prefix': 'interface hla; \
+		                                        hla_layout stlink; \
+		                                        hla_device_desc "ST-LINK/V2-1"; \
+		                                        hla_vid_pid 0x0483 0x374b; \
+		                                        set WORKAREASIZE 0x40000; \
+		                                        source [find target/stm32f4x.cfg];',
+		                     'no_attribute_table': True},
 		'nucleof4': {'description': 'STM32f4-based Nucleo development boards',
 		             'arch': 'cortex-m4',
 		             'apps_start_address': 0x08040000,
 		             'page_size': 2048,
-		             'openocd': 'st_nucleo_f4.cfg'},
+		             'openocd': 'st_nucleo_f4.cfg',
+		             'no_attribute_table': True},
 		'hifive1': {'description': 'SiFive HiFive1 development board',
 		            'arch': 'rv32imac',
 		            'apps_start_address': 0x20430000,
 		            'page_size': 512,
-		            'openocd': 'sifive-hifive1.cfg'},
+		            'openocd': 'sifive-hifive1.cfg',
+		            'no_attribute_table': True},
 		'hifive1b': {'description': 'SiFive HiFive1b development board',
 		             'arch': 'rv32imac',
 		             'apps_start_address': 0x20040000,
 		             'page_size': 512,
 		             'jlink_device': 'FE310',
 		             'jlink_if': 'jtag',
-		             'openocd': 'sifive-hifive1-revb.cfg'},
+		             'openocd': 'sifive-hifive1-revb.cfg',
+		             'no_attribute_table': True},
 		'edu-ciaa': {'description': 'Educational NXP board, from the CIAA project',
 		             'arch': 'cortex-m4',
 		             'page_size': 512,
@@ -125,7 +135,8 @@ class BoardInterface:
 		             'openocd': 'ftdi_lpc4337.cfg',
 		             'openocd_options': ['noreset'],
 		             'openocd_commands': {'program': 'flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};',
-		             'erase': 'flash fillb {address:#x} 0x00 512;'}},
+		             'erase': 'flash fillb {address:#x} 0x00 512;'},
+		             'no_attribute_table': True},
 		'microbit_v2': {'description': 'BBC Micro:bit v2',
 		                'arch': 'cortex-m4',
 		                'apps_start_address': 0x00040000,
@@ -136,7 +147,8 @@ class BoardInterface:
 		                                   source [find target/nrf52.cfg]; \
 		                                   set WORKAREASIZE 0x40000; \
 		                                   $_TARGETNAME configure -work-area-phys 0x20000000 -work-area-size $WORKAREASIZE -work-area-backup 0; \
-		                                   flash bank $_CHIPNAME.flash nrf51 0x00000000 0 1 1 $_TARGETNAME;'},
+		                                   flash bank $_CHIPNAME.flash nrf51 0x00000000 0 1 1 $_TARGETNAME;',
+		                'no_attribute_table': True},
 	}
 
 	def __init__ (self, args):
@@ -161,6 +173,9 @@ class BoardInterface:
 		self.arch = getattr(self.args, 'arch', None)
 		self.apps_start_address = getattr(self.args, 'app_address', None)
 		self.page_size = getattr(self.args, 'page_size', 0)
+
+		# Set defaults.
+		self.no_attribute_table = False  # We assume this is a full tock board.
 
 		# Next try to use `KNOWN_BOARDS`.
 		self._configure_from_known_boards()
@@ -188,6 +203,8 @@ class BoardInterface:
 				self.apps_start_address = board['apps_start_address']
 			if self.page_size == 0 and 'page_size' in board:
 				self.page_size = board['page_size']
+			if self.no_attribute_table == False and 'no_attribute_table' in board:
+				self.no_attribute_table = board['no_attribute_table']
 
 		# This init only includes the generic settings that all communication
 		# methods need. There may be flags specific to a particular
@@ -243,6 +260,9 @@ class BoardInterface:
 		'''
 		Get a single attribute. Returns a dict with two keys: `key` and `value`.
 		'''
+		if self.no_attribute_table:
+			return None
+
 		# Default implementation to get an attribute. Reads flash directly and
 		# extracts the attribute.
 		address = 0x600 + (64 * index)
@@ -256,6 +276,9 @@ class BoardInterface:
 		# Check for cached attributes.
 		if hasattr(self, 'attributes'):
 			return self.attributes
+
+		if self.no_attribute_table:
+			return []
 
 		# Read the entire block of attributes directly from flash.
 		# This is much faster.

@@ -211,7 +211,7 @@ class TBFHeader:
 		# something else). Tockloader will not change this after the TBF header
 		# is initially parsed, so we do not need to re-calculate this and can
 		# used a flag here.
-		self.is_app = False
+		self.app = False
 		# Whether the TBF header has been modified from when it was first
 		# created (by calling `__init__`). This might happen, for example, if a
 		# new flag was set. We keep track of this so that we know if we need to
@@ -256,7 +256,7 @@ class TBFHeader:
 			self.fields['package_name_offset'] = base[15]
 			self.fields['package_name_size'] = base[16]
 			self.fields['checksum'] = base[17]
-			self.is_app = True
+			self.app = True
 
 			if checksum == self.fields['checksum']:
 				self.valid = True
@@ -281,7 +281,7 @@ class TBFHeader:
 				# Now check to see if this is an app or padding.
 				if remaining > 0 and len(buffer) >= remaining:
 					# This is an application. That means we need more parsing.
-					self.is_app = True
+					self.app = True
 
 					while remaining >= 4:
 						base = struct.unpack('<HH', buffer[0:4])
@@ -344,6 +344,12 @@ class TBFHeader:
 		Whether the CRC and other checks passed for this header.
 		'''
 		return self.valid
+
+	def is_app (self):
+		'''
+		Whether this is an app or padding.
+		'''
+		return self.app
 
 	def is_modified (self):
 		'''
@@ -594,7 +600,7 @@ class TBFHeader:
 			buf = struct.pack('<HHIII',
 				self.version, self.fields['header_size'], self.fields['total_size'],
 				self.fields['flags'], 0)
-			if self.is_app:
+			if self.app:
 				for tlv in self.tlvs:
 					buf += tlv.pack()
 
@@ -689,12 +695,14 @@ class TBFHeaderPadding(TBFHeader):
 		padding should be.
 		'''
 		self.valid = True
-		self.is_app = False
+		self.app = False
 		self.modified = False
 		self.fields = {}
+		self.tlvs = []
 
 		self.version = 2
 		# self.fields['header_size'] = 14 # this causes interesting bugs...
 		self.fields['header_size'] = 16
 		self.fields['total_size'] = size
 		self.fields['flags'] = 0
+		self.fields['checksum'] = self._checksum(self.get_binary())

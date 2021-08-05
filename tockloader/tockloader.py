@@ -21,6 +21,7 @@ import time
 from . import helpers
 from .app_installed import InstalledApp
 from .app_padding import PaddingApp
+from .app_padding import InstalledPaddingApp
 from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
@@ -192,7 +193,7 @@ class TockLoader:
 		with self._start_communication_with_board():
 
 			# Get all apps based on their header
-			apps = self._extract_all_app_headers()
+			apps = self._extract_all_app_headers(verbose)
 
 			self._print_apps(apps, verbose, quiet)
 
@@ -1008,7 +1009,7 @@ class TockLoader:
 		# applications.
 		self.channel.erase_page(app_address)
 
-	def _extract_all_app_headers (self):
+	def _extract_all_app_headers (self, verbose=False):
 		'''
 		Iterate through the flash on the board for the header information about
 		each app.
@@ -1033,8 +1034,14 @@ class TockLoader:
 			tbfh = TBFHeader(flash)
 
 			if tbfh.is_valid():
-				app = InstalledApp(tbfh, address)
-				apps.append(app)
+				if tbfh.is_app():
+					app = InstalledApp(tbfh, address)
+					apps.append(app)
+				else:
+					app = InstalledPaddingApp(tbfh, address)
+					if verbose:
+						# In verbose mode include padding
+						apps.append(app)
 
 				address += app.get_size()
 
@@ -1149,14 +1156,20 @@ class TockLoader:
 		if not quiet:
 			# Print info about each app
 			for i,app in enumerate(apps):
-				print(helpers.text_in_box('App {}'.format(i), 52))
+				if app.is_app():
+					print(helpers.text_in_box('App {}'.format(i), 52))
 
-				# Check if this app is OK with the MPU region requirements.
-				if not self._app_is_aligned_correctly(app.get_address(), app.get_size()):
-					print('  [WARNING] App is misaligned for the MPU')
+					# Check if this app is OK with the MPU region requirements.
+					if not self._app_is_aligned_correctly(app.get_address(), app.get_size()):
+						print('  [WARNING] App is misaligned for the MPU')
 
-				print(textwrap.indent(app.info(verbose), '  '))
-				print('')
+					print(textwrap.indent(app.info(verbose), '  '))
+					print('')
+				else:
+					# Display padding
+					print(helpers.text_in_box('Padding', 52))
+					print(textwrap.indent(app.info(verbose), '  '))
+					print('')
 
 			if len(apps) == 0:
 				logging.info('No found apps.')

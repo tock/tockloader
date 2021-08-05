@@ -30,6 +30,12 @@ class InstalledApp:
 		'''
 		return self.tbfh.get_app_name()
 
+	def is_app (self):
+		'''
+		Whether this is an app or padding.
+		'''
+		return True
+
 	def is_modified (self):
 		'''
 		Returns whether this app has been modified by tockloader since it was

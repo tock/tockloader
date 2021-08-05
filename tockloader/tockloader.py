@@ -856,7 +856,7 @@ class TockLoader:
 			# Get sorted apps array.
 			logging.info('Found sort order:')
 			sorted_apps = []
-			for order in valid_order:
+			for order in sorted(valid_order, key=lambda a: a[0]):
 				app = apps[order[2]]
 				logging.info('  App "{}" at address {:#x}'.format(app.get_name(), order[0]))
 				sorted_apps.append(app)

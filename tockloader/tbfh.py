@@ -1,6 +1,7 @@
-
 import logging
 import struct
+
+from .exceptions import TockLoaderException
 
 def roundup (x, to):
 	return x if x % to == 0 else x + to - x % to
@@ -184,6 +185,8 @@ class TBFTLVKernelVersion(TBFTLV):
 
 	def __str__ (self):
 		out =  'TLV: Kernel Version ({})\n'.format(self.TLVID)
+		out += '  {:<20}: {}\n'.format('kernel_major', self.kernel_major)
+		out += '  {:<20}: {}\n'.format('kernel_minor', self.kernel_minor)
 		out += '  {:<20}: ^{}.{}\n'.format('kernel version', self.kernel_major, self.kernel_minor)
 		return out
 
@@ -538,7 +541,7 @@ class TBFHeader:
 				try:
 					getattr(tlv, field)
 				except:
-					raise TockLoaderException('{} is not in TLV {}'.format(field, tlvid))
+					raise TockLoaderException('Field "{}" is not in TLV {}'.format(field, tlvid))
 				setattr(tlv, field, value)
 				self.modified = True
 

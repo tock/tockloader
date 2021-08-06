@@ -75,6 +75,7 @@ class TockLoader:
 	                               'openocd': True}},
 	    'arty': {'size_minimum': 0x10000,
 	             'size_constraint': None},
+	    'microbit_v2': {'size_minimum': 4096},
 	}
 
 

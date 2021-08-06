@@ -45,6 +45,13 @@ class JLinkExe(BoardInterface):
 		'''
 		Returns None or a board name if we can parse the emulators list
 		and find a valid board.
+
+		To add to this list, connect your board, then:
+
+		$ JLinkExe
+		> ShowEmuList
+
+		and hope there is something unique we can match on.
 		'''
 		if len(emulators) > 0:
 			# Just use the first one. Should be good enough to just assume
@@ -62,6 +69,10 @@ class JLinkExe(BoardInterface):
 				# number, so we try to leverage those as well. Who knows how
 				# well this will work.
 				return 'hifive1b'
+			if emulator['ProductName'] == 'J-Link OB-STM32F072-128KB-Corte':
+				# In Aug 2021 I found this for the aconno ACD52832. We don't
+				# have an ACD52832-specific board, so we just use the nrf52dk.
+				return 'nrf52dk'
 
 		return None
 
@@ -367,7 +378,12 @@ class JLinkExe(BoardInterface):
 		'''
 		Use JLinkRTTClient to listen for RTT messages.
 		'''
-		if self.jlink_device == None:
+		if getattr(self, 'jlink_device', None) == None:
+			# Try to figure it out.
+			self.open_link_to_board()
+
+		# See if we succeeded.
+		if getattr(self, 'jlink_device', None) == None:
 			logging.error('Unknown jlink_device. Use the --board or --jlink-device options.')
 			return
 

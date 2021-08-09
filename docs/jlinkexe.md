@@ -333,6 +333,13 @@ def _get_tockloader_board_from_emulators(self, emulators)
 Returns None or a board name if we can parse the emulators list
 and find a valid board.
 
+To add to this list, connect your board, then:
+
+$ JLinkExe
+> ShowEmuList
+
+and hope there is something unique we can match on.
+
 
 ### \_list\_emulators
 ```py

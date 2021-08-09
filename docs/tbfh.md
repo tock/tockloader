@@ -28,6 +28,18 @@ Alter this TBF header so the fixed address in flash will be correct
 if the entire TBF binary is loaded at address `address`.
 
 
+### delete\_tlv
+```py
+
+def delete_tlv(self, tlvid)
+
+```
+
+
+
+Delete a particular TLV by ID if it exists.
+
+
 ### get\_app\_name
 ```py
 
@@ -91,6 +103,19 @@ Get the size of the header in bytes. This includes any alignment
 padding at the end of the header.
 
 
+### get\_kernel\_version
+```py
+
+def get_kernel_version(self)
+
+```
+
+
+
+Return (kernel_major, kernel_minor) if there is kernel version present,
+or None.
+
+
 ### get\_size\_before\_app
 ```py
 
@@ -113,6 +138,30 @@ def has_fixed_addresses(self)
 
 
 Return true if this TBF header includes the fixed addresses TLV.
+
+
+### has\_kernel\_version
+```py
+
+def has_kernel_version(self)
+
+```
+
+
+
+Return true if this TBF header includes the kernel version TLV.
+
+
+### is\_app
+```py
+
+def is_app(self)
+
+```
+
+
+
+Whether this is an app or padding.
 
 
 ### is\_enabled
@@ -166,6 +215,18 @@ def is_valid(self)
 Whether the CRC and other checks passed for this header.
 
 
+### modify\_tlv
+```py
+
+def modify_tlv(self, tlvid, field, value)
+
+```
+
+
+
+Modify a TLV by setting a particular field in the TLV object to value.
+
+
 ### set\_app\_size
 ```py
 
@@ -217,6 +278,18 @@ def _checksum(self, buffer)
 
 
 Calculate the TBF header checksum.
+
+
+### \_get\_tlv
+```py
+
+def _get_tlv(self, tlvid)
+
+```
+
+
+
+Return the TLV from the self.tlvs array if it exists.
 
 
 
@@ -251,6 +324,18 @@ Alter this TBF header so the fixed address in flash will be correct
 if the entire TBF binary is loaded at address `address`.
 
 
+### delete\_tlv
+```py
+
+def delete_tlv(self, tlvid)
+
+```
+
+
+
+Delete a particular TLV by ID if it exists.
+
+
 ### get\_app\_name
 ```py
 
@@ -314,6 +399,19 @@ Get the size of the header in bytes. This includes any alignment
 padding at the end of the header.
 
 
+### get\_kernel\_version
+```py
+
+def get_kernel_version(self)
+
+```
+
+
+
+Return (kernel_major, kernel_minor) if there is kernel version present,
+or None.
+
+
 ### get\_size\_before\_app
 ```py
 
@@ -336,6 +434,30 @@ def has_fixed_addresses(self)
 
 
 Return true if this TBF header includes the fixed addresses TLV.
+
+
+### has\_kernel\_version
+```py
+
+def has_kernel_version(self)
+
+```
+
+
+
+Return true if this TBF header includes the kernel version TLV.
+
+
+### is\_app
+```py
+
+def is_app(self)
+
+```
+
+
+
+Whether this is an app or padding.
 
 
 ### is\_enabled
@@ -389,6 +511,18 @@ def is_valid(self)
 Whether the CRC and other checks passed for this header.
 
 
+### modify\_tlv
+```py
+
+def modify_tlv(self, tlvid, field, value)
+
+```
+
+
+
+Modify a TLV by setting a particular field in the TLV object to value.
+
+
 ### set\_app\_size
 ```py
 
@@ -440,6 +574,413 @@ def _checksum(self, buffer)
 
 
 Calculate the TBF header checksum.
+
+
+### \_get\_tlv
+```py
+
+def _get_tlv(self, tlvid)
+
+```
+
+
+
+Return the TLV from the self.tlvs array if it exists.
+
+
+
+
+## Class TBFTLV
+None
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+
+
+## Class TBFTLVFixedAddress
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
+## Class TBFTLVKernelVersion
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
+## Class TBFTLVMain
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
+## Class TBFTLVPackageName
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
+## Class TBFTLVPicOption1
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
+## Class TBFTLVUnknown
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, tipe, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+
+
+## Class TBFTLVWriteableFlashRegions
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
 
 
 

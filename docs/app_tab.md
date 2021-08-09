@@ -6,14 +6,13 @@ TAB file. This is different from a TAB, since a TAB can include compiled
 binaries for a range of architectures, or compiled for various scenarios,
 which may not be applicable for a particular board.
 
-A TabApp need not be a single (TBF header, binary) pair, as an app from a
-TAB can include multiple (header, binary) pairs if the app was compiled
-multiple times. This could be for any reason (e.g. it was signed with
-different keys, or it uses different compiler optimizations), but typically
-this is because it is compiled for specific addresses in flash and RAM, and
-there are multiple linked versions present in the TAB. If so, there will be
-multiple (header, binary) pairs included in this App object, and the correct
-one for the board will be used later.
+A TabApp need not be a single TabTbf, as an app from a TAB can include
+multiple TabTbfs if the app was compiled multiple times. This could be for
+any reason (e.g. it was signed with different keys, or it uses different
+compiler optimizations), but typically this is because it is compiled for
+specific addresses in flash and RAM, and there are multiple linked versions
+present in the TAB. If so, there will be multiple TabTbfs included in this
+App object, and the correct one for the board will be used later.
 ### \_\_init\_\_
 ```py
 
@@ -23,7 +22,19 @@ def __init__(self, tbfs)
 
 
 
-Create a `TabApp` from a list of (TBF header, app binary) pairs.
+Create a `TabApp` from a list of TabTbfs.
+
+
+### delete\_tbfh\_tlv
+```py
+
+def delete_tbfh_tlv(self, tlvid)
+
+```
+
+
+
+Delete a particular TLV from each TBF header.
 
 
 ### fix\_at\_next\_loadable\_address
@@ -124,6 +135,19 @@ def get_name(self)
 Return the app name.
 
 
+### get\_names\_and\_binaries
+```py
+
+def get_names_and_binaries(self)
+
+```
+
+
+
+Return (filename, binary) tuples for each contained TBF. This is for
+updating a .tab file.
+
+
 ### get\_size
 ```py
 
@@ -203,6 +227,18 @@ is a TabApp, we did not get this app from the board and therefore we
 have to flash this to the board.
 
 
+### modify\_tbfh\_tlv
+```py
+
+def modify_tbfh_tlv(self, tlvid, field, value)
+
+```
+
+
+
+Modify a particular TLV from each TBF header to set field=value.
+
+
 ### set\_minimum\_size
 ```py
 
@@ -269,6 +305,40 @@ def __str__(self)
 
 
 Return str(self).
+
+
+### \_truncate\_binary
+```py
+
+def _truncate_binary(self, binary)
+
+```
+
+
+
+Optionally truncate binary if the header+protected size has grown, and
+the actual machine code binary is now too long.
+
+
+
+
+## Class TabTbf
+Representation of a compiled app in the Tock Binary Format for use in
+Tockloader.
+
+This correlates to a specific .tbf file storing a .tab file.
+### \_\_init\_\_
+```py
+
+def __init__(self, filename, tbfh, binary)
+
+```
+
+
+
+- `filename` is the identifier used in the .tab.
+- `tbfh` is the header object
+- `binary` is the actual compiled binary code
 
 
 

@@ -276,7 +276,7 @@ string "TOCKBOOTLOADER" being at address 0x400.
 ### \_extract\_all\_app\_headers
 ```py
 
-def _extract_all_app_headers(self)
+def _extract_all_app_headers(self, verbose=False)
 
 ```
 
@@ -332,6 +332,19 @@ def _print_flash(self, address, flash)
 
 
 Print binary data in a nice hexdump format.
+
+
+### \_replace\_with\_padding
+```py
+
+def _replace_with_padding(self, app)
+
+```
+
+
+
+Update the TBF header of installed app `app` with a padding header
+to effectively uninstall it.
 
 
 ### \_reshuffle\_apps

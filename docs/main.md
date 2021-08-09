@@ -190,6 +190,24 @@ def command_sticky_app(args)
 
 
 
+### command\_tbf\_delete\_tlv
+```py
+
+def command_tbf_delete_tlv(args)
+
+```
+
+
+
+### command\_tbf\_modify\_tlv
+```py
+
+def command_tbf_modify_tlv(args)
+
+```
+
+
+
 ### command\_uninstall
 ```py
 

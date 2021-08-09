@@ -124,6 +124,20 @@ Default to yes unless we can be confident the answer is no.
 is unknown.
 
 
+### update\_tbf
+```py
+
+def update_tbf(self, app)
+
+```
+
+
+
+Inserts a new or modified `TabApp` into the .tab file.
+
+Only works with .tab files stored locally.
+
+
 ### \_\_str\_\_
 ```py
 

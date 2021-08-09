@@ -193,6 +193,18 @@ def info(self, verbose=False)
 Get a string describing various properties of the app.
 
 
+### is\_app
+```py
+
+def is_app(self)
+
+```
+
+
+
+Whether this is an app or padding.
+
+
 ### is\_loadable\_at\_address
 ```py
 

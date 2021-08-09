@@ -316,34 +316,32 @@ class TockLoader:
 			for app_name in app_names:
 				logging.status('  - {}'.format(app_name))
 
-			# Remove the apps if they are there
-			removed = False
-			keep_apps = []
+			#
+			# Uninstall apps by replacing their TBF header with one that is just
+			# padding for the same total size.
+			#
+
+			# Get a list of apps to remove respecting the sticky bit.
+			remove_apps = []
 			for app in apps:
-				# Only keep apps that are not marked for uninstall or that
-				# are sticky (unless force was set)
-				if app.get_name() not in app_names or (app.is_sticky() and not self.args.force):
-					keep_apps.append(app)
-				else:
-					removed = True
+				# Only remove apps that are marked for uninstall, unless they
+				# are sticky without force being set.
+				if app.get_name() in app_names:
+					if app.is_sticky():
+						if self.args.force:
+							logging.info('Removing sticky app "{}" because --force was used.'.format(app))
+							remove_apps.append(app)
+						else:
+							logging.info('Not removing app "{}" because it is sticky.'.format(app))
+							logging.info('To remove this you need to include the --force option.')
+					else:
+						# Normal uninstall
+						remove_apps.append(app)
 
-			# Tell the user if we are not removing certain apps because they are
-			# sticky, or if we are removing apps because --force was provided.
-			if not self.args.force:
-				for app in apps:
-					if app.get_name() in app_names and app.is_sticky():
-						logging.info('Not removing app "{}" because it is sticky.'.format(app))
-						logging.info('To remove this you need to include the --force option.')
-			else:
-				for app in apps:
-					if app.get_name() in app_names and app.is_sticky():
-						logging.info('Removing sticky app "{}" because --force was used.'.format(app))
-
-			# Check if we actually have any work to do.
-			if removed:
-				# Now take the remaining apps and make sure they are on the
-				# board properly.
-				self._reshuffle_apps(keep_apps)
+			if len(remove_apps) > 0:
+				# Uninstall apps by replacing them all with padding.
+				for remove_app in remove_apps:
+					self._replace_with_padding(remove_app)
 
 				logging.status('Uninstall complete.')
 
@@ -354,10 +352,10 @@ class TockLoader:
 						logging.info('After uninstall, remaining apps on board: ', end='')
 						self._print_apps(apps, verbose=False, quiet=True)
 					else:
-						loggging.info('After uninstall, no apps on board.')
+						logging.info('After uninstall, no apps on board.')
 
 			else:
-				raise TockLoaderException('Could not find any apps on the board to remove.')
+				raise TockLoaderException('Could not find any apps on the board to uninstall.')
 
 
 	def erase_apps (self):
@@ -1010,6 +1008,19 @@ class TockLoader:
 		# applications.
 		self.channel.erase_page(app_address)
 
+	def _replace_with_padding (self, app):
+		'''
+		Update the TBF header of installed app `app` with a padding header
+		to effectively uninstall it.
+		'''
+		# Create replacement padding app.
+		size = app.get_size()
+		padding = PaddingApp(size)
+		address = app.get_address()
+
+		logging.debug('Flashing padding app header (total size:{}) at {:#x} to uninstall {}'.format(size, address, app))
+		self.channel.flash_binary(address, padding.get_tbfh().get_binary())
+
 	def _extract_all_app_headers (self, verbose=False):
 		'''
 		Iterate through the flash on the board for the header information about
@@ -1024,7 +1035,7 @@ class TockLoader:
 		# Jump through the linked list of apps
 		while (True):
 			header_length = 200 # Version 2
-			logging.debug('Reading for app header @{:#x}, {} bytes', address, header_length)
+			logging.debug('Reading for app header @{:#x}, {} bytes'.format(address, header_length))
 			flash = self.channel.read_range(address, header_length)
 
 			# if there was an error, the binary array will be empty

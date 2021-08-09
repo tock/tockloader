@@ -32,7 +32,13 @@ class PaddingApp:
 		'''
 		return self.tbfh.get_app_size()
 
-	def get_binary (self, address):
+	def get_tbfh (self):
+		'''
+		Return the TBF header.
+		'''
+		return self.tbfh
+
+	def get_binary (self, address=None):
 		'''
 		Return the binary array comprising the header and the padding between
 		apps.

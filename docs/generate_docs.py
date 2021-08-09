@@ -14,7 +14,7 @@ function_header = "### {}"
 
 
 def getmarkdown(module):
-    output = [ module_header.format(module.__name__) ]
+    output = [module_header.format(module.__name__)]
 
     if module.__doc__:
         output.append(module.__doc__)
@@ -22,6 +22,7 @@ def getmarkdown(module):
     output.extend(getclasses(module))
     output.extend(getfunctions(module))
     return "\n".join((str(x) for x in output))
+
 
 def getclasses(item, depth=0):
     output = []
@@ -44,8 +45,8 @@ def getclasses(item, depth=0):
         # Get the functions
         output.extend(getfunctions(cl[1]))
         # Recurse into any subclasses
-        output.extend(getclasses(cl[1], depth+1))
-        output.append('\n')
+        output.extend(getclasses(cl[1], depth + 1))
+        output.append("\n")
     return output
 
 
@@ -54,55 +55,62 @@ def getfunctions(item):
     at_end = []
     for func in pydoc.inspect.getmembers(item, pydoc.inspect.isfunction):
         out = output
-        if func[0].startswith('_') and func[0] != '__init__':
+        if func[0].startswith("_") and func[0] != "__init__":
             out = at_end
 
-        out.append(function_header.format(func[0].replace('_', '\\_')))
+        out.append(function_header.format(func[0].replace("_", "\\_")))
 
         # Get the signature
-        out.append ('```py\n')
-        out.append('def {}{}\n'.format(func[0], pydoc.inspect.formatargspec(*pydoc.inspect.getfullargspec(func[1]))))
-        out.append ('```\n')
+        out.append("```py\n")
+        out.append(
+            "def {}{}\n".format(
+                func[0],
+                pydoc.inspect.formatargspec(*pydoc.inspect.getfullargspec(func[1])),
+            )
+        )
+        out.append("```\n")
 
         # get the docstring
         if pydoc.inspect.getdoc(func[1]):
-            out.append('\n')
+            out.append("\n")
             out.append(pydoc.inspect.getdoc(func[1]))
 
-        out.append('\n')
+        out.append("\n")
     return output + at_end
+
 
 def generatedocs(module, filename):
     try:
-        sys.path.insert(0, os.getcwd() + '/..')
+        sys.path.insert(0, os.getcwd() + "/..")
         # Attempt import
         mod = pydoc.safeimport(module)
         if mod is None:
-           print("Module not found")
+            print("Module not found")
 
         # Module imported correctly, let's create the docs
-        with open(filename, 'w') as f:
+        with open(filename, "w") as f:
             f.write(getmarkdown(mod))
     except pydoc.ErrorDuringImport as e:
         print("Error while trying to import " + module)
 
+
 # if __name__ == '__main__':
-generatedocs('tockloader.main', 'main.md')
-generatedocs('tockloader.tockloader', 'tockloader.md')
-generatedocs('tockloader.board_interface', 'board_interface.md')
-generatedocs('tockloader.bootloader_serial', 'bootloader_serial.md')
-generatedocs('tockloader.jlinkexe', 'jlinkexe.md')
-generatedocs('tockloader.openocd', 'openocd.md')
-generatedocs('tockloader.app', 'app.md')
-generatedocs('tockloader.tab', 'tab.md')
-generatedocs('tockloader.app_installed', 'app_installed.md')
-generatedocs('tockloader.app_tab', 'app_tab.md')
-generatedocs('tockloader.app_padding', 'app_padding.md')
-generatedocs('tockloader.tbfh', 'tbfh.md')
-generatedocs('tockloader.exceptions', 'exceptions.md')
-generatedocs('tockloader.helpers', 'helpers.md')
+generatedocs("tockloader.main", "main.md")
+generatedocs("tockloader.tockloader", "tockloader.md")
+generatedocs("tockloader.board_interface", "board_interface.md")
+generatedocs("tockloader.bootloader_serial", "bootloader_serial.md")
+generatedocs("tockloader.jlinkexe", "jlinkexe.md")
+generatedocs("tockloader.openocd", "openocd.md")
+generatedocs("tockloader.app", "app.md")
+generatedocs("tockloader.tab", "tab.md")
+generatedocs("tockloader.app_installed", "app_installed.md")
+generatedocs("tockloader.app_tab", "app_tab.md")
+generatedocs("tockloader.app_padding", "app_padding.md")
+generatedocs("tockloader.tbfh", "tbfh.md")
+generatedocs("tockloader.exceptions", "exceptions.md")
+generatedocs("tockloader.helpers", "helpers.md")
 
 # Make index from readme
-with open('../README.md') as infile:
-	with open('index.md', 'w') as outfile:
-		outfile.write(infile.read())
+with open("../README.md") as infile:
+    with open("index.md", "w") as outfile:
+        outfile.write(infile.read())

@@ -536,14 +536,18 @@ class TBFHeader:
 		'''
 		Modify a TLV by setting a particular field in the TLV object to value.
 		'''
-		for tlv in self.tlvs:
-			if tlv.get_tlvid() == tlvid:
-				try:
-					getattr(tlv, field)
-				except:
-					raise TockLoaderException('Field "{}" is not in TLV {}'.format(field, tlvid))
-				setattr(tlv, field, value)
-				self.modified = True
+		# 0 is a special id for the root fields
+		if tlvid == 0:
+			self.fields[field] = value
+		else:
+			for tlv in self.tlvs:
+				if tlv.get_tlvid() == tlvid:
+					try:
+						getattr(tlv, field)
+					except:
+						raise TockLoaderException('Field "{}" is not in TLV {}'.format(field, tlvid))
+					setattr(tlv, field, value)
+					self.modified = True
 
 	def adjust_starting_address (self, address):
 		'''

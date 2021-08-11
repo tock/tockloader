@@ -130,6 +130,7 @@ class TabApp:
         Valid rules:
         - None: do nothing
         - 'powers_of_two': make sure the entire size is a power of two.
+        - ('multiple', value): make sure the entire size is a multiple of value.
         """
         if constraint == "powers_of_two":
             # Make sure the total app size is a power of two.
@@ -145,6 +146,22 @@ class TabApp:
                     logging.debug(
                         "Rounding app up to ^2 size ({} bytes)".format(1 << count)
                     )
+
+        elif type(constraint) is tuple:
+            if constraint[0] == "multiple":
+                size_multiple = constraint[1]
+                for tbf in self.tbfs:
+                    current_size = tbf.tbfh.get_app_size()
+                    if (current_size % size_multiple) != 0:
+                        # This is not a multiple of the proper size, but should
+                        # be.
+                        new_size = ((current_size // size_multiple) + 1) * size_multiple
+                        tbf.tbfh.set_app_size(new_size)
+                        logging.debug(
+                            "Rounding app up to multiple of {} bytes. Now {} bytes in size.".format(
+                                size_multiple, new_size
+                            )
+                        )
 
     def has_fixed_addresses(self):
         """

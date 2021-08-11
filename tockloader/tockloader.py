@@ -71,13 +71,15 @@ class TockLoader:
     # - `order`:           How apps should be sorted when flashed onto the board.
     #                      Supported values: size_descending, None
     # - `size_constraint`: Valid sizes for the entire application.
-    #                      Supported values: powers_of_two, None
+    #                      Supported values: powers_of_two, (multiple, value),
+    #                                        None
     # - `cmd_flags`:       A dict of command line flags and the value they
     #                      should be set to for the board.
     TOCKLOADER_APP_SETTINGS = {
         "default": {
             "start_address": 0x30000,
             "order": None,
+            "size_minimum": 0,
             "size_constraint": None,
             "cmd_flags": {},
         },
@@ -88,7 +90,10 @@ class TockLoader:
             }
         },
         "boards": {
-            "arty": {"start_address": 0x40430000},
+            "arty": {
+                "start_address": 0x40430000,
+                "size_constraint": ("multiple", 0x10000),
+            },
             "edu-ciaa": {
                 "start_address": 0x1A040000,
                 "cmd_flags": {"bundle_apps": True, "openocd": True},
@@ -96,22 +101,11 @@ class TockLoader:
             "hifive1": {"start_address": 0x20430000},
             "hifive1b": {"start_address": 0x20040000},
             "nucleof4": {"start_address": 0x08040000},
-            "microbit_v2": {"start_address": 0x00040000},
+            "microbit_v2": {"start_address": 0x00040000, "size_minimum": 4096},
+            "nrf52dk": {"size_minimum": 4096},
             "stm32f3discovery": {"start_address": 0x08020000},
             "stm32f4discovery": {"start_address": 0x08040000},
         },
-    }
-
-    BOARDS_APP_DETAILS = {
-        "default": {
-            "order": "size_descending",
-            "size_constraint": "powers_of_two",
-            "size_minimum": 0,
-        },
-        "nrf52dk": {"size_minimum": 4096},
-        "edu-ciaa": {"cmd_flags": {"bundle_apps": True, "openocd": True}},
-        "arty": {"size_minimum": 0x10000, "size_constraint": None},
-        "microbit_v2": {"size_minimum": 4096},
     }
 
     def __init__(self, args):
@@ -119,8 +113,6 @@ class TockLoader:
 
         # These are customized once we have a connection to the board and know
         # what board we are talking to.
-        self.app_options = self.BOARDS_APP_DETAILS["default"]
-
         self.app_settings = self.TOCKLOADER_APP_SETTINGS["default"]
 
         # If the user specified a board manually, we might be able to update
@@ -735,23 +727,6 @@ class TockLoader:
             arch = getattr(self.args, "arch", None)
             board = getattr(self.args, "board", None)
 
-        # Configure options for the board if possible.
-        if board and board in self.BOARDS_APP_DETAILS:
-            self.app_options.update(self.BOARDS_APP_DETAILS[board])
-            # Remove the options so they do not get set twice.
-            del self.BOARDS_APP_DETAILS[board]
-
-            # Allow boards to specify command line arguments by default so that
-            # users do not have to pass them in every time.
-            if "cmd_flags" in self.app_options:
-                for flag, setting in self.app_options["cmd_flags"].items():
-                    logging.info(
-                        'Hardcoding command line argument "{}" to "{}" for board {}.'.format(
-                            flag, setting, board
-                        )
-                    )
-                    setattr(self.args, flag, setting)
-
         # Start by updating settings using the architecture.
         if arch and arch in self.TOCKLOADER_APP_SETTINGS["arch"]:
             self.app_settings.update(self.TOCKLOADER_APP_SETTINGS["arch"][arch])
@@ -1070,8 +1045,11 @@ class TockLoader:
 
         # We are given an array of apps. First we need to order them based on
         # the ordering requested by this board (or potentially the user).
-        if self.app_options["order"] == "size_descending":
+        if self.app_settings["order"] == "size_descending":
             apps.sort(key=lambda app: app.get_size(), reverse=True)
+        elif self.app_settings["order"] == None:
+            # Any order is fine.
+            pass
         else:
             raise TockLoaderException("Unknown sort order. This is a tockloader bug.")
 
@@ -1264,10 +1242,10 @@ class TockLoader:
             app = tab.extract_app(arch)
 
             # Enforce the minimum app size here.
-            app.set_minimum_size(self.app_options["size_minimum"])
+            app.set_minimum_size(self.app_settings["size_minimum"])
 
             # Enforce other sizing constraints here.
-            app.set_size_constraint(self.app_options["size_constraint"])
+            app.set_size_constraint(self.app_settings["size_constraint"])
 
             apps.append(app)
 

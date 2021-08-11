@@ -91,7 +91,6 @@ class BoardInterface:
         "arty": {
             "description": "Arty FPGA running SiFive RISC-V core",
             "arch": "rv32imac",
-            "apps_start_address": 0x40430000,
             # arty exposes just the flash to openocd, this does the mapping
             # from the address map to what openocd must use.
             "address_translator": lambda addr: addr - 0x40000000,
@@ -128,7 +127,6 @@ class BoardInterface:
         "stm32f3discovery": {
             "description": "STM32F3-based Discovery Boards",
             "arch": "cortex-m4",
-            "apps_start_address": 0x08020000,
             "page_size": 2048,
             "no_attribute_table": True,
             "openocd": {
@@ -143,7 +141,6 @@ class BoardInterface:
         "stm32f4discovery": {
             "description": "STM32F4-based Discovery Boards",
             "arch": "cortex-m4",
-            "apps_start_address": 0x08040000,
             "page_size": 2048,
             "no_attribute_table": True,
             "openocd": {
@@ -158,7 +155,6 @@ class BoardInterface:
         "nucleof4": {
             "description": "STM32f4-based Nucleo development boards",
             "arch": "cortex-m4",
-            "apps_start_address": 0x08040000,
             "page_size": 2048,
             "no_attribute_table": True,
             "openocd": {
@@ -168,7 +164,6 @@ class BoardInterface:
         "hifive1": {
             "description": "SiFive HiFive1 development board",
             "arch": "rv32imac",
-            "apps_start_address": 0x20430000,
             "page_size": 512,
             "no_attribute_table": True,
             "openocd": {
@@ -178,7 +173,6 @@ class BoardInterface:
         "hifive1b": {
             "description": "SiFive HiFive1b development board",
             "arch": "rv32imac",
-            "apps_start_address": 0x20040000,
             "page_size": 512,
             "no_attribute_table": True,
             "jlink": {
@@ -193,7 +187,6 @@ class BoardInterface:
             "description": "Educational NXP board, from the CIAA project",
             "arch": "cortex-m4",
             "page_size": 512,
-            "apps_start_address": 0x1A040000,
             "no_attribute_table": True,
             "openocd": {
                 "cfg": "ftdi_lpc4337.cfg",
@@ -207,7 +200,6 @@ class BoardInterface:
         "microbit_v2": {
             "description": "BBC Micro:bit v2",
             "arch": "cortex-m4",
-            "apps_start_address": 0x00040000,
             "page_size": 4096,
             "no_attribute_table": True,
             "openocd": {
@@ -241,7 +233,6 @@ class BoardInterface:
         # Start by looking for command line arguments.
         self.board = getattr(self.args, "board", None)
         self.arch = getattr(self.args, "arch", None)
-        self.apps_start_address = getattr(self.args, "app_address", None)
         self.page_size = getattr(self.args, "page_size", 0)
 
         # Set defaults.
@@ -269,8 +260,6 @@ class BoardInterface:
             board = self.KNOWN_BOARDS[self.board]
             if self.arch == None and "arch" in board:
                 self.arch = board["arch"]
-            if self.apps_start_address == None and "apps_start_address" in board:
-                self.apps_start_address = board["apps_start_address"]
             if self.page_size == 0 and "page_size" in board:
                 self.page_size = board["page_size"]
             if self.no_attribute_table == False and "no_attribute_table" in board:
@@ -413,29 +402,6 @@ class BoardInterface:
             return version_raw.decode("utf-8")
         except:
             return None
-
-    def get_apps_start_address(self):
-        """
-        Return the address in flash where applications start on this platform.
-        This might be set on the board itself, in the command line arguments
-        to Tockloader, or just be the default.
-        """
-
-        # Start by checking if we already have the address. This would be if
-        # we have already looked it up or we specified it on the command line.
-        if self.apps_start_address != None:
-            return self.apps_start_address
-
-        # Check if there is an attribute we can use.
-        attributes = self.get_all_attributes()
-        for attribute in attributes:
-            if attribute and attribute["key"] == "appaddr":
-                self.apps_start_address = int(attribute["value"], 0)
-                return self.apps_start_address
-
-        # Lastly resort to the default setting
-        self.apps_start_address = 0x30000
-        return self.apps_start_address
 
     def get_kernel_version(self):
         """

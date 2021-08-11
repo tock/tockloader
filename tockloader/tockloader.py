@@ -57,16 +57,51 @@ class TockLoader:
     # Here, we set the application details that are board specific. See
     # `board_interface.py` for the board-specific communication details.
     #
+    # Settings are applied iteratively:
+    #
+    # 1. Default settings
+    # 2. General architecture-specific settings (i.e. "cortex-m")
+    # 3. Specific architecture-specific settings (i.e. "cortex-m4")
+    # 4. Board-specific settings
+    #
     # Options
     # -------
+    # - `start_address`:   The absolute address in flash where apps start and
+    #                      must be loaded.
     # - `order`:           How apps should be sorted when flashed onto the board.
-    #                      Supported values: size_descending
+    #                      Supported values: size_descending, None
     # - `size_constraint`: Valid sizes for the entire application.
-    #                      Supported values: powers_of_two, none
-    # - `size_minimum`:    Minimum valid size for each application. This size is
-    #                      the entire size of the application. In bytes.
+    #                      Supported values: powers_of_two, None
     # - `cmd_flags`:       A dict of command line flags and the value they
     #                      should be set to for the board.
+    TOCKLOADER_APP_SETTINGS = {
+        "default": {
+            "start_address": 0x30000,
+            "order": None,
+            "size_constraint": None,
+            "cmd_flags": {},
+        },
+        "arch": {
+            "cortex-m": {
+                "order": "size_descending",
+                "size_constraint": "powers_of_two",
+            }
+        },
+        "boards": {
+            "arty": {"start_address": 0x40430000},
+            "edu-ciaa": {
+                "start_address": 0x1A040000,
+                "cmd_flags": {"bundle_apps": True, "openocd": True},
+            },
+            "hifive1": {"start_address": 0x20430000},
+            "hifive1b": {"start_address": 0x20040000},
+            "nucleof4": {"start_address": 0x08040000},
+            "microbit_v2": {"start_address": 0x00040000},
+            "stm32f3discovery": {"start_address": 0x08020000},
+            "stm32f4discovery": {"start_address": 0x08040000},
+        },
+    }
+
     BOARDS_APP_DETAILS = {
         "default": {
             "order": "size_descending",
@@ -85,6 +120,8 @@ class TockLoader:
         # These are customized once we have a connection to the board and know
         # what board we are talking to.
         self.app_options = self.BOARDS_APP_DETAILS["default"]
+
+        self.app_settings = self.TOCKLOADER_APP_SETTINGS["default"]
 
         # If the user specified a board manually, we might be able to update
         # options now, so we can try.
@@ -381,7 +418,7 @@ class TockLoader:
             if self.args.force:
                 # Erase the first page where apps go. This will cause the first
                 # header to be invalid and effectively removes all apps.
-                address = self.channel.get_apps_start_address()
+                address = self._get_apps_start_address()
                 self.channel.erase_page(address)
 
             else:
@@ -397,7 +434,7 @@ class TockLoader:
                         )
 
                 if len(keep_apps) == 0:
-                    address = self.channel.get_apps_start_address()
+                    address = self._get_apps_start_address()
                     self.channel.erase_page(address)
 
                     logging.info("All apps have been erased.")
@@ -686,13 +723,16 @@ class TockLoader:
         prevents users from having to pass them in through command line arguments.
         """
 
-        # Get the name of the board if it is known.
+        # Get the arch and name of the board if they are known.
+        arch = None
         board = None
         if hasattr(self, "channel"):
             # We have configured a channel to a board, and that channel may
             # have read off of the board which board it actually is.
+            arch = self.channel.get_board_arch()
             board = self.channel.get_board_name()
         else:
+            arch = getattr(self.args, "arch", None)
             board = getattr(self.args, "board", None)
 
         # Configure options for the board if possible.
@@ -711,6 +751,65 @@ class TockLoader:
                         )
                     )
                     setattr(self.args, flag, setting)
+
+        # Start by updating settings using the architecture.
+        if arch and arch in self.TOCKLOADER_APP_SETTINGS["arch"]:
+            self.app_settings.update(self.TOCKLOADER_APP_SETTINGS["arch"][arch])
+            # Remove the options so they do not get set twice.
+            del self.TOCKLOADER_APP_SETTINGS["arch"][arch]
+
+        # Configure settings for the board if possible.
+        if board and board in self.TOCKLOADER_APP_SETTINGS["boards"]:
+            self.app_settings.update(self.TOCKLOADER_APP_SETTINGS["boards"][board])
+            # Remove the options so they do not get set twice.
+            del self.TOCKLOADER_APP_SETTINGS["boards"][board]
+
+        # Allow boards to specify command line arguments by default so that
+        # users do not have to pass them in every time.
+        if "cmd_flags" in self.app_settings:
+            for flag, setting in self.app_settings["cmd_flags"].items():
+                logging.info(
+                    'Hardcoding command line argument "{}" to "{}" for board {}.'.format(
+                        flag, setting, board
+                    )
+                )
+                setattr(self.args, flag, setting)
+
+    def _get_apps_start_address(self):
+        """
+        Return the address in flash where applications start on this platform.
+        This might be set on the board itself, in the command line arguments
+        to Tockloader, or just be the default.
+        """
+
+        # First check if we have a cached value. We might need to lookup the
+        # start address a lot, so we don't want to have to query the board for
+        # it each time. We also do not use `self.app_settings['start_address']`
+        # as the cache because a board attribute may supersede it, and we don't
+        # have a good way to mark it as unset since
+        # app_settings['start_address'] is set by default.
+        cached = getattr(self, "apps_start_address", None)
+        if cached:
+            return cached
+
+        # Highest priority is the command line argument. If the user specifies
+        # that, we use that unconditionally.
+        cmdline_app_address = getattr(self.args, "app_address", None)
+        if cmdline_app_address:
+            self.apps_start_address = cmdline_app_address
+            return cmdline_app_address
+
+        # Next we check if the attached board has an attribute that can tell us.
+        if self.channel:
+            attributes = self.channel.get_all_attributes()
+            for attribute in attributes:
+                if attribute and attribute["key"] == "appaddr":
+                    self.apps_start_address = int(attribute["value"], 0)
+                    return self.apps_start_address
+
+        # Lastly we default to what was configured using the
+        # `TOCKLOADER_APP_SETTINGS` variable.
+        return self.app_settings["start_address"]
 
     ############################################################################
     ## Helper Functions for Shared Code
@@ -807,7 +906,7 @@ class TockLoader:
         #
 
         # Get where the apps live in flash.
-        address = self.channel.get_apps_start_address()
+        address = self._get_apps_start_address()
 
         # First, we are going to split the work into two cases: do we have any
         # app that is compiled for a fixed address, or not? Likely, there won't
@@ -1074,7 +1173,7 @@ class TockLoader:
 
         # This can be the default, it can be configured in the attributes on
         # the hardware, or it can be passed in to Tockloader.
-        address = self.channel.get_apps_start_address()
+        address = self._get_apps_start_address()
 
         # Jump through the linked list of apps
         while True:

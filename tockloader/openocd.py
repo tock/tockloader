@@ -274,13 +274,18 @@ You may need to update OpenOCD to the version in latest git master."
         # Check if the configuration wants to override the default program command.
         if "program" in self.openocd_commands:
             command = self.openocd_commands["program"]
+        logging.debug('Using program command: "{}"'.format(command))
+
+        # Now we workaround some openocd annoyances. Basically, not all chips
+        # have openocd support that permits arbitrary writes of arbitrary sizes.
+        # Some pass the flash limitations on to us as users. So, we are stuck
+        # implementing read-then-write to make flash happy.
+        address, binary = self._align_and_stretch_to_page(address, binary)
 
         # Check if we need to translate the address from MCU address space to
         # OpenOCD command addressing.
         if self.openocd_address_translator:
             address = self.openocd_address_translator(address)
-
-        logging.debug('Using program command: "{}"'.format(command))
 
         # Substitute the key arguments.
         command = command.format(address=address)
@@ -321,34 +326,11 @@ You may need to update OpenOCD to the version in latest git master."
 
         return read
 
-    def erase_page(self, address):
-        logging.debug("Erasing page at address {:#0x}".format(address))
+    def clear_bytes(self, address):
+        logging.debug("Clearing bytes starting at {:#0x}".format(address))
 
-        # Check if we need to translate the address from MCU address space to
-        # OpenOCD command addressing.
-        if self.openocd_address_translator:
-            address = self.openocd_address_translator(address)
-
-        # For some reason on the nRF52840DK erasing an entire page causes
-        # previous flash to be reset to 0xFF. This doesn't seem to happen
-        # if the binary we write is 512 bytes, so let's just do that. Since
-        # we only use erase_page to end the linked-list of apps this will be
-        # ok. If we ever actually need to reset an entire page exactly we will
-        # have to revisit this.
-        command = "flash fillb {address:#x} 0xff 512;".format(address=address)
-
-        # Check if the configuration wants to override the default erase command.
-        if "erase" in self.openocd_commands:
-            command = self.openocd_commands["erase"]
-
-        logging.debug('Using erase command: "{}"'.format(command))
-
-        # Substitute the key arguments.
-        command = command.format(address=address)
-
-        logging.debug('Expanded erase command: "{}"'.format(command))
-
-        self._run_openocd_commands(command, None)
+        binary = bytes([0xFF] * 8)
+        self.flash_binary(address, binary)
 
     def determine_current_board(self):
         if self.board and self.arch and self.openocd_board and self.page_size > 0:

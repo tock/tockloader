@@ -79,7 +79,6 @@ class TockLoader:
         "default": {
             "start_address": 0x30000,
             "order": None,
-            "size_minimum": 0,
             "size_constraint": None,
             "cmd_flags": {},
         },
@@ -92,7 +91,6 @@ class TockLoader:
         "boards": {
             "arty": {
                 "start_address": 0x40430000,
-                "size_constraint": ("multiple", 0x10000),
             },
             "edu-ciaa": {
                 "start_address": 0x1A040000,
@@ -101,8 +99,7 @@ class TockLoader:
             "hifive1": {"start_address": 0x20430000},
             "hifive1b": {"start_address": 0x20040000},
             "nucleof4": {"start_address": 0x08040000},
-            "microbit_v2": {"start_address": 0x00040000, "size_minimum": 4096},
-            "nrf52dk": {"size_minimum": 4096},
+            "microbit_v2": {"start_address": 0x00040000},
             "stm32f3discovery": {"start_address": 0x08020000},
             "stm32f4discovery": {"start_address": 0x08040000},
         },
@@ -411,7 +408,7 @@ class TockLoader:
                 # Erase the first page where apps go. This will cause the first
                 # header to be invalid and effectively removes all apps.
                 address = self._get_apps_start_address()
-                self.channel.erase_page(address)
+                self.channel.clear_bytes(address)
 
             else:
                 # Get a list of installed apps
@@ -427,7 +424,7 @@ class TockLoader:
 
                 if len(keep_apps) == 0:
                     address = self._get_apps_start_address()
-                    self.channel.erase_page(address)
+                    self.channel.clear_bytes(address)
 
                     logging.info("All apps have been erased.")
                 else:
@@ -1033,7 +1030,7 @@ class TockLoader:
             # existing apps. This ensures that flash is clean at the end of the
             # installed apps and makes sure the kernel will find the correct end
             # of applications.
-            self.channel.erase_page(app_address)
+            self.channel.clear_bytes(app_address)
 
             # Handled fixed address case, do not continue on to run the
             # non-fixed address case.
@@ -1123,7 +1120,7 @@ class TockLoader:
         # apps. This ensures that flash is clean at the end of the installed
         # apps and makes sure the kernel will find the correct end of
         # applications.
-        self.channel.erase_page(app_address)
+        self.channel.clear_bytes(app_address)
 
     def _replace_with_padding(self, app):
         """
@@ -1240,9 +1237,6 @@ class TockLoader:
             # This app is good to install, continue the process.
 
             app = tab.extract_app(arch)
-
-            # Enforce the minimum app size here.
-            app.set_minimum_size(self.app_settings["size_minimum"])
 
             # Enforce other sizing constraints here.
             app.set_size_constraint(self.app_settings["size_constraint"])

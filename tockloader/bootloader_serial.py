@@ -972,6 +972,20 @@ class BootloaderSerial(BoardInterface):
 
         return read
 
+    def clear_bytes(self, address):
+        logging.debug("Clearing bytes starting at {:#0x}".format(address))
+
+        # If this is paged aligned, then this is easy.
+        if address % self.page_size == 0:
+            # We can just erase the entire page.
+            self.erase_page(address)
+
+        else:
+            # Otherwise, we write a few 0xFF as an entire page.
+            binary = bytes([0xFF] * 8)
+            address, binary = self.__align_and_stretch_to_page(binary, address)
+            self.flash_binary(address, binary)
+
     def erase_page(self, address):
         message = struct.pack("<I", address)
         success, ret = self._issue_command(

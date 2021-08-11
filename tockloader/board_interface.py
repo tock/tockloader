@@ -59,7 +59,11 @@ class BoardInterface:
                 "cfg": "nordic_nrf52_dk.cfg",
             },
         },
-        "nano33ble": {"description": "Arduino Nano 33 BLE board", "arch": "cortex-m4"},
+        "nano33ble": {
+            "description": "Arduino Nano 33 BLE board",
+            "arch": "cortex-m4",
+            "page_size": 4096,
+        },
         "launchxl-cc26x2r1": {
             "description": "TI CC26x2-based launchpad",
             "arch": "cortex-m4",
@@ -94,7 +98,7 @@ class BoardInterface:
             # arty exposes just the flash to openocd, this does the mapping
             # from the address map to what openocd must use.
             "address_translator": lambda addr: addr - 0x40000000,
-            "page_size": 512,
+            "page_size": 0x10000,
             "no_attribute_table": True,
             "openocd": {
                 "options": ["nocmdprefix"],
@@ -120,7 +124,6 @@ class BoardInterface:
                 "commands": {
                     "program": "jtagspi_program {{binary}} {address:#x};",
                     "read": "jtagspi_read {{binary}} {address:#x} {length};",
-                    "erase": "flash fillb {address:#x} 0x00 512;",
                 },
             },
         },
@@ -193,7 +196,6 @@ class BoardInterface:
                 "options": ["noreset"],
                 "commands": {
                     "program": "flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};",
-                    "erase": "flash fillb {address:#x} 0x00 512;",
                 },
             },
         },
@@ -269,6 +271,10 @@ class BoardInterface:
         # methods need. There may be flags specific to a particular
         # communication interface.
 
+        # Set default if page size otherwise not set.
+        if self.page_size == 0:
+            self.page_size = 512
+
     def attached_board_exists(self):
         """
         For this particular board communication channel, check if there appears
@@ -311,9 +317,19 @@ class BoardInterface:
             "DEBUG => Read Range, address: {:#010x}, length: {}".format(address, length)
         )
 
-    def erase_page(self, address):
+    def clear_bytes(self, address):
         """
-        Erase a specific page of internal flash.
+        Clear at least one byte starting at `address`.
+
+        This API is designed to support "ending the linked list of apps", or
+        clearing flash enough so that the flash after the last valid app will
+        not parse as a valid TBF header.
+
+        Different chips with different mechanisms for writing/erasing flash make
+        implementing specific erase behavior difficult. Instead, we provide this
+        rough API, which is sufficient for the task of ending the linked list,
+        but doesn't guarantee exactly how many bytes after address will be
+        cleared, or how they will be cleared.
         """
         return
 
@@ -459,3 +475,29 @@ class BoardInterface:
         raise TockLoaderException(
             "No terminal mechanism implemented for this host->board communication method."
         )
+
+    def _align_and_stretch_to_page(self, address, binary):
+        """
+        Return a new (address, binary) that is a multiple of the page size
+        and is aligned to page boundaries.
+        """
+        # We want to be aligned and a multiple of this value.
+        page_size = self.page_size
+
+        # How much before `address` do we need to start from.
+        before = address % page_size
+        # How much after the end do we also need to write.
+        end = address + len(binary)
+        after = (((end + (page_size - 1)) // page_size) * page_size) - end
+
+        if before > 0:
+            before_address = address - before
+            before_binary = self.read_range(before_address, before)
+            binary = before_binary + binary
+            address = before_address
+
+        if after > 0:
+            after_binary = self.read_range(end, after)
+            binary = binary + after_binary
+
+        return (address, binary)

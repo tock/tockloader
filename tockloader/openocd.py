@@ -26,6 +26,7 @@ class OpenOCD(BoardInterface):
         # Must call the generic init first.
         super().__init__(args)
 
+        # Command can be passed in as an argument, otherwise use default.
         self.openocd_cmd = getattr(self.args, "openocd_cmd")
 
     def attached_board_exists(self):
@@ -61,17 +62,24 @@ class OpenOCD(BoardInterface):
             board = self.KNOWN_BOARDS[self.board]
 
             # Set required settings
+
+            # `openocd_board` is the .cfg file to use.
             if self.openocd_board == None:
                 if "openocd" in board:
-                    self.openocd_board = board["openocd"]
+                    if "cfg" in board["openocd"]:
+                        self.openocd_board = board["openocd"]["cfg"]
+                    else:
+                        # No .cfg file listed, use "external" as a way to denote
+                        # this.
+                        self.openocd_board = "external"
 
             # Set optional settings
-            if self.openocd_options == [] and "openocd_options" in board:
-                self.openocd_options = board["openocd_options"]
-            if self.openocd_prefix == "" and "openocd_prefix" in board:
-                self.openocd_prefix = board["openocd_prefix"]
-            if self.openocd_commands == {} and "openocd_commands" in board:
-                self.openocd_commands = board["openocd_commands"]
+            if self.openocd_options == [] and "options" in board["openocd"]:
+                self.openocd_options = board["openocd"]["options"]
+            if self.openocd_prefix == "" and "prefix" in board["openocd"]:
+                self.openocd_prefix = board["openocd"]["prefix"]
+            if self.openocd_commands == {} and "commands" in board["openocd"]:
+                self.openocd_commands = board["openocd"]["commands"]
             if "address_translator" in board:
                 self.openocd_address_translator = board["address_translator"]
 

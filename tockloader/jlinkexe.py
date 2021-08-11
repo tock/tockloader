@@ -103,14 +103,14 @@ class JLinkExe(BoardInterface):
 
             # Set required settings
             if self.jlink_device == "cortex-m0":
-                if "jlink_device" in board:
-                    self.jlink_device = board["jlink_device"]
+                if "jlink" in board:
+                    self.jlink_device = board["jlink"]["device"]
 
             # Set optional settings
-            if self.jlink_if == None and "jlink_if" in board:
-                self.jlink_if = board["jlink_if"]
-            if self.jlink_speed == None and "jlink_speed" in board:
-                self.jlink_speed = board["jlink_speed"]
+            if self.jlink_if == None and "if" in board["jlink"]:
+                self.jlink_if = board["jlink"]["if"]
+            if self.jlink_speed == None and "speed" in board["jlink"]:
+                self.jlink_speed = board["jlink"]["speed"]
 
             # And we may need to setup other common board settings.
             self._configure_from_known_boards()

@@ -21,54 +21,72 @@ class BoardInterface:
         "hail": {
             "description": "Hail development module.",
             "arch": "cortex-m4",
-            "jlink_device": "ATSAM4LC8C",
             "page_size": 512,
+            "jlink": {
+                "device": "ATSAM4LC8C",
+            },
         },
         "imix": {
             "description": "Low-power IoT research platform",
             "arch": "cortex-m4",
-            "jlink_device": "ATSAM4LC8C",
             "page_size": 512,
+            "jlink": {
+                "device": "ATSAM4LC8C",
+            },
         },
         "nrf51dk": {
             "description": "Nordic nRF51-based development kit",
             "arch": "cortex-m0",
-            "jlink_device": "nrf51422",
             "page_size": 1024,
-            "openocd": "nordic_nrf51_dk.cfg",
-            "openocd_options": ["workareazero"],
             "no_attribute_table": True,
+            "jlink": {
+                "device": "nrf51422",
+            },
+            "openocd": {
+                "cfg": "nordic_nrf51_dk.cfg",
+                "options": ["workareazero"],
+            },
         },
         "nrf52dk": {
             "description": "Nordic nRF52-based development kit",
             "arch": "cortex-m4",
-            "jlink_device": "nrf52",
             "page_size": 4096,
-            "openocd": "nordic_nrf52_dk.cfg",
             "no_attribute_table": True,
+            "jlink": {
+                "device": "nrf52",
+            },
+            "openocd": {
+                "cfg": "nordic_nrf52_dk.cfg",
+            },
         },
         "nano33ble": {"description": "Arduino Nano 33 BLE board", "arch": "cortex-m4"},
         "launchxl-cc26x2r1": {
             "description": "TI CC26x2-based launchpad",
             "arch": "cortex-m4",
             "page_size": 512,
-            "jlink_device": "cc2652r1f",
-            "jlink_speed": 4000,
-            "jlink_if": "jtag",
-            "openocd": "ti_cc26x2_launchpad.cfg",
-            "openocd_options": ["noreset", "resume"],
-            "openocd_commands": {
-                "program": "flash write_image erase {{binary}} {address:#x};\
-		                                                       verify_image {{binary}} {address:#x};"
-            },
             "no_attribute_table": True,
+            "jlink": {
+                "device": "cc2652r1f",
+                "speed": 4000,
+                "if": "jtag",
+            },
+            "openocd": {
+                "cfg": "ti_cc26x2_launchpad.cfg",
+                "options": ["noreset", "resume"],
+                "commands": {
+                    "program": "flash write_image erase {{binary}} {address:#x};\
+			                    verify_image {{binary}} {address:#x};"
+                },
+            },
         },
         "ek-tm4c1294xl": {
             "description": "TI TM4C1294-based launchpad",
             "arch": "cortex-m4",
             "page_size": 512,
-            "openocd": "ek-tm4c1294xl.cfg",
             "no_attribute_table": True,
+            "openocd": {
+                "cfg": "ek-tm4c1294xl.cfg",
+            },
         },
         "arty": {
             "description": "Arty FPGA running SiFive RISC-V core",
@@ -78,114 +96,128 @@ class BoardInterface:
             # from the address map to what openocd must use.
             "address_translator": lambda addr: addr - 0x40000000,
             "page_size": 512,
-            "openocd": "external",  # No supported board in openocd proper
-            "openocd_options": ["nocmdprefix"],
-            "openocd_prefix": 'source [find interface/ftdi/digilent-hs1.cfg];\
-		                            ftdi_device_desc \\"Digilent USB Device\\";\
-		                            adapter_khz 10000;\
-		                            transport select jtag;\
-		                            source [find cpld/xilinx-xc7.cfg];\
-		                            source [find cpld/jtagspi.cfg];\
-		                            proc jtagspi_read {{fname offset len}} {{\
-		                              global _FLASHNAME;\
-		                              flash read_bank $_FLASHNAME $fname $offset $len;\
-		                            }};\
-		                            init;\
-		                            jtagspi_init 0 {bitfile};'.format(
-                bitfile=os.path.join(  # Need path to bscan_spi_xc7a100t.bit
-                    os.path.dirname(os.path.realpath(__file__)),
-                    "..",
-                    "bitfiles",
-                    "bscan_spi_xc7a100t.bit",
-                )
-            ),
-            "openocd_commands": {
-                "program": "jtagspi_program {{binary}} {address:#x};",
-                "read": "jtagspi_read {{binary}} {address:#x} {length};",
-                "erase": "flash fillb {address:#x} 0x00 512;",
-            },
             "no_attribute_table": True,
+            "openocd": {
+                "options": ["nocmdprefix"],
+                "prefix": 'source [find interface/ftdi/digilent-hs1.cfg];\
+		                          ftdi_device_desc \\"Digilent USB Device\\";\
+		                          adapter_khz 10000;\
+		                          transport select jtag;\
+		                          source [find cpld/xilinx-xc7.cfg];\
+		                          source [find cpld/jtagspi.cfg];\
+		                          proc jtagspi_read {{fname offset len}} {{\
+		                            global _FLASHNAME;\
+		                            flash read_bank $_FLASHNAME $fname $offset $len;\
+		                          }};\
+		                          init;\
+		                          jtagspi_init 0 {bitfile};'.format(
+                    bitfile=os.path.join(  # Need path to bscan_spi_xc7a100t.bit
+                        os.path.dirname(os.path.realpath(__file__)),
+                        "..",
+                        "bitfiles",
+                        "bscan_spi_xc7a100t.bit",
+                    )
+                ),
+                "commands": {
+                    "program": "jtagspi_program {{binary}} {address:#x};",
+                    "read": "jtagspi_read {{binary}} {address:#x} {length};",
+                    "erase": "flash fillb {address:#x} 0x00 512;",
+                },
+            },
         },
         "stm32f3discovery": {
             "description": "STM32F3-based Discovery Boards",
             "arch": "cortex-m4",
             "apps_start_address": 0x08020000,
             "page_size": 2048,
-            "openocd": "external",
-            "openocd_prefix": 'interface hla; \
-		                                        hla_layout stlink; \
-		                                        hla_device_desc "ST-LINK/V2-1"; \
-		                                        hla_vid_pid 0x0483 0x374b; \
-		                                        set WORKAREASIZE 0xC000; \
-		                                        source [find target/stm32f3x.cfg];',
             "no_attribute_table": True,
+            "openocd": {
+                "prefix": 'interface hla; \
+                           hla_layout stlink; \
+                           hla_device_desc "ST-LINK/V2-1"; \
+                           hla_vid_pid 0x0483 0x374b; \
+                           set WORKAREASIZE 0xC000; \
+                           source [find target/stm32f3x.cfg];',
+            },
         },
         "stm32f4discovery": {
             "description": "STM32F4-based Discovery Boards",
             "arch": "cortex-m4",
             "apps_start_address": 0x08040000,
             "page_size": 2048,
-            "openocd": "external",
-            "openocd_prefix": 'interface hla; \
-		                                        hla_layout stlink; \
-		                                        hla_device_desc "ST-LINK/V2-1"; \
-		                                        hla_vid_pid 0x0483 0x374b; \
-		                                        set WORKAREASIZE 0x40000; \
-		                                        source [find target/stm32f4x.cfg];',
             "no_attribute_table": True,
+            "openocd": {
+                "prefix": 'interface hla; \
+                           hla_layout stlink; \
+                           hla_device_desc "ST-LINK/V2-1"; \
+                           hla_vid_pid 0x0483 0x374b; \
+                           set WORKAREASIZE 0x40000; \
+                           source [find target/stm32f4x.cfg];',
+            },
         },
         "nucleof4": {
             "description": "STM32f4-based Nucleo development boards",
             "arch": "cortex-m4",
             "apps_start_address": 0x08040000,
             "page_size": 2048,
-            "openocd": "st_nucleo_f4.cfg",
             "no_attribute_table": True,
+            "openocd": {
+                "cfg": "st_nucleo_f4.cfg",
+            },
         },
         "hifive1": {
             "description": "SiFive HiFive1 development board",
             "arch": "rv32imac",
             "apps_start_address": 0x20430000,
             "page_size": 512,
-            "openocd": "sifive-hifive1.cfg",
             "no_attribute_table": True,
+            "openocd": {
+                "cfg": "sifive-hifive1.cfg",
+            },
         },
         "hifive1b": {
             "description": "SiFive HiFive1b development board",
             "arch": "rv32imac",
             "apps_start_address": 0x20040000,
             "page_size": 512,
-            "jlink_device": "FE310",
-            "jlink_if": "jtag",
-            "openocd": "sifive-hifive1-revb.cfg",
             "no_attribute_table": True,
+            "jlink": {
+                "device": "FE310",
+                "if": "jtag",
+            },
+            "openocd": {
+                "cfg": "sifive-hifive1-revb.cfg",
+            },
         },
         "edu-ciaa": {
             "description": "Educational NXP board, from the CIAA project",
             "arch": "cortex-m4",
             "page_size": 512,
             "apps_start_address": 0x1A040000,
-            "openocd": "ftdi_lpc4337.cfg",
-            "openocd_options": ["noreset"],
-            "openocd_commands": {
-                "program": "flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};",
-                "erase": "flash fillb {address:#x} 0x00 512;",
-            },
             "no_attribute_table": True,
+            "openocd": {
+                "cfg": "ftdi_lpc4337.cfg",
+                "options": ["noreset"],
+                "commands": {
+                    "program": "flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};",
+                    "erase": "flash fillb {address:#x} 0x00 512;",
+                },
+            },
         },
         "microbit_v2": {
             "description": "BBC Micro:bit v2",
             "arch": "cortex-m4",
             "apps_start_address": 0x00040000,
             "page_size": 4096,
-            "openocd": "external",
-            "openocd_prefix": "source [find interface/cmsis-dap.cfg]; \
-		                                   transport select swd; \
-		                                   source [find target/nrf52.cfg]; \
-		                                   set WORKAREASIZE 0x40000; \
-		                                   $_TARGETNAME configure -work-area-phys 0x20000000 -work-area-size $WORKAREASIZE -work-area-backup 0; \
-		                                   flash bank $_CHIPNAME.flash nrf51 0x00000000 0 1 1 $_TARGETNAME;",
             "no_attribute_table": True,
+            "openocd": {
+                "prefix": "source [find interface/cmsis-dap.cfg]; \
+                           transport select swd; \
+                           source [find target/nrf52.cfg]; \
+                           set WORKAREASIZE 0x40000; \
+                           $_TARGETNAME configure -work-area-phys 0x20000000 -work-area-size $WORKAREASIZE -work-area-backup 0; \
+                           flash bank $_CHIPNAME.flash nrf51 0x00000000 0 1 1 $_TARGETNAME;",
+            },
         },
     }
 

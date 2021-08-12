@@ -314,6 +314,10 @@ class JLinkExe(BoardInterface):
         """
         Write using JTAG
         """
+        # Make sure we respect page boundaries in case the chip and jlink
+        # implementation will only work correctly when writing entire pages.
+        address, binary = self._align_and_stretch_to_page(address, binary)
+
         commands = [
             "h\nr",
             "loadbin {{binary}}, {address:#x}".format(address=address),
@@ -324,7 +328,6 @@ class JLinkExe(BoardInterface):
         self._run_jtag_commands(commands, binary)
 
     def read_range(self, address, length):
-
         commands = []
         if self.jlink_device == "cortex-m0":
             # We are in generic mode, trying to read attributes.

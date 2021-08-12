@@ -725,10 +725,16 @@ class TockLoader:
             board = getattr(self.args, "board", None)
 
         # Start by updating settings using the architecture.
-        if arch and arch in self.TOCKLOADER_APP_SETTINGS["arch"]:
-            self.app_settings.update(self.TOCKLOADER_APP_SETTINGS["arch"][arch])
-            # Remove the options so they do not get set twice.
-            del self.TOCKLOADER_APP_SETTINGS["arch"][arch]
+        if arch:
+            # Loop through the arch string for generic versions.
+            for i in range(4, len(arch) + 1):
+                try_arch = arch[0:i]
+                if try_arch in self.TOCKLOADER_APP_SETTINGS["arch"]:
+                    self.app_settings.update(
+                        self.TOCKLOADER_APP_SETTINGS["arch"][try_arch]
+                    )
+                    # Remove the options so they do not get set twice.
+                    del self.TOCKLOADER_APP_SETTINGS["arch"][try_arch]
 
         # Configure settings for the board if possible.
         if board and board in self.TOCKLOADER_APP_SETTINGS["boards"]:

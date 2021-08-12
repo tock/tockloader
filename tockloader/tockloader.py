@@ -73,6 +73,8 @@ class TockLoader:
     # - `size_constraint`: Valid sizes for the entire application.
     #                      Supported values: powers_of_two, (multiple, value),
     #                                        None
+    # - `alignment_constraint`: If apps have to be aligned to some value.
+    #                      Supported values: size, None
     # - `cmd_flags`:       A dict of command line flags and the value they
     #                      should be set to for the board.
     TOCKLOADER_APP_SETTINGS = {
@@ -80,12 +82,14 @@ class TockLoader:
             "start_address": 0x30000,
             "order": None,
             "size_constraint": None,
+            "alignment_constraint": None,
             "cmd_flags": {},
         },
         "arch": {
             "cortex-m": {
                 "order": "size_descending",
                 "size_constraint": "powers_of_two",
+                "alignment_constraint": "size",
             }
         },
         "boards": {
@@ -1264,14 +1268,18 @@ class TockLoader:
         # a power of two, and that the region is aligned on a multiple of that
         # size.
 
-        # Check if not power of two
-        if (size & (size - 1)) != 0:
-            return False
+        if self.app_settings["size_constraint"]:
+            if self.app_settings["size_constraint"] == "powers_of_two":
+                # Check if size is not a power of two.
+                if (size & (size - 1)) != 0:
+                    return False
 
-        # Check that address is a multiple of size
-        multiple = address // size
-        if multiple * size != address:
-            return False
+        if self.app_settings["alignment_constraint"]:
+            if self.app_settings["alignment_constraint"] == "size":
+                # Check that address is a multiple of size.
+                multiple = address // size
+                if multiple * size != address:
+                    return False
 
         return True
 

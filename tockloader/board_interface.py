@@ -271,10 +271,6 @@ class BoardInterface:
         # methods need. There may be flags specific to a particular
         # communication interface.
 
-        # Set default if page size otherwise not set.
-        if self.page_size == 0:
-            self.page_size = 512
-
     def attached_board_exists(self):
         """
         For this particular board communication channel, check if there appears

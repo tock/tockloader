@@ -210,7 +210,7 @@ class BoardInterface:
                            source [find target/nrf52.cfg]; \
                            set WORKAREASIZE 0x40000; \
                            $_TARGETNAME configure -work-area-phys 0x20000000 -work-area-size $WORKAREASIZE -work-area-backup 0; \
-                           catch { flash bank $_CHIPNAME.flash nrf51 0x00000000 0 1 1 $_TARGETNAME; } err",
+                           catch { flash bank $_CHIPNAME.flash nrf51 0x00000000 0 1 1 $_TARGETNAME } err;",
             },
         },
     }

@@ -10,6 +10,7 @@ tockloader.
 import logging
 import os
 
+from .exceptions import TockLoaderException
 
 class BoardInterface:
     """
@@ -239,6 +240,7 @@ class BoardInterface:
 
         # Set defaults.
         self.no_attribute_table = False  # We assume this is a full tock board.
+        self.address_translator = None
 
         # Next try to use `KNOWN_BOARDS`.
         self._configure_from_known_boards()
@@ -266,10 +268,34 @@ class BoardInterface:
                 self.page_size = board["page_size"]
             if self.no_attribute_table == False and "no_attribute_table" in board:
                 self.no_attribute_table = board["no_attribute_table"]
+            if self.address_translator == None and "address_translator" in board:
+                self.address_translator = board["address_translator"]
 
         # This init only includes the generic settings that all communication
         # methods need. There may be flags specific to a particular
         # communication interface.
+
+    def translate_address(self, address):
+        """
+        Translate an address from MCU address space to the address required for
+        the board interface. This is used for boards where the address passed to
+        the board interface is not the address where this region is exposed in
+        the MCU address space. This method must be called from the board
+        interface implementation prior to memory accesses.
+        """
+        if self.address_translator is not None:
+            translated = self.address_translator(address)
+
+            # Make sure that the translated address is still positive, a
+            # negative number would mean accessing before the start of flash
+            if translated < 0:
+                raise TockLoaderException(
+                    'Address 0x{:02x} not contained in flash'.format(address)
+                )
+        else:
+            translated = address
+
+        return translated
 
     def attached_board_exists(self):
         """

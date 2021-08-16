@@ -41,7 +41,6 @@ class OpenOCD(BoardInterface):
         self.openocd_options = getattr(self.args, "openocd_options")
         self.openocd_commands = getattr(self.args, "openocd_commands")
         self.openocd_prefix = ""
-        self.openocd_address_translator = None
 
         # It's very important that we know the openocd_board. There are three
         # ways we can learn that: 1) use the known boards struct, 2) have it
@@ -80,8 +79,11 @@ class OpenOCD(BoardInterface):
                 self.openocd_prefix = board["openocd"]["prefix"]
             if self.openocd_commands == {} and "commands" in board["openocd"]:
                 self.openocd_commands = board["openocd"]["commands"]
-            if "address_translator" in board:
-                self.openocd_address_translator = board["address_translator"]
+
+            # Overwrite any generic address translator defined for the
+            # board by an openocd-specific one if specified
+            if "address_translator" in board["openocd"]:
+                self.address_translator = board["openocd"]["address_translator"]
 
             # And we may need to setup other common board settings.
             self._configure_from_known_boards()
@@ -282,10 +284,9 @@ You may need to update OpenOCD to the version in latest git master."
         # implementing read-then-write to make flash happy.
         address, binary = self._align_and_stretch_to_page(address, binary)
 
-        # Check if we need to translate the address from MCU address space to
-        # OpenOCD command addressing.
-        if self.openocd_address_translator:
-            address = self.openocd_address_translator(address)
+        # Translate the address from MCU address space to OpenOCD
+        # command addressing.
+        address = self.translate_address(address)
 
         # Substitute the key arguments.
         command = command.format(address=address)
@@ -302,10 +303,9 @@ You may need to update OpenOCD to the version in latest git master."
         if "read" in self.openocd_commands:
             command = self.openocd_commands["read"]
 
-        # Check if we need to translate the address from MCU address space to
-        # OpenOCD command addressing.
-        if self.openocd_address_translator:
-            address = self.openocd_address_translator(address)
+        # Translate the address from MCU address space to OpenOCD
+        # command addressing.
+        address = self.translate_address(address)
 
         logging.debug('Using read command: "{}"'.format(command))
 

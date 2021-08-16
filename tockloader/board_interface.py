@@ -128,6 +128,21 @@ class BoardInterface:
                 },
             },
         },
+        "litex_arty": {
+            "description": "LiteX SoC running on an Arty-A7 board",
+            "arch": "rv32imc",
+            # Tockloader is currently only supported through the flash file
+            # board interface. The file being operated on is loaded into RAM by
+            # the LiteX bootloader into the main SDRAM. This does the address
+            # translation to the memory-mapped SDRAM bus address.
+            "address_translator": lambda addr: addr - 0x40000000,
+            "no_attribute_table": True,
+            "flash_file": {
+                # Set to the maximum RAM size, as the LiteX bootloader will
+                # update the flash image into RAM.
+                "max_size": 0x10000000,
+            },
+        },
         "stm32f3discovery": {
             "description": "STM32F3-based Discovery Boards",
             "arch": "cortex-m4",

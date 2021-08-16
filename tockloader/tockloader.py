@@ -29,6 +29,7 @@ from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 from .jlinkexe import JLinkExe
 from .openocd import OpenOCD, collect_temp_files
+from .flash_file import FlashFile
 
 
 class TockLoader:
@@ -128,9 +129,13 @@ class TockLoader:
         needs to be done.
         """
 
-        # Verify both openocd and jlink are not set.
-        if getattr(self.args, "jlink", False) and getattr(self.args, "openocd", False):
-            raise TockLoaderException("Cannot use both --jlink and --openocd options")
+        # Verify only one of openocd, jlink, flash file or serial are set
+        if len(list(filter(lambda a: a != False, [
+                getattr(self.args, "jlink", False),
+                getattr(self.args, "openocd", False),
+                getattr(self.args, "flash_file") != None,
+                getattr(self.args, "serial", False),]))) > 1:
+            raise TockLoaderException("Can only use one of --jlink, --openocd, --flash-file or --serial options")
 
         # Get an object that allows talking to the board.
         if hasattr(self.args, "jlink") and self.args.jlink:
@@ -142,6 +147,10 @@ class TockLoader:
         elif hasattr(self.args, "serial") and self.args.serial:
             # User passed `--serial`. Force the serial bootloader channel.
             self.channel = BootloaderSerial(self.args)
+        elif hasattr(self.args, "flash_file") and self.args.flash_file is not None:
+            # User passed `--flash-file` option with an associated
+            # file. Force operation on the specified file.
+            self.channel = FlashFile(self.args)
         else:
             # Try to do some magic to determine the correct channel to use. Our
             # goal is to automatically choose the correct setting so that

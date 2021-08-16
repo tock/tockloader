@@ -536,6 +536,11 @@ def main():
         nargs="*",
     )
     parent_channel.add_argument(
+        "--flash-file",
+        default=None,
+        help="Operate on a binary flash file instead of a proper board.",
+    )
+    parent_channel.add_argument(
         "--board",
         default=None,
         help="Explicitly specify the board that is being targeted.",

@@ -72,6 +72,11 @@ class JLinkExe(BoardInterface):
                 # number, so we try to leverage those as well. Who knows how
                 # well this will work.
                 return "hifive1b"
+            if emulator["ProductName"] == "J-Link OB-K22-SiFive":
+                # It appears perhaps a newer jlink actually gets a full product
+                # name from the chip?? Well, let's try not to break backwards
+                # compatibility and just add another entry.
+                return "hifive1b"
             if emulator["ProductName"] == "J-Link OB-STM32F072-128KB-Corte":
                 # In Aug 2021 I found this for the aconno ACD52832. We don't
                 # have an ACD52832-specific board, so we just use the nrf52dk.

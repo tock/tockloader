@@ -103,6 +103,7 @@ class TockLoader:
             },
             "hifive1": {"start_address": 0x20430000},
             "hifive1b": {"start_address": 0x20040000},
+            "litex_arty": {"start_address": 0x41000000},
             "nucleof4": {"start_address": 0x08040000},
             "microbit_v2": {"start_address": 0x00040000},
             "stm32f3discovery": {"start_address": 0x08020000},

@@ -36,17 +36,21 @@ class FlashFile(BoardInterface):
                 self.max_size = flash_file_opts["max_size"]
 
         # Log the most important, finalized settings to the user
-        logging.info('Operating on flash file "{}"'.format(self.filepath))
+        logging.info('Operating on flash file "{}".'.format(self.filepath))
         if self.max_size != None:
-            logging.info("Limiting flash size to {:#x} bytes".format(self.max_size))
+            logging.info("Limiting flash size to {:#x} bytes.".format(self.max_size))
 
     def open_link_to_board(self):
         """
         Open a link to the board by opening the flash file for reading and
         writing.
         """
-        # Don't catch exceptions as there isn't much we can do.
-        self.file_handle = open(self.filepath, "r+b")
+        try:
+            # We want to preserve the flash contents in the file.
+            self.file_handle = open(self.filepath, "r+b")
+        except:
+            # But if the file doesn't exist, create it.
+            self.file_handle = open(self.filepath, "w+b")
 
         def file_handle_cleanup():
             if self.file_handle is not None:

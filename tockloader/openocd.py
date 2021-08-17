@@ -80,11 +80,6 @@ class OpenOCD(BoardInterface):
             if self.openocd_commands == {} and "commands" in board["openocd"]:
                 self.openocd_commands = board["openocd"]["commands"]
 
-            # Overwrite any generic address translator defined for the
-            # board by an openocd-specific one if specified
-            if "address_translator" in board["openocd"]:
-                self.address_translator = board["openocd"]["address_translator"]
-
             # And we may need to setup other common board settings.
             self._configure_from_known_boards()
 

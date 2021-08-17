@@ -12,6 +12,7 @@ import os
 
 from .exceptions import TockLoaderException
 
+
 class BoardInterface:
     """
     Base class for interacting with hardware boards. All of the class functions
@@ -305,7 +306,7 @@ class BoardInterface:
             # negative number would mean accessing before the start of flash
             if translated < 0:
                 raise TockLoaderException(
-                    'Address 0x{:02x} not contained in flash'.format(address)
+                    "Address 0x{:02x} not contained in flash".format(address)
                 )
         else:
             translated = address

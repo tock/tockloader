@@ -10,6 +10,7 @@ import os
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
 
+
 class FlashFile(BoardInterface):
     """
     Implementation of `BoardInterface` for flash files.
@@ -27,8 +28,7 @@ class FlashFile(BoardInterface):
 
         # Load custom settings for the flash-file from the board definition.
         if self.board and self.board in self.KNOWN_BOARDS:
-            logging.info('Using settings from KNOWN_BOARDS["{}"]'
-                         .format(self.board))
+            logging.info('Using settings from KNOWN_BOARDS["{}"]'.format(self.board))
             board = self.KNOWN_BOARDS[self.board]
             flash_file_opts = board["flash_file"] if "flash_file" in board else {}
 
@@ -36,42 +36,23 @@ class FlashFile(BoardInterface):
                 self.max_size = flash_file_opts["max_size"]
 
         # Log the most important, finalized settings to the user
-        logging.info('Operating on flash file at "{}"'.format(self.filepath))
-        logging.info('Limiting flash size to 0x{:x} bytes'.format(self.max_size))
-
-
-    def attached_board_exists(self):
-        """
-        Determine whether the "attached board" in form of the flash file exists
-        based on whether the passed path is a file and we can read and write it.
-        """
-        if os.path.isfile(self.filepath) and \
-           os.access(self.filepath, os.R_OK | os.W_OK):
-            return True
-        else:
-            return False
+        logging.info('Operating on flash file "{}"'.format(self.filepath))
+        if self.max_size != None:
+            logging.info("Limiting flash size to {:#x} bytes".format(self.max_size))
 
     def open_link_to_board(self):
         """
         Open a link to the board by opening the flash file for reading and
         writing.
         """
-        # Don't catch exceptions, given attached_board_exists is responsible for
-        # checking access to the board. In case the permissions changed in
-        # between, it's fine to throw an error.
-        self.file_handle = open(self.filepath, 'r+b')
+        # Don't catch exceptions as there isn't much we can do.
+        self.file_handle = open(self.filepath, "r+b")
 
         def file_handle_cleanup():
             if self.file_handle is not None:
                 self.file_handle.close()
 
         atexit.register(file_handle_cleanup)
-
-    def enter_bootloader_mode(self):
-        return
-
-    def exit_bootloader_mode(self):
-        return
 
     def flash_binary(self, address, binary):
         # Write the passed binary data to the given address. This will

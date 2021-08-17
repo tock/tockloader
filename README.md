@@ -188,6 +188,11 @@ a version from git.
     - `{address:#x}`: The specified address for the binary to be programmed at.
     - `{length}`: The number of bytes. Only valid for the `read` operation.
 
+Finally, Tockloader can treat a local file as though it were the flash contents
+of a board. The file can then be loaded separately onto a board.
+
+    tockloader [command] --flash-file
+
 Example Usage
 -------------
 

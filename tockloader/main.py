@@ -537,7 +537,6 @@ def main():
     )
     parent_channel.add_argument(
         "--flash-file",
-        default=None,
         help="Operate on a binary flash file instead of a proper board.",
     )
     parent_channel.add_argument(

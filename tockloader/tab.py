@@ -172,9 +172,17 @@ class TAB:
         Check if the Tock app is compatible with a particular Tock board.
         """
         only_for_boards = self._get_metadata_key("only-for-boards")
-        return (
-            only_for_boards == None or board in only_for_boards or only_for_boards == ""
-        )
+
+        # If no boards are set, unconditionally return True.
+        if only_for_boards == None or only_for_boards == "":
+            return True
+
+        # If boards are set, it better be in the list.
+        if board and board in only_for_boards:
+            return True
+
+        # Otherwise, incompatible.
+        return False
 
     def get_compatible_boards(self):
         """

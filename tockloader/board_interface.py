@@ -144,6 +144,16 @@ class BoardInterface:
                 "max_size": 0x10000000,
             },
         },
+        "litex_sim": {
+            "description": "LiteX SoC running on Verilated simulation",
+            "arch": "rv32i",
+            "no_attribute_table": True,
+            "flash_file": {
+                # This corresponds to the --integrated-rom-size when starting
+                # the `litex_sim` Verilated simulation.
+                "max_size": 0x00100000,
+            },
+        },
         "stm32f3discovery": {
             "description": "STM32F3-based Discovery Boards",
             "arch": "cortex-m4",

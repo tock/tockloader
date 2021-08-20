@@ -22,9 +22,11 @@ class FlashFile(BoardInterface):
         # Store the passed filepath
         self.filepath = args.flash_file
 
-        # Boards can limit the size of their virtual flash, otherwise it will
-        # grow automatically.
-        self.max_size = None
+        # Boards should limit the file size to match their flash. However, we
+        # don't want users to accidentally create gigantic files using the
+        # `--flash-file` flag, so we set a cap at 128 MB. If a future Tock board
+        # needs more than that...well we can revisit this then.
+        self.max_size = 0x8000000
 
         # Load custom settings for the flash-file from the board definition.
         if self.board and self.board in self.KNOWN_BOARDS:
@@ -65,10 +67,10 @@ class FlashFile(BoardInterface):
         # defined.
         address = self.translate_address(address)
 
-        if self.max_size is not None:
-            write_len = max(min(0, self.max_size - address), len(binary))
-        else:
-            write_len = len(binary)
+        # Cap the write size to respect the `max_size` setting.
+        write_len = max(min(self.max_size - address, len(binary)), 0)
+        if not write_len == len(binary):
+            logging.warning("Truncating write due to maximum flash-file size limits")
 
         self.file_handle.seek(address)
         self.file_handle.write(binary[:write_len])
@@ -79,10 +81,10 @@ class FlashFile(BoardInterface):
         # should respect the end of our virtual flash, if one is defined.
         address = self.translate_address(address)
 
-        if self.max_size is not None:
-            read_len = max(min(0, self.max_size - address), length)
-        else:
-            read_len = length
+        # Cap the read size to respect the `max_size` setting.
+        read_len = max(min(self.max_size - address, length), 0)
+        if not read_len == length:
+            logging.warning("Truncating read due to maximum flash-file size limits")
 
         self.file_handle.seek(address)
         return self.file_handle.read(read_len)

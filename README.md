@@ -154,9 +154,7 @@ knowing the device type of the MCU on the board.
 - `if`: The interface to pass to JLink.
 
 Tockloader can also do JTAG using OpenOCD. OpenOCD needs to know which config
-file to use. Note: you will likely need an up-to-date version of OpenOCD for
-everything to work. On MacOS you can use `brew install --HEAD openocd` to get
-a version from git.
+file to use.
 
     tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board] \
     --openocd-cmd [openocd_cmd] --openocd-options [openocd_options] \
@@ -188,6 +186,14 @@ a version from git.
     - `{address:#x}`: The specified address for the binary to be programmed at.
     - `{length}`: The number of bytes. Only valid for the `read` operation.
 
+Finally, Tockloader can treat a local file as though it were the flash contents
+of a board. The file can then be loaded separately onto a board.
+
+    tockloader [command] --flash-file [filepath]
+
+- `filepath`: The file to use as the flash contents. Will be created if it
+  doesn't exist.
+
 Example Usage
 -------------
 
@@ -216,10 +222,10 @@ operation based on the requirements of a particular hardware platform.
 
 - `--app-address`: Manually specify the address at the beginning of where apps
   are stored. This can be in hex or decimal.
-- `--bundle-apps`: This forces tockloader to write all apps as a concatentated
+- `--bundle-apps`: This forces tockloader to write all apps as a concatenated
   bundle using only a single flash command. This will require that anytime any
   app changes in any way (e.g. its header changes or the app is updated or a new
-  app is installed.) all apps are re-written.
+  app is installed) all apps are re-written.
 
 Features
 --------

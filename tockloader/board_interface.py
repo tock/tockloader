@@ -10,6 +10,8 @@ tockloader.
 import logging
 import os
 
+from .exceptions import TockLoaderException
+
 
 class BoardInterface:
     """
@@ -127,6 +129,31 @@ class BoardInterface:
                 },
             },
         },
+        "litex_arty": {
+            "description": "LiteX SoC running on an Arty-A7 board",
+            "arch": "rv32imc",
+            # Tockloader is currently only supported through the flash file
+            # board interface. The file being operated on is loaded into RAM by
+            # the LiteX bootloader into the main SDRAM. This does the address
+            # translation to the memory-mapped SDRAM bus address.
+            "address_translator": lambda addr: addr - 0x40000000,
+            "no_attribute_table": True,
+            "flash_file": {
+                # Set to the maximum RAM size, as the LiteX bootloader will
+                # update the flash image into RAM.
+                "max_size": 0x10000000,
+            },
+        },
+        "litex_sim": {
+            "description": "LiteX SoC running on Verilated simulation",
+            "arch": "rv32i",
+            "no_attribute_table": True,
+            "flash_file": {
+                # This corresponds to the --integrated-rom-size when starting
+                # the `litex_sim` Verilated simulation.
+                "max_size": 0x00100000,
+            },
+        },
         "stm32f3discovery": {
             "description": "STM32F3-based Discovery Boards",
             "arch": "cortex-m4",
@@ -239,6 +266,7 @@ class BoardInterface:
 
         # Set defaults.
         self.no_attribute_table = False  # We assume this is a full tock board.
+        self.address_translator = None
 
         # Next try to use `KNOWN_BOARDS`.
         self._configure_from_known_boards()
@@ -266,10 +294,34 @@ class BoardInterface:
                 self.page_size = board["page_size"]
             if self.no_attribute_table == False and "no_attribute_table" in board:
                 self.no_attribute_table = board["no_attribute_table"]
+            if self.address_translator == None and "address_translator" in board:
+                self.address_translator = board["address_translator"]
 
         # This init only includes the generic settings that all communication
         # methods need. There may be flags specific to a particular
         # communication interface.
+
+    def translate_address(self, address):
+        """
+        Translate an address from MCU address space to the address required for
+        the board interface. This is used for boards where the address passed to
+        the board interface is not the address where this region is exposed in
+        the MCU address space. This method must be called from the board
+        interface implementation prior to memory accesses.
+        """
+        if self.address_translator is not None:
+            translated = self.address_translator(address)
+
+            # Make sure that the translated address is still positive, a
+            # negative number would mean accessing before the start of flash
+            if translated < 0:
+                raise TockLoaderException(
+                    "Address {:#02x} not contained in flash".format(address)
+                )
+        else:
+            translated = address
+
+        return translated
 
     def attached_board_exists(self):
         """

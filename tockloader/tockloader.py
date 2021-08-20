@@ -29,6 +29,7 @@ from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 from .jlinkexe import JLinkExe
 from .openocd import OpenOCD, collect_temp_files
+from .flash_file import FlashFile
 
 
 class TockLoader:
@@ -102,6 +103,8 @@ class TockLoader:
             },
             "hifive1": {"start_address": 0x20430000},
             "hifive1b": {"start_address": 0x20040000},
+            "litex_arty": {"start_address": 0x41000000},
+            "litex_sim": {"start_address": 0x00080000},
             "nucleof4": {"start_address": 0x08040000},
             "microbit_v2": {"start_address": 0x00040000},
             "stm32f3discovery": {"start_address": 0x08020000},
@@ -128,9 +131,26 @@ class TockLoader:
         needs to be done.
         """
 
-        # Verify both openocd and jlink are not set.
-        if getattr(self.args, "jlink", False) and getattr(self.args, "openocd", False):
-            raise TockLoaderException("Cannot use both --jlink and --openocd options")
+        # Verify only one of openocd, jlink, flash file, or serial are set.
+        if (
+            len(
+                list(
+                    filter(
+                        lambda a: a != False,
+                        [
+                            getattr(self.args, "jlink", False),
+                            getattr(self.args, "openocd", False),
+                            getattr(self.args, "flash_file") != None,
+                            getattr(self.args, "serial", False),
+                        ],
+                    )
+                )
+            )
+            > 1
+        ):
+            raise TockLoaderException(
+                "Can only use one of --jlink, --openocd, --flash-file or --serial options"
+            )
 
         # Get an object that allows talking to the board.
         if hasattr(self.args, "jlink") and self.args.jlink:
@@ -142,6 +162,10 @@ class TockLoader:
         elif hasattr(self.args, "serial") and self.args.serial:
             # User passed `--serial`. Force the serial bootloader channel.
             self.channel = BootloaderSerial(self.args)
+        elif hasattr(self.args, "flash_file") and self.args.flash_file is not None:
+            # User passed `--flash-file` option with an associated file. Force
+            # operation on the specified file.
+            self.channel = FlashFile(self.args)
         else:
             # Try to do some magic to determine the correct channel to use. Our
             # goal is to automatically choose the correct setting so that
@@ -240,8 +264,15 @@ class TockLoader:
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
 
+            # This is the architecture we need for the board.
+            arch = self.channel.get_board_arch()
+            if arch == None:
+                raise TockLoaderException(
+                    "Need known arch to install apps. Perhaps use `--arch` flag."
+                )
+
             # Start with the apps we are searching for.
-            replacement_apps = self._extract_apps_from_tabs(tabs)
+            replacement_apps = self._extract_apps_from_tabs(tabs, arch)
 
             # If we want to install these as sticky apps, mark that now.
             if sticky:
@@ -1201,14 +1232,11 @@ class TockLoader:
 
         return apps
 
-    def _extract_apps_from_tabs(self, tabs):
+    def _extract_apps_from_tabs(self, tabs, arch):
         """
         Iterate through the list of TABs and create the app object for each.
         """
         apps = []
-
-        # This is the architecture we need for the board
-        arch = self.channel.get_board_arch()
 
         for tab in tabs:
             # Check if this app is specifically marked as compatible with

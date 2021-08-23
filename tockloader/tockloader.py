@@ -109,6 +109,7 @@ class TockLoader:
             "microbit_v2": {"start_address": 0x00040000},
             "stm32f3discovery": {"start_address": 0x08020000},
             "stm32f4discovery": {"start_address": 0x08040000},
+            "raspberry_pi_pico": {"start_address": 0x10020000},
         },
     }
 

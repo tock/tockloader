@@ -240,6 +240,16 @@ class BoardInterface:
                            catch { flash bank $_CHIPNAME.flash nrf51 0x00000000 0 1 1 $_TARGETNAME } err;",
             },
         },
+        "raspberry_pi_pico": {
+            "description": "Raspberry Pi Pico",
+            "arch": "cortex-m0",
+            "page_size": 4096,
+            "no_attribute_table": True,
+            "openocd": {
+                "prefix": "source [find interface/raspberrypi-swd.cfg]; \
+                           source [find target/rp2040.cfg];",
+            }
+        }
     }
 
     def __init__(self, args):

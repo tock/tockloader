@@ -466,9 +466,7 @@ class TockLoader:
                 else:
                     self._reshuffle_apps(keep_apps)
 
-                    logging.info(
-                        "After erasing apps, remaining apps on board: ", end=""
-                    )
+                    logging.info("After erasing apps, remaining apps on board: ")
                     self._print_apps(apps, verbose=False, quiet=True)
 
     def set_flag(self, app_names, flag_name, flag_value):

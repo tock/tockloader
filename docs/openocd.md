@@ -51,6 +51,28 @@ Check for the Tock bootloader. Returns `True` if it is present, `False`
 if not, and `None` if unsure.
 
 
+### clear\_bytes
+```py
+
+def clear_bytes(self, address)
+
+```
+
+
+
+Clear at least one byte starting at `address`.
+
+This API is designed to support "ending the linked list of apps", or
+clearing flash enough so that the flash after the last valid app will
+not parse as a valid TBF header.
+
+Different chips with different mechanisms for writing/erasing flash make
+implementing specific erase behavior difficult. Instead, we provide this
+rough API, which is sufficient for the task of ending the linked list,
+but doesn't guarantee exactly how many bytes after address will be
+cleared, or how they will be cleared.
+
+
 ### determine\_current\_board
 ```py
 
@@ -74,18 +96,6 @@ def enter_bootloader_mode(self)
 
 
 Get to a mode where we can read & write flash.
-
-
-### erase\_page
-```py
-
-def erase_page(self, address)
-
-```
-
-
-
-Erase a specific page of internal flash.
 
 
 ### exit\_bootloader\_mode
@@ -122,20 +132,6 @@ def get_all_attributes(self)
 
 
 Get all attributes on a board. Returns an array of attribute dicts.
-
-
-### get\_apps\_start\_address
-```py
-
-def get_apps_start_address(self)
-
-```
-
-
-
-Return the address in flash where applications start on this platform.
-This might be set on the board itself, in the command line arguments
-to Tockloader, or just be the default.
 
 
 ### get\_attribute
@@ -281,6 +277,35 @@ def set_start_address(self, address)
 
 
 Set the address the bootloader jumps to to start the actual code.
+
+
+### translate\_address
+```py
+
+def translate_address(self, address)
+
+```
+
+
+
+Translate an address from MCU address space to the address required for
+the board interface. This is used for boards where the address passed to
+the board interface is not the address where this region is exposed in
+the MCU address space. This method must be called from the board
+interface implementation prior to memory accesses.
+
+
+### \_align\_and\_stretch\_to\_page
+```py
+
+def _align_and_stretch_to_page(self, address, binary)
+
+```
+
+
+
+Return a new (address, binary) that is a multiple of the page size
+and is aligned to page boundaries.
 
 
 ### \_configure\_from\_known\_boards

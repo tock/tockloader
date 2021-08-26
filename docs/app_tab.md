@@ -280,6 +280,7 @@ on certain rules.
 Valid rules:
 - None: do nothing
 - 'powers_of_two': make sure the entire size is a power of two.
+- ('multiple', value): make sure the entire size is a multiple of value.
 
 
 ### set\_sticky

@@ -1,11 +1,11 @@
-# Package tockloader.bootloader_serial Documentation
+# Package tockloader.flash_file Documentation
 
 
-Interface with a board over serial that is using the
-[Tock Bootloader](https://github.com/tock/tock-bootloader).
+Interface to a board's flash file. This module does not directly interface to a
+proper board, but can be used to manipulate a board's flash dump.
 
-## Class BootloaderSerial
-Implementation of `BoardInterface` for the Tock Bootloader over serial.
+## Class FlashFile
+Implementation of `BoardInterface` for flash files.
 ### \_\_init\_\_
 ```py
 
@@ -41,8 +41,8 @@ def bootloader_is_present(self)
 
 
 
-For this communication protocol we can safely say the bootloader is
-present.
+Check for the Tock bootloader. Returns `True` if it is present, `False`
+if not, and `None` if unsure.
 
 
 ### clear\_bytes
@@ -89,17 +89,7 @@ def enter_bootloader_mode(self)
 
 
 
-Reset the chip and assert the bootloader select pin to enter bootloader
-mode. Handle retries if necessary.
-
-
-### erase\_page
-```py
-
-def erase_page(self, address)
-
-```
-
+Get to a mode where we can read & write flash.
 
 
 ### exit\_bootloader\_mode
@@ -111,20 +101,19 @@ def exit_bootloader_mode(self)
 
 
 
-Reset the chip to exit bootloader mode.
+Get out of bootloader mode and go back to running main code.
 
 
 ### flash\_binary
 ```py
 
-def flash_binary(self, address, binary, pad=True)
+def flash_binary(self, address, binary)
 
 ```
 
 
 
-Write pages until a binary has been flashed. binary must have a length
-that is a multiple of page size.
+Write a binary to the address given.
 
 
 ### get\_all\_attributes
@@ -216,19 +205,14 @@ Return the size of the page in bytes for the connected board.
 ### open\_link\_to\_board
 ```py
 
-def open_link_to_board(self, listen=False)
+def open_link_to_board(self)
 
 ```
 
 
 
-Open the serial port to the chip/bootloader.
-
-Also sets up a local port for determining when two Tockloader instances
-are running simultaneously.
-
-Set the argument `listen` to true if the serial port is being setup
-because we are planning to run `run_terminal`.
+Open a link to the board by opening the flash file for reading and
+writing.
 
 
 ### print\_known\_boards
@@ -264,9 +248,6 @@ def run_terminal(self)
 
 ```
 
-
-
-Run miniterm for receiving data from the board.
 
 
 ### set\_attribute
@@ -322,32 +303,6 @@ Return a new (address, binary) that is a multiple of the page size
 and is aligned to page boundaries.
 
 
-### \_change\_baud\_rate
-```py
-
-def _change_baud_rate(self, baud_rate)
-
-```
-
-
-
-If the bootloader on the board supports it and if it succeeds, try to
-increase the baud rate to make everything faster.
-
-
-### \_check\_crc
-```py
-
-def _check_crc(self, address, binary)
-
-```
-
-
-
-Compares the CRC of the local binary to the one calculated by the
-bootloader.
-
-
 ### \_configure\_from\_known\_boards
 ```py
 
@@ -371,19 +326,6 @@ attribute to be set, and then we can use KNOWN_BOARDS to fill in the
 rest.
 
 
-### \_configure\_serial\_port
-```py
-
-def _configure_serial_port(self, port)
-
-```
-
-
-
-Helper function to configure the serial port so we can read/write with
-it.
-
-
 ### \_decode\_attribute
 ```py
 
@@ -391,152 +333,6 @@ def _decode_attribute(self, raw)
 
 ```
 
-
-
-### \_determine\_port
-```py
-
-def _determine_port(self, any=False)
-
-```
-
-
-
-Helper function to determine which serial port on the host to use to
-connect to the board.
-
-Set `any` to true to return a device without prompting the user (i.e.
-just return any port if there are multiple).
-
-
-### \_exit\_bootloader
-```py
-
-def _exit_bootloader(self)
-
-```
-
-
-
-Tell the bootloader on the board to exit so the main software can run.
-
-This uses a command sent over the serial port to the bootloader.
-
-
-### \_get\_crc\_internal\_flash
-```py
-
-def _get_crc_internal_flash(self, address, length)
-
-```
-
-
-
-Get the bootloader to compute a CRC.
-
-
-### \_get\_serial\_port\_hash
-```py
-
-def _get_serial_port_hash(self)
-
-```
-
-
-
-Get an identifier that will be consistent for this serial port on this
-machine that is also guaranteed to not have any special characters (like
-slashes) that would interfere with using as a file name.
-
-
-### \_issue\_command
-```py
-
-def _issue_command(self, command, message, sync, response_len, response_code, show_errors=True)
-
-```
-
-
-
-Setup a command to send to the bootloader and handle the response.
-
-
-### \_open\_serial\_port
-```py
-
-def _open_serial_port(self)
-
-```
-
-
-
-Helper function for calling `self.sp.open()`.
-
-Serial ports on different OSes and systems can be finicky, and this
-enables retries to try to hide failures.
-
-
-### \_ping\_bootloader\_and\_wait\_for\_response
-```py
-
-def _ping_bootloader_and_wait_for_response(self)
-
-```
-
-
-
-Throws an exception if the device does not respond with a PONG.
-
-
-### \_server\_thread
-```py
-
-def _server_thread(self)
-
-```
-
-
-
-### \_toggle\_bootloader\_entry\_DTR\_RTS
-```py
-
-def _toggle_bootloader_entry_DTR_RTS(self)
-
-```
-
-
-
-Use the DTR and RTS lines on UART to reset the chip and assert the
-bootloader select pin to enter bootloader mode so that the chip will
-start in bootloader mode.
-
-
-### \_toggle\_bootloader\_entry\_baud\_rate
-```py
-
-def _toggle_bootloader_entry_baud_rate(self)
-
-```
-
-
-
-Set the baud rate to 1200 so that the chip will restart into the
-bootloader (if that feature exists).
-
-Returns `True` if it successfully started the bootloader, `False`
-otherwise.
-
-
-### \_wait\_for\_serial\_port
-```py
-
-def _wait_for_serial_port(self)
-
-```
-
-
-
-Wait for the serial port to re-appear, aka the bootloader has started.
 
 
 

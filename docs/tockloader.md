@@ -289,13 +289,27 @@ each app.
 ### \_extract\_apps\_from\_tabs
 ```py
 
-def _extract_apps_from_tabs(self, tabs)
+def _extract_apps_from_tabs(self, tabs, arch)
 
 ```
 
 
 
 Iterate through the list of TABs and create the app object for each.
+
+
+### \_get\_apps\_start\_address
+```py
+
+def _get_apps_start_address(self)
+
+```
+
+
+
+Return the address in flash where applications start on this platform.
+This might be set on the board itself, in the command line arguments
+to Tockloader, or just be the default.
 
 
 ### \_print\_apps

@@ -248,8 +248,8 @@ class BoardInterface:
             "openocd": {
                 "prefix": "source [find interface/raspberrypi-swd.cfg]; \
                            source [find target/rp2040.cfg];",
-            }
-        }
+            },
+        },
     }
 
     def __init__(self, args):

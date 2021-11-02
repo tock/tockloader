@@ -230,7 +230,7 @@ class TockLoader:
                 binary = binary + extra
 
             self.channel.flash_binary(address, binary)
-
+            print("Wrote ", len(binary), " bytes of binary")
             # Flash command can optionally set attributes.
             if self.args.set_attribute != None:
                 for k, v in self.args.set_attribute:

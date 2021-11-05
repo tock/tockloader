@@ -591,8 +591,8 @@ class TBFHeader:
         else:
             header_size = self.fields["header_size"]
 
-            program_tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
-            protected_size = program_tlv.protected_size
+            binary_tlv = self._get_binary_tlv()
+            protected_size = binary_tlv.protected_size
 
             return header_size + protected_size
 
@@ -671,8 +671,8 @@ class TBFHeader:
 
         # Increase the protected size so that the actual application
         # binary hasn't moved.
-        tlv_program = self._get_tlv(self.HEADER_TYPE_PROGRAM)
-        tlv_program.protected_size += size
+        tlv_binary = self._get_binary_tlv()
+        tlv_binary.protected_size += size
         #####
         ##### NOTE! Based on how things are implemented in the Tock
         ##### universe, it seems we also need to increase the
@@ -711,7 +711,7 @@ class TBFHeader:
         # meaningless.
         tlv_fixed_addr = self._get_tlv(self.HEADER_TYPE_FIXED_ADDRESSES)
         if tlv_fixed_addr:
-            tlv_program = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+            tlv_program = self._get_binary_tlv()
             # Now see if the header is already the right length.
             if (
                 address + self.fields["header_size"] + tlv_program.protected_size
@@ -796,12 +796,12 @@ class TBFHeader:
             checksum = self._checksum(buf)
             struct.pack_into("<I", buf, 12, checksum)
 
-            tlv_program = self._get_tlv(self.HEADER_TYPE_PROGRAM)
-            if tlv_program and tlv_program.protected_size > 0:
+            tlv_binary = self._get_binary_tlv()
+            if tlv_binary and tlv_binary.protected_size > 0:
                 # Add padding to this header binary to account for the
                 # protected region between the header and the application
                 # binary.
-                buf += b"\0" * tlv_program.protected_size
+                buf += b"\0" * tlv_binary.protected_size
 
         return buf
 
@@ -822,16 +822,22 @@ class TBFHeader:
 
         return checksum
 
+    def _get_binary_tlv(self):
+        """
+        Get the TLV for the binary header, whether it's a program or main.
+        """
+        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        if tlv == None:
+            tlv = self._get_tlv(self.HEADER_TYPE_MAIN)
+        return tlv
+    
     def _get_tlv(self, tlvid):
         """
         Return the TLV from the self.tlvs array if it exists.
         """
         for tlv in self.tlvs:
-            print("Checking for TLV", tlvid, " - it is", tlv.get_tlvid())
-            print(str(tlv)) 
             if tlv.get_tlvid() == tlvid:
                 return tlv
-        print("Returning None.")
         return None
 
     def __str__(self):

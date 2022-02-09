@@ -250,6 +250,17 @@ class BoardInterface:
                            source [find target/rp2040.cfg];",
             },
         },
+        "sma_q3": {
+            "description": "SMA Q3 smart watch (Bangle.js 2, Jazda)",
+            "arch": "cortex-m4",
+            "page_size": 4096,
+            "no_attribute_table": True,
+            "openocd": {
+                "prefix": 'source [find interface/stlink.cfg]; \
+                           interface hla; \
+                           source [find target/nrf52.cfg];',
+            },
+        },
     }
 
     def __init__(self, args):

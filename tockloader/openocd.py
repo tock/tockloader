@@ -11,8 +11,10 @@ OpenOCD directly.
 import logging
 import platform
 import shlex
+import socket
 import subprocess
 import tempfile
+import time
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
@@ -88,13 +90,14 @@ class OpenOCD(BoardInterface):
                 "Unknown OpenOCD board name. You must pass --openocd-board."
             )
 
-    def _run_openocd_commands(self, commands, binary, write=True):
+    def _gather_openocd_cmdline(self, commands, binary, write=True, exit=True):
         """
-        - `commands`: String of openocd commands. Use {binary} for where the name
+        - `commands`: List of openocd commands. Use {binary} for where the name
           of the binary file should be substituted.
         - `binary`: A bytes() object that will be used to write to the board.
         - `write`: Set to true if the command writes binaries to the board. Set
           to false if the command will read bits from the board.
+        - `exit`: When `True`, openocd will exit after executing commands.
         """
 
         # in Windows, you can't mark delete bc they delete too fast
@@ -118,8 +121,10 @@ class OpenOCD(BoardInterface):
                 global collect_temp_files
                 collect_temp_files += [temp_bin.name]
 
-            # Update the command with the name of the binary file
-            commands = commands.format(binary=temp_bin.name)
+            # Update the commands with the name of the binary file
+            commands = [command.format(binary=temp_bin.name) for command in commands]
+        else:
+            temp_bin = None
 
         # Create the actual openocd command and run it. All of this can be
         # customized if needed for an unusual board.
@@ -143,14 +148,28 @@ class OpenOCD(BoardInterface):
             cmd_prefix = ""
         if "resume" in self.openocd_options:
             cmd_suffix = "soft_reset_halt; resume;"
+        if exit:
+            cmd_suffix += "exit"
 
-        openocd_command = '{openocd_cmd} -c "{prefix} {source} {cmd_prefix} {cmd} {cmd_suffix} exit" --debug'.format(
-            openocd_cmd=self.openocd_cmd,
+        command_param = "{prefix} {source} {cmd_prefix} {cmd} {cmd_suffix}".format(
             prefix=prefix,
             source=source,
             cmd_prefix=cmd_prefix,
-            cmd=commands,
+            cmd="; ".join(commands),
             cmd_suffix=cmd_suffix,
+        )
+
+        return (
+            "{openocd_cmd} -c {cmd} --debug".format(
+                openocd_cmd=self.openocd_cmd,
+                cmd=shlex.quote(command_param),
+            ),
+            temp_bin,
+        )
+
+    def _run_openocd_commands(self, commands, binary, write=True):
+        openocd_command, temp_bin = self._gather_openocd_cmdline(
+            [commands], binary, write
         )
 
         logging.debug('Running "{}".'.format(openocd_command.replace("$", "\$")))
@@ -358,4 +377,66 @@ You may need to update OpenOCD to the version in latest git master."
         ):
             raise TockLoaderException(
                 "Could not determine the current board or arch or openocd board name"
+            )
+
+    def run_terminal(self):
+        self.open_link_to_board()
+        logging.status("Starting OpenOCD RTT connection.")
+        openocd_command, _ = self._gather_openocd_cmdline(
+            [
+                'rtt setup 0x20000000 65536 "SEGGER RTT"',
+                "init",
+                "rtt start",
+                "rtt server start 9999 0",
+                "reset run",
+            ],
+            None,
+            exit=False,
+        )
+
+        logging.debug('Running "{}".'.format(openocd_command.replace("$", "\$")))
+
+        try:
+            # This won't print messages from OpenOCD,
+            # to avoid interfering with the console.
+            ocd_p = subprocess.Popen(
+                shlex.split(openocd_command),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+            # Delay to give the connection time to start before running
+            # the RTT listener.
+            time.sleep(1)
+            if ocd_p.poll():
+                return
+
+            logging.status("Listening for messages.")
+            listener = socket.socket()
+            listener.connect(("127.0.0.1", 9999))
+            out = listener.makefile(mode="rb")
+            for out_line in iter(out.readline, ""):
+                l = out_line.decode("utf-8")
+                if not l.startswith("###RTT Client: *"):
+                    print(l, end="")
+        finally:
+            logging.status("Stopping")
+            try:
+                out.close()
+                listener.close()
+                ocd_p.kill()
+                ocd_p.wait()
+            except UnboundLocalError:
+                pass
+            openocd_command, _ = self._gather_openocd_cmdline(
+                [
+                    "init",
+                    "reset halt",
+                ],
+                None,
+            )
+            subprocess.run(
+                shlex.split(openocd_command),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )

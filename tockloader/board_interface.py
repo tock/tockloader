@@ -256,9 +256,9 @@ class BoardInterface:
             "page_size": 4096,
             "no_attribute_table": True,
             "openocd": {
-                "prefix": 'source [find interface/stlink.cfg]; \
+                "prefix": "source [find interface/stlink.cfg]; \
                            interface hla; \
-                           source [find target/nrf52.cfg];',
+                           source [find target/nrf52.cfg];",
             },
         },
     }

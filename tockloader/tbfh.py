@@ -83,25 +83,27 @@ class TBFTLVProgram(TBFTLV):
     def __init__(self, buffer):
         self.valid = False
 
-        if len(buffer) == 16:
-            base = struct.unpack("<IIII", buffer)
+        if len(buffer) == 20:
+            base = struct.unpack("<IIIII", buffer)
             self.init_fn_offset = base[0]
             self.protected_size = base[1]
             self.minimum_ram_size = base[2]
             self.binary_end_offset = base[3]
+            self.app_version = base[4]
             self.valid = True
         else:
             print("Bad buffer for Program TLV it is length", str(len(buffer)))
 
     def pack(self):
         return struct.pack(
-            "<HHIIII",
+            "<HHIIIII",
             self.TLVID,
-            16,
+            20,
             self.init_fn_offset,
             self.protected_size,
             self.minimum_ram_size,
             self.binary_end_offset,
+            self.app_version
         )
 
     def __str__(self):
@@ -117,6 +119,9 @@ class TBFTLVProgram(TBFTLV):
         )
         out += "  {:<20}: {:>10} {:>#12x}\n".format(
             "binary_end_offset", self.binary_end_offset, self.binary_end_offset
+        )
+        out += "  {:<20}: {:>10} {:>#12x}\n".format(
+            "version", self.app_version, self.app_version
         )
         return out
 
@@ -405,8 +410,8 @@ class TBFHeader:
             self.fields["checksum"] = base[3]
 
             if (
-                len(full_buffer) >= self.fields["header_size"]
-                and self.fields["header_size"] >= 16
+                    len(full_buffer) >= self.fields["header_size"]
+                    and self.fields["header_size"] >= 16
             ):
                 # Zero out checksum for checksum calculation.
                 nbuf = bytearray(self.fields["header_size"])
@@ -434,8 +439,8 @@ class TBFHeader:
                                 self.tlvs.append(TBFTLVMain(buffer[0:12]))
 
                         elif tipe == self.HEADER_TYPE_PROGRAM:
-                            if remaining >= 16 and length == 16:
-                                self.tlvs.append(TBFTLVProgram(buffer[0:16]))
+                            if remaining >= 20 and length == 20:
+                                self.tlvs.append(TBFTLVProgram(buffer[0:20]))
 
                         elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
                             if remaining >= length:
@@ -547,14 +552,14 @@ class TBFHeader:
                 self.fields["flags"] |= 0x01
             else:
                 self.fields["flags"] &= ~0x01
-            self.modified = True
+                self.modified = True
 
         elif flag_name == "sticky":
             if flag_value:
                 self.fields["flags"] |= 0x02
             else:
                 self.fields["flags"] &= ~0x02
-            self.modified = True
+                self.modified = True
 
     def get_app_size(self):
         """
@@ -605,7 +610,7 @@ class TBFHeader:
         if tlv:
             return tlv.package_name
         elif (
-            "package_name_offset" in self.fields and "package_name_size" in self.fields
+                "package_name_offset" in self.fields and "package_name_size" in self.fields
         ):
             return (
                 self.fields["package_name_offset"],
@@ -613,6 +618,16 @@ class TBFHeader:
             )
         else:
             return ""
+
+    def get_app_version(self):
+        """
+        Return the version number of the application, if there is one.
+        """
+        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        if tlv:
+            return tlv.app_version
+        else:
+            return 0
 
     def has_fixed_addresses(self):
         """

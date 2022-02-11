@@ -98,6 +98,17 @@ class TabApp:
         else:
             raise TockLoaderException("Size only valid with one TBF")
 
+    def get_app_version(self):
+        """
+        Return the version number stored in a program header.
+
+        This is only valid if there is only one TBF.
+        """
+        if len(self.tbfs) == 1:
+            return self.tbfs[0].tbfh.get_version()
+        else:
+            raise TockLoaderException("Size only valid with one TBF")
+
     def set_size(self, size):
         """
         Force the entire app to be a certain size. If `size` is smaller than the
@@ -389,6 +400,7 @@ class TabApp:
         """
         out = ""
         out += "Name:                  {}\n".format(self.get_name())
+        out += "Version:               {}\n".format(self.get_version())
         out += "Total Size in Flash:   {} bytes\n".format(self.get_size())
 
         if verbose:

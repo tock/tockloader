@@ -31,6 +31,12 @@ class InstalledApp:
         """
         return self.tbfh.get_app_name()
 
+    def get_app_version(self):
+        """
+        Return the version number stored in a program header.
+        """
+        return self.tbfh.get_app_version()
+    
     def is_app(self):
         """
         Whether this is an app or padding.
@@ -273,6 +279,7 @@ class InstalledApp:
 
         out = ""
         out += "Name:                  {}\n".format(self.get_name())
+        out += "Version:               {}\n".format(self.get_app_version())
         out += "Enabled:               {}\n".format(self.tbfh.is_enabled())
         out += "Sticky:                {}\n".format(self.tbfh.is_sticky())
         out += "Total Size in Flash:   {} bytes\n".format(self.get_size())

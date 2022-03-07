@@ -599,6 +599,12 @@ def main():
         help="Specify the board that is being read from. Only used with --rtt.",
     )
     listen.add_argument(
+        "--jlink", action="store_true", help="Use JLinkExe. Only used with --rtt."
+    )
+    listen.add_argument(
+        "--openocd", action="store_true", help="Use OpenOCD. Only used with --rtt."
+    )
+    listen.add_argument(
         "--jlink-cmd", help="The JLinkExe binary to invoke. Only used with --rtt."
     )
     listen.add_argument(
@@ -619,6 +625,29 @@ def main():
         "--jlink-if",
         default="swd",
         help="The interface type to pass to JLinkExe. Only used with --rtt.",
+    )
+    listen.add_argument(
+        "--openocd-board",
+        help="The cfg file in OpenOCD `board` folder. Only used with --rtt.",
+    )
+    listen.add_argument(
+        "--openocd-cmd",
+        default="openocd",
+        help="The openocd binary to invoke. Only used with --rtt.",
+    )
+    listen.add_argument(
+        "--openocd-options",
+        default=[],
+        help="Tockloader-specific flags to direct how Tockloader uses OpenOCD. Only used with --rtt.",
+        nargs="*",
+    )
+    listen.add_argument(
+        "--openocd-commands",
+        default={},
+        type=lambda kv: kv.split("=", 1),
+        action=helpers.ListToDictAction,
+        help='Directly specify which OpenOCD commands to use for "program", "read", or "erase" actions. Example: "program=flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};" Only used with --rtt.',
+        nargs="*",
     )
     listen.set_defaults(func=command_listen)
 

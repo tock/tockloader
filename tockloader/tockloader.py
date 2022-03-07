@@ -658,7 +658,11 @@ class TockLoader:
         # here. There is no need to save the channel, since
         # `channel.run_terminal()` never returns.
         if self.args.rtt:
-            channel = JLinkExe(self.args)
+            if self.args.openocd:
+                channel = OpenOCD(self.args)
+            else:
+                channel = JLinkExe(self.args)
+
         else:
             channel = BootloaderSerial(self.args)
             channel.open_link_to_board(listen=True)

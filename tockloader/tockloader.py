@@ -931,6 +931,10 @@ class TockLoader:
                 is_fixed_address_app = True
 
         if is_fixed_address_app:
+            if not all(map(lambda x: x.has_fixed_addresses(), apps)):
+                raise TockLoaderException(
+                    "Mixing fixed address and position-independent apps is currently unsupported"
+                )
             #
             # This is the fixed addresses case
             #

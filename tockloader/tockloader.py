@@ -924,17 +924,30 @@ class TockLoader:
         # Get where the apps live in flash.
         address = self._get_apps_start_address()
 
-        # First, we are going to split the work into two cases: do we have any
-        # app that is compiled for a fixed address, or not? Likely, there won't
-        # be platforms that have mixed fixed address apps and PIC apps. This
-        # split simplifies things, but a better algorithm would not have this
-        # split.
-        is_fixed_address_app = False
-        for app in apps:
-            if app.has_fixed_addresses():
-                is_fixed_address_app = True
+        # First, we are going to split the work into three cases:
+        #
+        # 1. All apps are fixed address, meaning they have to be loaded at very
+        #    specific addresses.
+        # 2. All apps are position independent, and can be put at any address.
+        # 3. There is a mix of fixed address and position independent apps.
+        #
+        # Then we can handle organizing the apps in each case separately.
 
-        if is_fixed_address_app:
+        # Default to mixed, and only if all are one type be specific.
+        app_position_scenario = "mixed"
+        if all(map(lambda x: x.has_fixed_addresses(), apps)):
+            app_position_scenario = "fixed"
+        elif all(map(lambda x: not x.has_fixed_addresses(), apps)):
+            app_position_scenario = "independent"
+
+        if app_position_scenario == "mixed":
+            # Currently unsupported. This could (should?) be added in the
+            # future.
+            raise TockLoaderException(
+                "Mixing fixed address and position-independent apps is currently unsupported."
+            )
+
+        if app_position_scenario == "fixed":
             #
             # This is the fixed addresses case
             #

@@ -396,6 +396,7 @@ You may need to update OpenOCD to the version in latest git master."
 
         logging.debug('Running "{}".'.format(openocd_command.replace("$", "\$")))
 
+        cleanup = []
         try:
             # This won't print messages from OpenOCD,
             # to avoid interfering with the console.
@@ -404,6 +405,8 @@ You may need to update OpenOCD to the version in latest git master."
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            cleanup.append(ocd_p.wait)
+            cleanup.append(ocd_p.kill)
 
             # Delay to give the connection time to start before running
             # the RTT listener.
@@ -414,20 +417,18 @@ You may need to update OpenOCD to the version in latest git master."
             logging.status("Listening for messages.")
             listener = socket.socket()
             listener.connect(("127.0.0.1", 9999))
+            cleanup.append(listener.close)
             out = listener.makefile(mode="rb")
+            cleanup.append(out.close)
             for out_line in iter(out.readline, ""):
                 l = out_line.decode("utf-8", errors="replace")
                 if not l.startswith("###RTT Client: *"):
                     print(l, end="")
         finally:
             logging.status("Stopping")
-            try:
-                out.close()
-                listener.close()
-                ocd_p.kill()
-                ocd_p.wait()
-            except UnboundLocalError:
-                pass
+            for f in reversed(cleanup):
+                f()
+
             openocd_command, _ = self._gather_openocd_cmdline(
                 [
                     "init",

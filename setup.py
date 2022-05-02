@@ -33,7 +33,7 @@ setup(
         "colorama >= 0.3.7",
         "crcmod >= 1.7",
         "pyserial >= 3.0.1",
-        "pytoml >= 0.1.11",
+        "toml >= 0.10.2",
         "tqdm >= 4.45.0 ",
     ],
 )

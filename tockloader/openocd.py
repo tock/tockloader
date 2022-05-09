@@ -416,7 +416,7 @@ You may need to update OpenOCD to the version in latest git master."
             listener.connect(("127.0.0.1", 9999))
             out = listener.makefile(mode="rb")
             for out_line in iter(out.readline, ""):
-                l = out_line.decode("utf-8")
+                l = out_line.decode("utf-8", errors="replace")
                 if not l.startswith("###RTT Client: *"):
                     print(l, end="")
         finally:

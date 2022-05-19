@@ -9,7 +9,7 @@ import tempfile
 import textwrap
 import urllib.request
 
-import pytoml
+import toml
 
 from .app_tab import TabApp
 from .app_tab import TabTbf
@@ -262,7 +262,7 @@ class TAB:
         # Otherwise parse f.toml file.
         metadata_tarinfo = self.tab.getmember("metadata.toml")
         metadata_str = self.tab.extractfile(metadata_tarinfo).read().decode("utf-8")
-        self.metadata = pytoml.loads(metadata_str)
+        self.metadata = toml.loads(metadata_str)
         return self.metadata
 
     def _get_metadata_key(self, key):

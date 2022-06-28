@@ -119,7 +119,7 @@ def command_list(args):
     tock_loader = TockLoader(args)
     tock_loader.open()
     tock_loader.list_apps(args.verbose, args.quiet)
-    
+
 
 def command_install(args):
     check_and_run_make(args)
@@ -343,7 +343,8 @@ def command_inspect_tab(args):
             if args.crt0_header:
                 print("  crt0 header")
                 print(textwrap.indent(app.get_crt0_header_str(), "    "))
-                
+
+            print("TBF Footers")
             print(textwrap.indent(str(app.get_footers()), "  "))
         print("")
 

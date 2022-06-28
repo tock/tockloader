@@ -103,7 +103,7 @@ class TBFTLVProgram(TBFTLV):
             self.protected_size,
             self.minimum_ram_size,
             self.binary_end_offset,
-            self.app_version
+            self.app_version,
         )
 
     def __str__(self):
@@ -128,7 +128,7 @@ class TBFTLVProgram(TBFTLV):
 
 class TBFTLVWriteableFlashRegions(TBFTLV):
     TLVID = 0x02
-    
+
     def __init__(self, buffer):
         self.valid = False
 
@@ -361,12 +361,12 @@ class TBFHeader:
         # Initialize to None so a Main header will set it only if a Program
         # Header hasn't set it already.
         self.binary_end_offset = None
-        
+
         # The base fields in the TBF header.
         self.fields = {}
         # A list of TLV entries.
         self.tlvs = []
-        
+
         full_buffer = buffer
 
         # Need at least a version number
@@ -414,15 +414,15 @@ class TBFHeader:
             self.fields["checksum"] = base[3]
 
             if (
-                    len(full_buffer) >= self.fields["header_size"]
-                    and self.fields["header_size"] >= 16
+                len(full_buffer) >= self.fields["header_size"]
+                and self.fields["header_size"] >= 16
             ):
                 # Zero out checksum for checksum calculation.
                 nbuf = bytearray(self.fields["header_size"])
                 nbuf[:] = full_buffer[0 : self.fields["header_size"]]
                 struct.pack_into("<I", nbuf, 12, 0)
                 checksum = self._checksum(nbuf)
-                
+
                 remaining = self.fields["header_size"] - 16
 
                 # Now check to see if this is an app or padding.
@@ -618,7 +618,7 @@ class TBFHeader:
         if tlv:
             return tlv.package_name
         elif (
-                "package_name_offset" in self.fields and "package_name_size" in self.fields
+            "package_name_offset" in self.fields and "package_name_size" in self.fields
         ):
             return (
                 self.fields["package_name_offset"],
@@ -754,7 +754,9 @@ class TBFHeader:
                 ):
                     # The header is too small, so we can fix it.
                     delta = tlv_fixed_addr.fixed_address_flash - (
-                        address + self.fields["header_size"] + tlv_program.protected_size
+                        address
+                        + self.fields["header_size"]
+                        + tlv_program.protected_size
                     )
                     # Increase the protected size to match this.
                     tlv_program.protected_size += delta
@@ -860,7 +862,7 @@ class TBFHeader:
         if tlv == None:
             tlv = self._get_tlv(self.HEADER_TYPE_MAIN)
         return tlv
-    
+
     def _get_tlv(self, tlvid):
         """
         Return the TLV from the self.tlvs array if it exists.
@@ -965,8 +967,8 @@ class TBFHeaderPadding(TBFHeader):
         self.fields["flags"] = 0
         self.fields["checksum"] = self._checksum(self.get_binary())
 
-class TBFFooter:
 
+class TBFFooter:
     def __init__(self, credentials_type, data):
         self.credentials_type = credentials_type
         self.data = data
@@ -979,22 +981,22 @@ class TBFFooter:
         out += " ".join("{:02x}".format(x) for x in self.data)
         out += "\n\n"
         return out
-    
-    
+
+
 class TBFFooters:
     FOOTER_TYPE_CREDENTIALS = 0x80
-    CREDENTIALS_TYPE_PADDING      = 0x00
-    CREDENTIALS_TYPE_CLEARTEXTID  = 0x01
-    CREDENTIALS_TYPE_RSA3072KEY   = 0x02
-    CREDENTIALS_TYPE_RSA4096KEY   = 0x03
+    CREDENTIALS_TYPE_PADDING = 0x00
+    CREDENTIALS_TYPE_CLEARTEXTID = 0x01
+    CREDENTIALS_TYPE_RSA3072KEY = 0x02
+    CREDENTIALS_TYPE_RSA4096KEY = 0x03
     CREDENTIALS_TYPE_RSA3072KEYID = 0x04
     CREDENTIALS_TYPE_RSA4096KEYID = 0x05
-    CREDENTIALS_TYPE_SHA256       = 0x06
-    CREDENTIALS_TYPE_SHA384       = 0x07
-    CREDENTIALS_TYPE_SHA512       = 0x08
-            
+    CREDENTIALS_TYPE_SHA256 = 0x06
+    CREDENTIALS_TYPE_SHA384 = 0x07
+    CREDENTIALS_TYPE_SHA512 = 0x08
+
     def __init__(self, buffer):
-        
+
         self.footers = []
         position = 0
 
@@ -1013,16 +1015,15 @@ class TBFFooters:
                     if credentials_type == self.CREDENTIALS_TYPE_PADDING:
                         self.footers.append(TBFFooter("Padding", buffer[4:tlv_length]))
                     elif credentials_type == self.CREDENTIALS_TYPE_SHA256:
-                        self.footers.append(TBFFooter("SHA256", buffer[4:tlv_length]));
+                        self.footers.append(TBFFooter("SHA256", buffer[4:tlv_length]))
                     elif credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
                         self.footers.append(TBFFooter("RSA4096", buffer[4:tlv_length]))
                     else:
                         print("Found unrecognized footer type:", credentials_type)
-            buffer = buffer[tlv_length-4:]
-                                       
+            buffer = buffer[tlv_length - 4 :]
+
     def __str__(self):
         out = ""
         for footer in self.footers:
             out += str(footer)
         return out
-            

@@ -24,6 +24,7 @@ class TabTbf:
         self.binary = binary
         self.footers = footers
 
+
 class TabApp:
     """
     Representation of a Tock app for a specific architecture and board from a
@@ -94,7 +95,7 @@ class TabApp:
         if len(self.tbfs) == 1:
             return self.tbfs[0].footers
         return None
-    
+
     def get_size(self):
         """
         Return the total size (including TBF header) of this app in bytes.

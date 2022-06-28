@@ -90,11 +90,21 @@ class TAB:
                     # longer than the amount of reserved space (`total_size` in the
                     # TBF header) for the app.
                     raise TockLoaderException(
-                        "Invalid TAB, the app binary is longer ", len(binary), " than its defined total_size", tbfh.get_app_size()
+                        "Invalid TAB, the app binary is longer ",
+                        len(binary),
+                        " than its defined total_size",
+                        tbfh.get_app_size(),
                     )
-                tbff = TBFFooters(binary[tbfh.get_binary_end_offset():])
+                tbff = TBFFooters(binary[tbfh.get_binary_end_offset() :])
                 tbfs.append(
-                    TabTbf(tbf_filename, tbfh, binary[tbfh.get_size_before_app(): tbfh.get_binary_end_offset()], tbff)
+                    TabTbf(
+                        tbf_filename,
+                        tbfh,
+                        binary[
+                            tbfh.get_size_before_app() : tbfh.get_binary_end_offset()
+                        ],
+                        tbff,
+                    )
                 )
             else:
                 raise TockLoaderException("Invalid TBF found in app in TAB:", str(tbfh))
@@ -122,13 +132,17 @@ class TAB:
                 raise TockLoaderException(
                     "Invalid TAB, the app binary is longer than its defined total_size"
                 )
-            print("Making a TAB app with len", str(len(binary)),
-                  "binary end offset", str(tbfh.get_binary_end_offset()))
-            app_binary = binary[tbfh.get_size_before_app():tbfh.get_binary_end_offset()]
-            app_footers = TBFFooters(binary[tbfh.get_binary_end_offset():])
-            return TabApp(
-                [TabTbf(tbf_filename, tbfh, app_binary, app_footers)]
+            print(
+                "Making a TAB app with len",
+                str(len(binary)),
+                "binary end offset",
+                str(tbfh.get_binary_end_offset()),
             )
+            app_binary = binary[
+                tbfh.get_size_before_app() : tbfh.get_binary_end_offset()
+            ]
+            app_footers = TBFFooters(binary[tbfh.get_binary_end_offset() :])
+            return TabApp([TabTbf(tbf_filename, tbfh, app_binary, app_footers)])
         else:
             raise TockLoaderException("Invalid TBF found in app in TAB")
 

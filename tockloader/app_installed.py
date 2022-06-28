@@ -36,7 +36,7 @@ class InstalledApp:
         Return the version number stored in a program header.
         """
         return self.tbfh.get_app_version()
-    
+
     def is_app(self):
         """
         Whether this is an app or padding.

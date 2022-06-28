@@ -972,7 +972,7 @@ class TBFFooter:
         self.data = data
 
     def __str__(self):
-        out = ""
+        out =  "TBF Footer\n"
         out += "  Type: {}\n".format(self.credentials_type)
         out += "  Length: {}\n".format(len(self.data))
         out += "  Data: "

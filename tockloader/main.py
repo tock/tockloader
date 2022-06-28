@@ -344,7 +344,6 @@ def command_inspect_tab(args):
                 print("  crt0 header")
                 print(textwrap.indent(app.get_crt0_header_str(), "    "))
                 
-            print("TBF Footers")
             print(textwrap.indent(str(app.get_footers()), "  "))
         print("")
 

@@ -13,7 +13,7 @@ class TabTbf:
     This correlates to a specific .tbf file storing a .tab file.
     """
 
-    def __init__(self, filename, tbfh, binary):
+    def __init__(self, filename, tbfh, binary, footers):
         """
         - `filename` is the identifier used in the .tab.
         - `tbfh` is the header object
@@ -22,7 +22,7 @@ class TabTbf:
         self.filename = filename
         self.tbfh = tbfh
         self.binary = binary
-
+        self.footers = footers
 
 class TabApp:
     """
@@ -87,6 +87,14 @@ class TabApp:
             return self.tbfs[0].tbfh
         return None
 
+    def get_footers(self):
+        """
+        Return the footers if there are any.
+        """
+        if len(self.tbfs) == 1:
+            return self.tbfs[0].footers
+        return None
+    
     def get_size(self):
         """
         Return the total size (including TBF header) of this app in bytes.

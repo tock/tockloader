@@ -15,6 +15,7 @@ from .app_tab import TabApp
 from .app_tab import TabTbf
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
+from .tbfh import TBFFooters
 
 
 class TAB:
@@ -82,7 +83,6 @@ class TAB:
 
             # First get the TBF header from the correct binary in the TAB
             tbfh = TBFHeader(binary)
-
             if tbfh.is_valid():
                 # Check that total size actually matches the binary that we got.
                 if tbfh.get_app_size() < len(binary):
@@ -92,9 +92,9 @@ class TAB:
                     raise TockLoaderException(
                         "Invalid TAB, the app binary is longer ", len(binary), " than its defined total_size", tbfh.get_app_size()
                     )
-
+                tbff = TBFFooters(binary[tbfh.get_binary_end_offset():])
                 tbfs.append(
-                    TabTbf(tbf_filename, tbfh, binary[tbfh.get_size_before_app() :])
+                    TabTbf(tbf_filename, tbfh, binary[tbfh.get_size_before_app(): tbfh.get_binary_end_offset()], tbff)
                 )
             else:
                 raise TockLoaderException("Invalid TBF found in app in TAB:", str(tbfh))
@@ -122,9 +122,12 @@ class TAB:
                 raise TockLoaderException(
                     "Invalid TAB, the app binary is longer than its defined total_size"
                 )
-
+            print("Making a TAB app with len", str(len(binary)),
+                  "binary end offset", str(tbfh.get_binary_end_offset()))
+            app_binary = binary[tbfh.get_size_before_app():tbfh.get_binary_end_offset()]
+            app_footers = TBFFooters(binary[tbfh.get_binary_end_offset():])
             return TabApp(
-                [TabTbf(tbf_filename, tbfh, binary[tbfh.get_size_before_app() :])]
+                [TabTbf(tbf_filename, tbfh, app_binary, app_footers)]
             )
         else:
             raise TockLoaderException("Invalid TBF found in app in TAB")

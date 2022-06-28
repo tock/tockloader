@@ -116,7 +116,7 @@ class TabApp:
         if len(self.tbfs) == 1:
             return self.tbfs[0].tbfh.get_version()
         else:
-            raise TockLoaderException("Size only valid with one TBF")
+            raise TockLoaderException("Version number only valid with one TBF")
 
     def set_size(self, size):
         """

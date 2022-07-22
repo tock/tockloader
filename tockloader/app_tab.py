@@ -13,7 +13,7 @@ class TabTbf:
     This correlates to a specific .tbf file storing a .tab file.
     """
 
-    def __init__(self, filename, tbfh, binary, footers):
+    def __init__(self, filename, tbfh, binary, tbff):
         """
         - `filename` is the identifier used in the .tab.
         - `tbfh` is the header object
@@ -22,7 +22,7 @@ class TabTbf:
         self.filename = filename
         self.tbfh = tbfh
         self.binary = binary
-        self.footers = footers
+        self.tbff = tbff
 
 
 class TabApp:
@@ -333,15 +333,16 @@ class TabApp:
         if len(self.tbfs) == 1:
             tbfh = self.tbfs[0].tbfh
             app_binary = self.tbfs[0].binary
+            tbff = self.tbfs[0].tbff
 
             # If the TBF is not compiled for a fixed address, then we can just
             # use it.
             if tbfh.has_fixed_addresses() == False:
-                binary = tbfh.get_binary() + app_binary
+                binary = tbfh.get_binary() + app_binary + tbff.get_binary()
 
             else:
                 tbfh.adjust_starting_address(address)
-                binary = tbfh.get_binary() + app_binary
+                binary = tbfh.get_binary() + app_binary + tbff.get_binary()
 
             # Check that the binary is not longer than it is supposed to be.
             # This might happen if the size was changed, but any code using this

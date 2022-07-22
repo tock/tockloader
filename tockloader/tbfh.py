@@ -664,6 +664,21 @@ class TBFHeader:
         else:
             return None
 
+    def has_footer(self):
+        """
+        Return true if this TBF has a footer.
+        """
+        # For a TBF to have a footer, it must have a program header, and the
+        # binary end offset must be less than the total length (leaving room for
+        # a footer).
+        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        if tlv:
+            footer_start = tlv.binary_end_offset
+            if footer_start < self.fields["total_size"]:
+                return True
+
+        return False
+
     def get_binary_end_offset(self):
         """
         Return at what offset the application binary ends. Remaining space
@@ -674,6 +689,14 @@ class TBFHeader:
             return tlv.binary_end_offset
         else:
             return self.fields["total_size"]
+
+    def get_footer_size(self):
+        """
+        Return the size in bytes of the footer. If no footer is included this
+        will return 0.
+        """
+        footer_start = self.get_binary_end_offset()
+        return self.fields["total_size"] - footer_start
 
     def delete_tlv(self, tlvid):
         """
@@ -1043,6 +1066,16 @@ class TBFFooterTLVCredentials:
         )
         return name
 
+    def pack(self):
+        buf = struct.pack(
+            "<HHI",
+            self.TLVID,
+            4 + len(self.buffer),
+            self.credentials_type,
+        )
+
+        return buf + self.buffer
+
     def __str__(self):
         out = "Footer TLV: Credentials ({})\n".format(self.TLVID)
         out += "  Type: {} ({})\n".format(
@@ -1062,7 +1095,10 @@ class TBFFooter:
 
     FOOTER_TYPE_CREDENTIALS = 0x80
 
-    def __init__(self, buffer):
+    def __init__(self, tbfh, buffer):
+        # Use the same version as the header. Needed because a future version
+        # of the header may define a different footer structure.
+        self.version = tbfh.version
         # List of all TLVs in the footer.
         self.tlvs = []
 
@@ -1080,6 +1116,17 @@ class TBFFooter:
                     self.tlvs.append(TBFFooterTLVCredentials(buffer[0:tlv_length]))
 
             buffer = buffer[tlv_length:]
+
+    def get_binary(self):
+        """
+        Get the TBF footer in a bytes array.
+        """
+        buf = bytearray()
+        if self.version == 2:
+            for tlv in self.tlvs:
+                buf += tlv.pack()
+
+        return buf
 
     def __str__(self):
         out = ""

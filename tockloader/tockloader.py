@@ -28,6 +28,7 @@ from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
+from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
 from .openocd import OpenOCD, collect_temp_files
 from .flash_file import FlashFile
@@ -1242,7 +1243,21 @@ class TockLoader:
 
             if tbfh.is_valid():
                 if tbfh.is_app():
-                    app = InstalledApp(tbfh, address)
+                    # This app could have a footer. If so, we need to extract it
+                    # and include it.
+                    tbff = None
+                    if tbfh.has_footer():
+                        footer_start = address + tbfh.get_binary_end_offset()
+                        footer_length = tbfh.get_footer_size()
+                        logging.debug(
+                            "Reading for app footer @{:#x}, {} bytes".format(
+                                footer_start, footer_length
+                            )
+                        )
+                        flash = self.channel.read_range(footer_start, footer_length)
+                        tbff = TBFFooter(tbfh, flash)
+
+                    app = InstalledApp(tbfh, tbff, address)
                     apps.append(app)
                 else:
                     app = InstalledPaddingApp(tbfh, address)

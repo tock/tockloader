@@ -249,7 +249,7 @@ than its defined total_size ({} bytes)".format(
 
             # Extract the footer if any should exist. It is OK if the footer
             # buffer is zero length, the footer object will just be empty.
-            tbff = TBFFooter(binary[start_of_footers:])
+            tbff = TBFFooter(tbfh, binary[start_of_footers:])
 
             # Finally we can return the TBF.
             return TabTbf(

@@ -12,8 +12,9 @@ class InstalledApp:
     necessary if the app needs to be moved.
     """
 
-    def __init__(self, tbfh, address, app_binary=None):
-        self.tbfh = tbfh  # A `tbfh` object representing this app's header.
+    def __init__(self, tbfh, tbff, address, app_binary=None):
+        self.tbfh = tbfh  # A `TBFHeader` object representing this app's header.
+        self.tbff = tbff  # A `TBFFooter` object representing this app's footer.
         self.app_binary = app_binary  # A binary array of the app _after_ the header.
         self.address = address  # Where on the board this app currently is.
 
@@ -287,6 +288,8 @@ class InstalledApp:
         if verbose:
             out += "Address in Flash:      {:#x}\n".format(offset)
             out += textwrap.indent(str(self.tbfh), "  ")
+            if self.tbff:
+                out += textwrap.indent(str(self.tbff), "  ")
         return out
 
     def object(self):

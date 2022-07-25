@@ -91,8 +91,6 @@ class TBFTLVProgram(TBFTLV):
             self.binary_end_offset = base[3]
             self.app_version = base[4]
             self.valid = True
-        else:
-            print("Bad buffer for Program TLV it is length", str(len(buffer)))
 
     def pack(self):
         return struct.pack(
@@ -440,8 +438,7 @@ class TBFHeader:
 
                         elif tipe == self.HEADER_TYPE_PROGRAM:
                             if remaining >= 20 and length == 20:
-                                program = TBFTLVProgram(buffer[0:20])
-                                self.tlvs.append(program)
+                                self.tlvs.append(TBFTLVProgram(buffer[0:20]))
 
                         elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
                             if remaining >= length:

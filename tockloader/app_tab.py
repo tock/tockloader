@@ -93,7 +93,7 @@ class TabApp:
         Return the footers if there are any.
         """
         if len(self.tbfs) == 1:
-            return self.tbfs[0].footers
+            return self.tbfs[0].tbff
         return None
 
     def get_size(self):

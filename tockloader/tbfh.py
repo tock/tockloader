@@ -17,6 +17,15 @@ def roundup(x, to):
 
 
 class TBFTLV:
+    HEADER_TYPE_MAIN = 0x01
+    HEADER_TYPE_WRITEABLE_FLASH_REGIONS = 0x02
+    HEADER_TYPE_PACKAGE_NAME = 0x03
+    HEADER_TYPE_PIC_OPTION_1 = 0x04
+    HEADER_TYPE_FIXED_ADDRESSES = 0x05
+    HEADER_TYPE_PERMISSIONS = 0x06
+    HEADER_TYPE_KERNEL_VERSION = 0x08
+    HEADER_TYPE_PROGRAM = 0x09
+
     def get_tlvid(self):
         return self.TLVID
 
@@ -52,7 +61,7 @@ class TBFTLVUnknown(TBFTLV):
 
 
 class TBFTLVMain(TBFTLV):
-    TLVID = 0x01
+    TLVID = TBFTLV.HEADER_TYPE_MAIN
 
     def __init__(self, buffer):
         self.valid = False
@@ -98,7 +107,7 @@ class TBFTLVMain(TBFTLV):
 
 
 class TBFTLVProgram(TBFTLV):
-    TLVID = 0x09
+    TLVID = TBFTLV.HEADER_TYPE_PROGRAM
 
     def __init__(self, buffer, total_size=0):
         """
@@ -168,7 +177,7 @@ class TBFTLVProgram(TBFTLV):
 
 
 class TBFTLVWriteableFlashRegions(TBFTLV):
-    TLVID = 0x02
+    TLVID = TBFTLV.HEADER_TYPE_WRITEABLE_FLASH_REGIONS
 
     def __init__(self, buffer):
         self.valid = False
@@ -189,7 +198,7 @@ class TBFTLVWriteableFlashRegions(TBFTLV):
 
     def __str__(self):
         out = "TLV: Writeable Flash Regions ({})\n".format(
-            self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS
+            TBFTLV.HEADER_TYPE_WRITEABLE_FLASH_REGIONS
         )
         for i, wfr in enumerate(self.writeable_flash_regions):
             out += "  writeable flash region {}\n".format(i)
@@ -210,7 +219,7 @@ class TBFTLVWriteableFlashRegions(TBFTLV):
 
 
 class TBFTLVPackageName(TBFTLV):
-    TLVID = 0x03
+    TLVID = TBFTLV.HEADER_TYPE_PACKAGE_NAME
 
     def __init__(self, buffer):
         self.package_name = buffer.decode("utf-8")
@@ -240,7 +249,7 @@ class TBFTLVPackageName(TBFTLV):
 
 
 class TBFTLVPicOption1(TBFTLV):
-    TLVID = 0x04
+    TLVID = TBFTLV.HEADER_TYPE_PIC_OPTION_1
 
     def __init__(self, buffer):
         self.valid = False
@@ -300,7 +309,7 @@ class TBFTLVPicOption1(TBFTLV):
 
 
 class TBFTLVFixedAddress(TBFTLV):
-    TLVID = 0x05
+    TLVID = TBFTLV.HEADER_TYPE_FIXED_ADDRESSES
 
     def __init__(self, buffer):
         self.valid = False
@@ -335,8 +344,96 @@ class TBFTLVFixedAddress(TBFTLV):
         }
 
 
+class TBFTLVPermissions(TBFTLV):
+    TLVID = TBFTLV.HEADER_TYPE_PERMISSIONS
+
+    def __init__(self, buffer):
+        self.valid = False
+
+        print(buffer)
+        print(len(buffer))
+
+        if len(buffer) >= 2:
+            num_permissions = struct.unpack("<H", buffer[0:2])[0]
+            buffer = buffer[2:]
+
+            # Each permission structure is 16 bytes
+            if len(buffer) == num_permissions * 16:
+                self.permissions = []
+
+                while len(buffer) > 0:
+                    perm = struct.unpack("<IIQ", buffer[0:16])
+                    permission = {
+                        "driver_number": perm[0],
+                        "offset": perm[1],
+                        "allowed_commands": perm[2],
+                    }
+                    self.permissions.append(permission)
+                    buffer = buffer[16:]
+                    self.valid = True
+
+    def get_allowed_commands(self):
+        """
+        Returns a dict of the format:
+
+        ```
+        {
+            driver_number: [allowed command ID list]
+        }
+        ```
+        """
+        # Group all permissions in case they are in a strange order, or split
+        # among multiple permission blocks for the same driver number.
+        allowed_commands = {}
+        for permission in self.permissions:
+            for i in range(0, 64):
+                if permission["allowed_commands"] & (1 << i):
+                    cmd = (permission["offset"] * 64) + i
+                    if not permission["driver_number"] in allowed_commands:
+                        allowed_commands[permission["driver_number"]] = []
+                    allowed_commands[permission["driver_number"]].append(cmd)
+        return allowed_commands
+
+    def pack(self):
+        out = bytearray()
+
+        length = len(self.permissions) * 16
+        out += struct.pack("<HH", self.TLVID, length)
+
+        for permission in self.permissions:
+            out += struct.pack(
+                "<HHI",
+                permission["driver_number"],
+                permission["offset"],
+                permission["allowed_commands"],
+            )
+
+        return out
+
+    def __str__(self):
+        allowed_commands = self.get_allowed_commands()
+
+        out = "TLV: Permissions ({})\n".format(self.TLVID)
+        for driver_num, commands in sorted(allowed_commands.items()):
+            out += "  Driver Number: {:#x}\n".format(driver_num)
+            if len(commands) > 0:
+                for cmd in sorted(commands):
+                    out += "    Allowed Command: {} ({:#x})\n".format(cmd, cmd)
+            else:
+                out += "    No allowed commands!\n"
+
+        return out
+
+    def object(self):
+        return {
+            "type": "permissions",
+            "id": self.TLVID,
+            "permissions": self.get_allowed_commands(),
+        }
+
+
 class TBFTLVKernelVersion(TBFTLV):
-    TLVID = 0x08
+    TLVID = TBFTLV.HEADER_TYPE_KERNEL_VERSION
 
     def __init__(self, buffer):
         self.valid = False
@@ -373,14 +470,6 @@ class TBFHeader:
     Tock Binary Format header class. This can parse TBF encoded headers and
     return various properties of the application.
     """
-
-    HEADER_TYPE_MAIN = 0x01
-    HEADER_TYPE_WRITEABLE_FLASH_REGIONS = 0x02
-    HEADER_TYPE_PACKAGE_NAME = 0x03
-    HEADER_TYPE_PIC_OPTION_1 = 0x04
-    HEADER_TYPE_FIXED_ADDRESSES = 0x05
-    HEADER_TYPE_KERNEL_VERSION = 0x08
-    HEADER_TYPE_PROGRAM = 0x09
 
     def __init__(self, buffer):
         # Flag that records if this TBF header is valid. This is calculated once
@@ -475,33 +564,37 @@ class TBFHeader:
 
                         remaining -= 4
 
-                        if tipe == self.HEADER_TYPE_MAIN:
+                        if tipe == TBFTLV.HEADER_TYPE_MAIN:
                             if remaining >= 12 and length == 12:
                                 self.tlvs.append(TBFTLVMain(buffer[0:12]))
 
-                        elif tipe == self.HEADER_TYPE_PROGRAM:
+                        elif tipe == TBFTLV.HEADER_TYPE_PROGRAM:
                             if remaining >= 20 and length == 20:
                                 self.tlvs.append(TBFTLVProgram(buffer[0:20]))
 
-                        elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
+                        elif tipe == TBFTLV.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
                             if remaining >= length:
                                 self.tlvs.append(
                                     TBFTLVWriteableFlashRegions(buffer[0:length])
                                 )
 
-                        elif tipe == self.HEADER_TYPE_PACKAGE_NAME:
+                        elif tipe == TBFTLV.HEADER_TYPE_PACKAGE_NAME:
                             if remaining >= length:
                                 self.tlvs.append(TBFTLVPackageName(buffer[0:length]))
 
-                        elif tipe == self.HEADER_TYPE_PIC_OPTION_1:
+                        elif tipe == TBFTLV.HEADER_TYPE_PIC_OPTION_1:
                             if remaining >= 40 and length == 40:
                                 self.tlvs.append(TBFTLVPicOption1(buffer[0:40]))
 
-                        elif tipe == self.HEADER_TYPE_FIXED_ADDRESSES:
+                        elif tipe == TBFTLV.HEADER_TYPE_FIXED_ADDRESSES:
                             if remaining >= 8 and length == 8:
                                 self.tlvs.append(TBFTLVFixedAddress(buffer[0:8]))
 
-                        elif tipe == self.HEADER_TYPE_KERNEL_VERSION:
+                        elif tipe == TBFTLV.HEADER_TYPE_PERMISSIONS:
+                            if remaining >= length:
+                                self.tlvs.append(TBFTLVPermissions(buffer[0:length]))
+
+                        elif tipe == TBFTLV.HEADER_TYPE_KERNEL_VERSION:
                             if remaining >= 4 and length == 4:
                                 self.tlvs.append(TBFTLVKernelVersion(buffer[0:4]))
 
@@ -647,7 +740,7 @@ class TBFHeader:
         Return the package name if it was encoded in the header, otherwise
         return a tuple of (package_name_offset, package_name_size).
         """
-        tlv = self._get_tlv(self.HEADER_TYPE_PACKAGE_NAME)
+        tlv = self._get_tlv(TBFTLV.HEADER_TYPE_PACKAGE_NAME)
         if tlv:
             return tlv.package_name
         elif (
@@ -664,7 +757,7 @@ class TBFHeader:
         """
         Return the version number of the application, if there is one.
         """
-        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        tlv = self._get_tlv(TBFTLV.HEADER_TYPE_PROGRAM)
         if tlv:
             return tlv.app_version
         else:
@@ -674,14 +767,14 @@ class TBFHeader:
         """
         Return true if this TBF header includes the fixed addresses TLV.
         """
-        return self._get_tlv(self.HEADER_TYPE_FIXED_ADDRESSES) != None
+        return self._get_tlv(TBFTLV.HEADER_TYPE_FIXED_ADDRESSES) != None
 
     def get_fixed_addresses(self):
         """
         Return (fixed_address_ram, fixed_address_flash) if there are fixed
         addresses, or None.
         """
-        tlv = self._get_tlv(self.HEADER_TYPE_FIXED_ADDRESSES)
+        tlv = self._get_tlv(TBFTLV.HEADER_TYPE_FIXED_ADDRESSES)
         if tlv:
             return (tlv.fixed_address_ram, tlv.fixed_address_flash)
         else:
@@ -691,14 +784,14 @@ class TBFHeader:
         """
         Return true if this TBF header includes the kernel version TLV.
         """
-        return self._get_tlv(self.HEADER_TYPE_KERNEL_VERSION) != None
+        return self._get_tlv(TBFTLV.HEADER_TYPE_KERNEL_VERSION) != None
 
     def get_kernel_version(self):
         """
         Return (kernel_major, kernel_minor) if there is kernel version present,
         or None.
         """
-        tlv = self._get_tlv(self.HEADER_TYPE_KERNEL_VERSION)
+        tlv = self._get_tlv(TBFTLV.HEADER_TYPE_KERNEL_VERSION)
         if tlv:
             return (tlv.kernel_major, tlv.kernel_minor)
         else:
@@ -711,7 +804,7 @@ class TBFHeader:
         # For a TBF to have a footer, it must have a program header, and the
         # binary end offset must be less than the total length (leaving room for
         # a footer).
-        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        tlv = self._get_tlv(TBFTLV.HEADER_TYPE_PROGRAM)
         if tlv:
             footer_start = tlv.binary_end_offset
             if footer_start < self.fields["total_size"]:
@@ -724,7 +817,7 @@ class TBFHeader:
         Return at what offset the application binary ends. Remaining space
         is taken up by footers.
         """
-        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        tlv = self._get_tlv(TBFTLV.HEADER_TYPE_PROGRAM)
         if tlv:
             return tlv.binary_end_offset
         else:
@@ -814,7 +907,7 @@ class TBFHeader:
         """
         # Check if we can even do anything. No fixed address means this is
         # meaningless.
-        tlv_fixed_addr = self._get_tlv(self.HEADER_TYPE_FIXED_ADDRESSES)
+        tlv_fixed_addr = self._get_tlv(TBFTLV.HEADER_TYPE_FIXED_ADDRESSES)
         if tlv_fixed_addr:
             tlv_program = self._get_binary_tlv()
             # Now see if the header is already the right length.
@@ -940,7 +1033,7 @@ class TBFHeader:
         """
         Get the TLV for the binary header, whether it's a program or main.
         """
-        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        tlv = self._get_tlv(TBFTLV.HEADER_TYPE_PROGRAM)
         if tlv == None:
             tlv = self._get_tlv(self.HEADER_TYPE_MAIN)
             if tlv == None:

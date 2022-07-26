@@ -364,7 +364,7 @@ class TabApp:
         """
         out = []
         for tbf in self.tbfs:
-            binary = tbf.tbfh.get_binary() + tbf.binary
+            binary = tbf.tbfh.get_binary() + tbf.binary + tbf.tbff.get_binary()
             # Truncate in case the header grew and elf2tab padded the binary.
             binary = self._truncate_binary(binary)
             out.append((tbf.filename, binary))

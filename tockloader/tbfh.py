@@ -28,6 +28,19 @@ class TBFTLVUnknown(TBFTLV):
     def pack(self):
         out = struct.pack("<HH", self.tipe, len(self.buffer))
         out += self.buffer
+
+        # Need to ensure that whatever this header is that it is a multiple
+        # of 4 in length.
+        padding = (4 - (len(out) % 4)) % 4
+        out += b"0" * padding
+
+        return out
+
+    def __str__(self):
+        out = "TLV: UNKNOWN ({})\n".format(self.tipe)
+        out += "  buffer: {}\n".format(
+            "".join(map(lambda x: "{:02x}".format(x), self.buffer))
+        )
         return out
 
 
@@ -716,10 +729,16 @@ class TBFHeader:
         # Now update the base information since we have changed the length.
         self.fields["header_size"] -= size
 
+        # Support both Main and Program.
+        tlv_main = self._get_tlv(self.HEADER_TYPE_MAIN)
+        tlv_program = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+
         # Increase the protected size so that the actual application
         # binary hasn't moved.
-        tlv_binary = self._get_binary_tlv()
-        tlv_binary.protected_size += size
+        if tlv_main:
+            tlv_main.protected_size += size
+        if tlv_program:
+            tlv_program.protected_size += size
         #####
         ##### NOTE! Based on how things are implemented in the Tock
         ##### universe, it seems we also need to increase the
@@ -728,7 +747,10 @@ class TBFHeader:
         ##### the actual application binary (like the documentation
         ##### indicates it should be).
         #####
-        tlv_program.init_fn_offset += size
+        if tlv_main:
+            tlv_main.init_fn_offset += size
+        if tlv_program:
+            tlv_program.init_fn_offset += size
 
     def modify_tlv(self, tlvid, field, value):
         """

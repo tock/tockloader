@@ -23,6 +23,7 @@ class TBFTLV:
     HEADER_TYPE_PIC_OPTION_1 = 0x04
     HEADER_TYPE_FIXED_ADDRESSES = 0x05
     HEADER_TYPE_PERMISSIONS = 0x06
+    HEADER_TYPE_PERSISTENT_ACL = 0x07
     HEADER_TYPE_KERNEL_VERSION = 0x08
     HEADER_TYPE_PROGRAM = 0x09
 
@@ -350,9 +351,6 @@ class TBFTLVPermissions(TBFTLV):
     def __init__(self, buffer):
         self.valid = False
 
-        print(buffer)
-        print(len(buffer))
-
         if len(buffer) >= 2:
             num_permissions = struct.unpack("<H", buffer[0:2])[0]
             buffer = buffer[2:]
@@ -429,6 +427,96 @@ class TBFTLVPermissions(TBFTLV):
             "type": "permissions",
             "id": self.TLVID,
             "permissions": self.get_allowed_commands(),
+        }
+
+
+class TBFTLVPersistentACL(TBFTLV):
+    TLVID = TBFTLV.HEADER_TYPE_PERSISTENT_ACL
+
+    def __init__(self, buffer):
+        self.valid = False
+
+        # Need at least `write_id` (4B), `num_read_ids` (2B) and
+        # `num_access_ids` (2B).
+        if len(buffer) > 8:
+            self.read_ids = []
+            self.access_ids = []
+
+            self.write_id = struct.unpack("<I", buffer[0:4])[0]
+            buffer = buffer[4:]
+
+            num_read_ids = struct.unpack("<H", buffer[0:2])[0]
+            buffer = buffer[2:]
+
+            if num_read_ids > 0:
+                read_id_length = num_read_ids * 4
+                if len(buffer) >= read_id_length:
+                    for i in range(0, num_read_ids):
+                        read_id = struct.unpack("<I", buffer[0:4])[0]
+                        self.read_ids.append(read_id)
+                        buffer = buffer[4:]
+                else:
+                    return
+
+            # Still need to have the num access ids field.
+            if len(buffer) >= 2:
+                num_access_ids = struct.unpack("<H", buffer[0:2])[0]
+                buffer = buffer[2:]
+
+                if num_access_ids > 0:
+                    access_id_length = num_access_ids * 4
+                    if len(buffer) >= access_id_length:
+                        for i in range(0, num_access_ids):
+                            access_id = struct.unpack("<I", buffer[0:4])[0]
+                            self.access_ids.append(access_id)
+                            buffer = buffer[4:]
+                    else:
+                        return
+            else:
+                return
+
+            if len(buffer) != 0:
+                # Can't be anything left over.
+                return
+
+            # If we get all of the way here then this is a valid TLV
+            self.valid = True
+
+    def pack(self):
+        out = bytearray()
+        length = 4 + 2 + len(self.read_ids) + 2 + len(self.access_ids)
+        out += struct.pack("<HHI", self.TLVID, length, self.write_id)
+
+        # Read IDs
+        out += struct.pack("<H", len(self.read_ids))
+        for read_id in self.read_ids:
+            out += struct.pack("<I", read_id)
+
+        # Access IDs
+        out += struct.pack("<H", len(self.access_ids))
+        for access_id in self.access_ids:
+            out += struct.pack("<I", access_id)
+
+        return out
+
+    def __str__(self):
+        out = "TLV: Persistent ACL ({})\n".format(self.TLVID)
+        out += "  Write ID : {} ({:#x})\n".format(self.write_id, self.write_id)
+        out += "  Read IDs ({})  : {}\n".format(
+            len(self.read_ids), ", ".join(map(str, self.read_ids))
+        )
+        out += "  Access IDs ({}): {}\n".format(
+            len(self.access_ids), ", ".join(map(str, self.access_ids))
+        )
+        return out
+
+    def object(self):
+        return {
+            "type": "persistent_acl",
+            "id": self.TLVID,
+            "write_id": self.write_id,
+            "read_ids": self.read_ids,
+            "access_ids": self.access_ids,
         }
 
 
@@ -593,6 +681,10 @@ class TBFHeader:
                         elif tipe == TBFTLV.HEADER_TYPE_PERMISSIONS:
                             if remaining >= length:
                                 self.tlvs.append(TBFTLVPermissions(buffer[0:length]))
+
+                        elif tipe == TBFTLV.HEADER_TYPE_PERSISTENT_ACL:
+                            if remaining >= length:
+                                self.tlvs.append(TBFTLVPersistentACL(buffer[0:length]))
 
                         elif tipe == TBFTLV.HEADER_TYPE_KERNEL_VERSION:
                             if remaining >= 4 and length == 4:

@@ -1030,7 +1030,7 @@ class TBFFooterTLVCredentials(TBFTLV):
 
         # This TLV requires the first field to be the credentials type. Extract
         # that, then verify the remainder of the buffer is as we expect.
-        if len(buffer) > 4:
+        if len(buffer) >= 4:
             credentials_type = struct.unpack("<I", buffer[0:4])[0]
 
             # Check each credentials type.

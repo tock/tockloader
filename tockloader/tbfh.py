@@ -1007,7 +1007,7 @@ class TBFHeaderPadding(TBFHeader):
         self.fields["checksum"] = self._checksum(self.get_binary())
 
 
-class TBFFooterTLVCredentials:
+class TBFFooterTLVCredentials(TBFTLV):
     """
     Represent a Credentials TLV in the footer of a TBF.
     """
@@ -1120,6 +1120,8 @@ class TBFFooter:
         self.version = tbfh.version
         # List of all TLVs in the footer.
         self.tlvs = []
+        # Keep track if tockloader has modified the footer.
+        self.modified = False
 
         # Iterate all TLVs and add to list.
         position = 0
@@ -1135,6 +1137,21 @@ class TBFFooter:
                     self.tlvs.append(TBFFooterTLVCredentials(buffer[0:tlv_length]))
 
             buffer = buffer[tlv_length:]
+
+    def delete_tlv(self, tlvid):
+        """
+        Delete a particular TLV by ID if it exists.
+        """
+        indices = []
+        for i, tlv in enumerate(self.tlvs):
+            if tlv.get_tlvid() == tlvid:
+                # Reverse the list
+                indices.insert(0, i)
+        # Pop starting with the last match
+        for index in indices:
+            logging.debug("Removing TLV at index {}".format(index))
+            self.tlvs.pop(index)
+            self.modified = True
 
     def get_binary(self):
         """

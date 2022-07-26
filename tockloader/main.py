@@ -353,10 +353,10 @@ def command_tbf_delete_tlv(args):
     tabs = collect_tabs(args)
 
     if len(tabs) == 0:
-        raise TockLoaderException("No TABs found, no TBF headers to process")
+        raise TockLoaderException("No TABs found, no TBF to process")
 
     tlvid = args.tlvid
-    logging.status("Removing TLV ID {} from TBF headers...".format(tlvid))
+    logging.status("Removing TLV ID {} from TBF...".format(tlvid))
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
@@ -369,7 +369,7 @@ def command_tbf_delete_tlv(args):
         for i, tbf_name in enumerate(tbf_names):
             if i == index or index == len(tbf_names):
                 app = tab.extract_tbf(tbf_name)
-                app.delete_tbfh_tlv(tlvid)
+                app.delete_tlv(tlvid)
                 tab.update_tbf(app)
 
 

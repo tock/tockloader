@@ -299,12 +299,13 @@ class TabApp:
         else:
             return None
 
-    def delete_tbfh_tlv(self, tlvid):
+    def delete_tlv(self, tlvid):
         """
-        Delete a particular TLV from each TBF header.
+        Delete a particular TLV from each TBF header and footer.
         """
         for tbf in self.tbfs:
             tbf.tbfh.delete_tlv(tlvid)
+            tbf.tbff.delete_tlv(tlvid)
 
     def modify_tbfh_tlv(self, tlvid, field, value):
         """

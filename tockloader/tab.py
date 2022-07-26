@@ -247,15 +247,18 @@ than its defined total_size ({} bytes)".format(
             start_of_app_binary = tbfh.get_size_before_app()
             start_of_footers = tbfh.get_binary_end_offset()
 
+            # Get application binary code.
+            app_binary = binary[start_of_app_binary:start_of_footers]
+
             # Extract the footer if any should exist. It is OK if the footer
             # buffer is zero length, the footer object will just be empty.
-            tbff = TBFFooter(tbfh, binary[start_of_footers:])
+            tbff = TBFFooter(tbfh, app_binary, binary[start_of_footers:])
 
             # Finally we can return the TBF.
             return TabTbf(
                 tbf_filename,
                 tbfh,
-                binary[start_of_app_binary:start_of_footers],
+                app_binary,
                 tbff,
             )
         else:

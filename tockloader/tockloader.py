@@ -1255,7 +1255,7 @@ class TockLoader:
                             )
                         )
                         flash = self.channel.read_range(footer_start, footer_length)
-                        tbff = TBFFooter(tbfh, flash)
+                        tbff = TBFFooter(tbfh, None, flash)
 
                     app = InstalledApp(tbfh, tbff, address)
                     apps.append(app)

@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import struct
 import traceback
@@ -1024,9 +1025,13 @@ class TBFFooterTLVCredentials(TBFTLV):
     CREDENTIALS_TYPE_SHA384 = 0x07
     CREDENTIALS_TYPE_SHA512 = 0x08
 
-    def __init__(self, buffer):
+    def __init__(self, buffer, integrity_blob):
 
+        # Valid means the TLV parsed correctly.
         self.valid = False
+        # Verified means tockloader was able to double check the credential and
+        # verify it matches the app.
+        self.verified = False
 
         # This TLV requires the first field to be the credentials type. Extract
         # that, then verify the remainder of the buffer is as we expect.
@@ -1045,18 +1050,44 @@ class TBFFooterTLVCredentials(TBFTLV):
                 if len(self.buffer) == 64:
                     # SHA256 is 256 bits (64 bytes) long.
                     self.valid = True
+
+                # If we have something to compare to, compute the hash to verify
+                # it.
+                if integrity_blob:
+                    hash = hashlib.sha256(integrity_blob).digest()
+                    if self.buffer == hash:
+                        self.verified = True
+                    else:
+                        logging.warning("SHA256 hash in footer does not match binary.")
+
             elif credentials_type == self.CREDENTIALS_TYPE_SHA384:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA384
                 self.buffer = buffer[4:]
                 if len(self.buffer) == 96:
                     # SHA384 is 384 bits (96 bytes) long.
                     self.valid = True
+
+                if integrity_blob:
+                    hash = hashlib.sha384(integrity_blob).digest()
+                    if self.buffer == hash:
+                        self.verified = True
+                    else:
+                        logging.warning("SHA384 hash in footer does not match binary.")
+
             elif credentials_type == self.CREDENTIALS_TYPE_SHA512:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA512
                 self.buffer = buffer[4:]
                 if len(self.buffer) == 128:
                     # SHA512 is 512 bits (128 bytes) long.
                     self.valid = True
+
+                if integrity_blob:
+                    hash = hashlib.sha512(integrity_blob).digest()
+                    if self.buffer == hash:
+                        self.verified = True
+                    else:
+                        logging.warning("SHA512 hash in footer does not match binary.")
+
             elif credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
                 self.credentials_type = self.CREDENTIALS_TYPE_RSA4096KEY
                 self.buffer = buffer[4:]
@@ -1096,9 +1127,13 @@ class TBFFooterTLVCredentials(TBFTLV):
         return buf + self.buffer
 
     def __str__(self):
+        verified = ""
+        if self.verified:
+            verified = " ✓ verified"
+
         out = "Footer TLV: Credentials ({})\n".format(self.TLVID)
-        out += "  Type: {} ({})\n".format(
-            self._credentials_type_to_str(), self.credentials_type
+        out += "  Type: {} ({}){}\n".format(
+            self._credentials_type_to_str(), self.credentials_type, verified
         )
         out += "  Length: {}\n".format(len(self.buffer))
         # out += "  Data: "
@@ -1114,7 +1149,7 @@ class TBFFooter:
 
     FOOTER_TYPE_CREDENTIALS = 0x80
 
-    def __init__(self, tbfh, buffer):
+    def __init__(self, tbfh, app_binary, buffer):
         # Use the same version as the header. Needed because a future version
         # of the header may define a different footer structure.
         self.version = tbfh.version
@@ -1122,6 +1157,14 @@ class TBFFooter:
         self.tlvs = []
         # Keep track if tockloader has modified the footer.
         self.modified = False
+
+        # So we can check the credentials, create the binary blob covered by
+        # integrity if it was provided to us. If the app came from a board then
+        # we may not have the app binary to use.
+        if app_binary != None:
+            integrity_blob = tbfh.get_binary() + app_binary
+        else:
+            integrity_blob = None
 
         # Iterate all TLVs and add to list.
         position = 0
@@ -1134,7 +1177,9 @@ class TBFFooter:
             remaining = len(buffer)
             if tlv_type == self.FOOTER_TYPE_CREDENTIALS:
                 if remaining >= tlv_length:
-                    self.tlvs.append(TBFFooterTLVCredentials(buffer[0:tlv_length]))
+                    self.tlvs.append(
+                        TBFFooterTLVCredentials(buffer[0:tlv_length], integrity_blob)
+                    )
 
             buffer = buffer[tlv_length:]
 

@@ -369,6 +369,14 @@ def command_inspect_tab(args):
 
             print("TBF Footers")
             print(textwrap.indent(str(app.get_footers()), "  "))
+
+            # If the user asked for the entire TBF, display that for the
+            # architecture.
+            if args.tbf_binary:
+                print("  tbf binary")
+                print(
+                    textwrap.indent(helpers.print_flash(0, app.get_binary(0)), "    ")
+                )
         print("")
 
 
@@ -973,6 +981,9 @@ def main():
         "--verify-credentials",
         help="Check credentials with a list of public keys",
         nargs="+",
+    )
+    inspect_tab.add_argument(
+        "--tbf-binary", help="Dump the entire TBF binary", action="store_true"
     )
     inspect_tab.add_argument("tab", help="The TAB or TABs to inspect", nargs="*")
 

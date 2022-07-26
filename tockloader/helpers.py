@@ -4,6 +4,8 @@ users in a nice way.
 """
 
 import argparse
+import binascii
+import string
 import sys
 
 import colorama
@@ -192,3 +194,32 @@ class ListToDictAction(argparse.Action):
 
         # Convert to dict and set as argument attribute.
         setattr(namespace, self.dest, dict(values))
+
+
+def print_flash(address, flash):
+    """
+    Return binary data in a nice hexdump format.
+    """
+
+    def chunks(l, n):
+        for i in range(0, len(l), n):
+            yield l[i : i + n]
+
+    def dump_line(addr, bytes):
+        k = binascii.hexlify(bytes).decode("utf-8")
+        b = " ".join(list(chunks(k, 2)))
+        if len(b) >= 26:
+            # add middle space
+            b = "{} {}".format(b[0:24], b[24:])
+        # Add right padding for not full lines
+        if len(b) < 48:
+            b = "{0: <48}".format(b)
+        printable = string.ascii_letters + string.digits + string.punctuation + " "
+        t = "".join([chr(i) if chr(i) in printable else "." for i in bytes])
+        return "{:08x}  {}  |{}|\n".format(addr, b, t)
+
+    out = ""
+    for i, chunk in enumerate(chunks(flash, 16)):
+        out += dump_line(address + (i * 16), chunk)
+
+    return out

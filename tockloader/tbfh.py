@@ -1014,7 +1014,7 @@ class TBFFooterTLVCredentials(TBFTLV):
 
     TLVID = 0x80
 
-    CREDENTIALS_TYPE_PADDING = 0x00
+    CREDENTIALS_TYPE_RESERVED = 0x00
     CREDENTIALS_TYPE_CLEARTEXTID = 0x01
     CREDENTIALS_TYPE_RSA3072KEY = 0x02
     CREDENTIALS_TYPE_RSA4096KEY = 0x03
@@ -1034,10 +1034,10 @@ class TBFFooterTLVCredentials(TBFTLV):
             credentials_type = struct.unpack("<I", buffer[0:4])[0]
 
             # Check each credentials type.
-            if credentials_type == self.CREDENTIALS_TYPE_PADDING:
-                self.credentials_type = self.CREDENTIALS_TYPE_PADDING
+            if credentials_type == self.CREDENTIALS_TYPE_RESERVED:
+                self.credentials_type = self.CREDENTIALS_TYPE_RESERVED
                 self.buffer = buffer[4:]
-                # We accept any size padding.
+                # We accept any size of reserved area for future credentials.
                 self.valid = True
             elif credentials_type == self.CREDENTIALS_TYPE_SHA256:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA256
@@ -1067,7 +1067,7 @@ class TBFFooterTLVCredentials(TBFTLV):
 
     def _credentials_type_to_str(self):
         names = [
-            "Padding",
+            "Reserved",
             "ClearTextID",
             "RSA3072KEY",
             "RSA4096KEY",

@@ -132,7 +132,7 @@ class TBFTLVProgram(TBFTLV):
             "binary_end_offset", self.binary_end_offset, self.binary_end_offset
         )
         out += "  {:<20}: {:>10} {:>#12x}\n".format(
-            "version", self.app_version, self.app_version
+            "app_version", self.app_version, self.app_version
         )
         return out
 

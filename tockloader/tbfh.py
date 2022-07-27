@@ -1188,7 +1188,7 @@ class TBFFooterTLVCredentials(TBFTLV):
         if self.verified == "yes":
             verified = " ✓ verified"
         elif self.verified == "no":
-            verified = " ✗ NOT verified"
+            verified = " ✗ verified failed"
 
         out = "Footer TLV: Credentials ({})\n".format(self.TLVID)
         out += "  Type: {} ({}){}\n".format(

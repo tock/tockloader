@@ -333,9 +333,22 @@ def command_inspect_tab(args):
             title="Which TBF to inspect further?",
         )
         if index < len(tbf_names):
+            app = tab.extract_tbf(tbf_names[index])
+
+            # Optimistically try to verify any included credentials.
+            # We have to read in the actual key contents.
+            public_keys = []
+            if args.verify_credentials:
+                for key_path in args.verify_credentials:
+                    with open(key_path, "rb") as f:
+                        public_keys.append(f.read())
+
+            # We may have a footer in this app, it may be possible to verify
+            # any contained credentials now.
+            app.verify_credentials(public_keys)
+
             print("")
             print("{}:".format(tbf_names[index]))
-            app = tab.extract_tbf(tbf_names[index])
             print(textwrap.indent(str(app.get_header()), "  "))
 
             # If the user asked for the crt0 header, display that for the
@@ -874,6 +887,11 @@ def main():
     inspect_tab.set_defaults(func=command_inspect_tab)
     inspect_tab.add_argument(
         "--crt0-header", help="Dump crt0 header as well", action="store_true"
+    )
+    inspect_tab.add_argument(
+        "--verify-credentials",
+        help="Check credentials with a list of public keys",
+        nargs="+",
     )
     inspect_tab.add_argument("tab", help="The TAB or TABs to inspect", nargs="*")
 

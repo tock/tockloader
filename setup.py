@@ -32,6 +32,7 @@ setup(
         "argcomplete >= 1.8.2",
         "colorama >= 0.3.7",
         "crcmod >= 1.7",
+        "pycryptodome >= 3.15.0",
         "pyserial >= 3.0.1",
         "toml >= 0.10.2",
         "tqdm >= 4.45.0 ",

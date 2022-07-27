@@ -3,6 +3,11 @@ import logging
 import struct
 import traceback
 
+import Crypto
+from Crypto.Signature import pkcs1_15
+from Crypto.PublicKey import RSA
+from Crypto.Hash import SHA512
+
 from .exceptions import TockLoaderException
 
 
@@ -1030,8 +1035,11 @@ class TBFFooterTLVCredentials(TBFTLV):
         # Valid means the TLV parsed correctly.
         self.valid = False
         # Verified means tockloader was able to double check the credential and
-        # verify it matches the app.
-        self.verified = False
+        # verify it matches the app. Three options are:
+        # - `unknown`: cannot verify either way
+        # - `yes`: verified
+        # - `no`: verification failed
+        self.verified = "unknown"
 
         # This TLV requires the first field to be the credentials type. Extract
         # that, then verify the remainder of the buffer is as we expect.
@@ -1044,21 +1052,14 @@ class TBFFooterTLVCredentials(TBFTLV):
                 self.buffer = buffer[4:]
                 # We accept any size of reserved area for future credentials.
                 self.valid = True
+
             elif credentials_type == self.CREDENTIALS_TYPE_SHA256:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA256
                 self.buffer = buffer[4:]
                 if len(self.buffer) == 64:
                     # SHA256 is 256 bits (64 bytes) long.
                     self.valid = True
-
-                # If we have something to compare to, compute the hash to verify
-                # it.
-                if integrity_blob:
-                    hash = hashlib.sha256(integrity_blob).digest()
-                    if self.buffer == hash:
-                        self.verified = True
-                    else:
-                        logging.warning("SHA256 hash in footer does not match binary.")
+                self.verify([], integrity_blob)
 
             elif credentials_type == self.CREDENTIALS_TYPE_SHA384:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA384
@@ -1066,13 +1067,7 @@ class TBFFooterTLVCredentials(TBFTLV):
                 if len(self.buffer) == 96:
                     # SHA384 is 384 bits (96 bytes) long.
                     self.valid = True
-
-                if integrity_blob:
-                    hash = hashlib.sha384(integrity_blob).digest()
-                    if self.buffer == hash:
-                        self.verified = True
-                    else:
-                        logging.warning("SHA384 hash in footer does not match binary.")
+                self.verify([], integrity_blob)
 
             elif credentials_type == self.CREDENTIALS_TYPE_SHA512:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA512
@@ -1080,18 +1075,16 @@ class TBFFooterTLVCredentials(TBFTLV):
                 if len(self.buffer) == 128:
                     # SHA512 is 512 bits (128 bytes) long.
                     self.valid = True
-
-                if integrity_blob:
-                    hash = hashlib.sha512(integrity_blob).digest()
-                    if self.buffer == hash:
-                        self.verified = True
-                    else:
-                        logging.warning("SHA512 hash in footer does not match binary.")
+                self.verify([], integrity_blob)
 
             elif credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
                 self.credentials_type = self.CREDENTIALS_TYPE_RSA4096KEY
                 self.buffer = buffer[4:]
-                self.valid = True
+
+                if len(self.buffer) == 1024:
+                    # RSA4904 public key is 512 bytes, signature is 512 bytes.
+                    self.valid = True
+
             else:
                 logging.warning("Unknown credential type in TBF footer TLV.")
                 logging.warning("You might want to update tockloader.")
@@ -1116,6 +1109,70 @@ class TBFFooterTLVCredentials(TBFTLV):
         )
         return name
 
+    def verify(self, keys, integrity_blob):
+        if integrity_blob == None:
+            # If we don't have the actual binary then we can't verify any
+            # credentials. This can happen if the app came from a board and we
+            # didn't read the entire app binary.
+            return
+
+        if self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
+            hash = hashlib.sha256(integrity_blob).digest()
+            if self.buffer == hash:
+                self.verified = "yes"
+            else:
+                self.verified = "no"
+                logging.warning("SHA256 hash in footer does not match binary.")
+
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA384:
+            hash = hashlib.sha384(integrity_blob).digest()
+            if self.buffer == hash:
+                self.verified = "yes"
+            else:
+                self.verified = "no"
+                logging.warning("SHA384 hash in footer does not match binary.")
+
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA512:
+            hash = hashlib.sha512(integrity_blob).digest()
+            if self.buffer == hash:
+                self.verified = "yes"
+            else:
+                self.verified = "no"
+                logging.warning("SHA512 hash in footer does not match binary.")
+
+        elif self.credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
+            logging.debug("Verifying the RSA4096KEY credential.")
+
+            # Unpack the credential buffer.
+            pub_key_n_bytes = self.buffer[0:512]
+            signature = self.buffer[512:1024]
+
+            # Need an integer for n to compare to the public keys.
+            pub_key_n = int.from_bytes(pub_key_n_bytes, "big")
+
+            # First see if there is a key that matches. If no keys match then we
+            # can't verify this credential one way or another.
+            for key in keys:
+
+                # Compare the n value in the credential to the n included in the
+                # public key passed to tockloader.
+                if pub_key_n == key.n:
+                    # We found a key that matches. Get the hash of the main app
+                    # and then check the signature.
+                    hash = Crypto.Hash.SHA512.new(integrity_blob)
+
+                    try:
+                        Crypto.Signature.pkcs1_15.new(key).verify(hash, signature)
+                        # Signature verified!
+                        self.verified = "yes"
+                    except:
+                        # We were able to verify that the signature does not
+                        # match.
+                        self.verified = "no"
+
+                    # Only try one matching key.
+                    break
+
     def pack(self):
         buf = struct.pack(
             "<HHI",
@@ -1128,8 +1185,10 @@ class TBFFooterTLVCredentials(TBFTLV):
 
     def __str__(self):
         verified = ""
-        if self.verified:
+        if self.verified == "yes":
             verified = " ✓ verified"
+        elif self.verified == "no":
+            verified = " ✗ NOT verified"
 
         out = "Footer TLV: Credentials ({})\n".format(self.TLVID)
         out += "  Type: {} ({}){}\n".format(
@@ -1197,6 +1256,21 @@ class TBFFooter:
             logging.debug("Removing TLV at index {}".format(index))
             self.tlvs.pop(index)
             self.modified = True
+
+    def verify_credentials(self, public_keys, integrity_blob):
+        """
+        Check credential TLVs with an optional array of public keys (stored as
+        binary arrays).
+        """
+        # Load all provided keys as Crypto objects.
+        keys = []
+        if public_keys:
+            for public_key in public_keys:
+                key = Crypto.PublicKey.RSA.importKey(public_key)
+                keys.append(key)
+
+        for tlv in self.tlvs:
+            tlv.verify(keys, integrity_blob)
 
     def get_binary(self):
         """

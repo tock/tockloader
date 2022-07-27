@@ -314,6 +314,15 @@ class TabApp:
         for tbf in self.tbfs:
             tbf.tbfh.modify_tlv(tlvid, field, value)
 
+    def verify_credentials(self, public_keys):
+        """
+        Using an optional array of public_key binaries, try to check any
+        contained credentials to verify they are valid.
+        """
+        for tbf in self.tbfs:
+            integrity_blob = tbf.tbfh.get_binary() + tbf.binary
+            tbf.tbff.verify_credentials(public_keys, integrity_blob)
+
     def has_app_binary(self):
         """
         Return true if we have an application binary with this app.

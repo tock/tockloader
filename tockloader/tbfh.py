@@ -1056,24 +1056,24 @@ class TBFFooterTLVCredentials(TBFTLV):
             elif credentials_type == self.CREDENTIALS_TYPE_SHA256:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA256
                 self.buffer = buffer[4:]
-                if len(self.buffer) == 64:
-                    # SHA256 is 256 bits (64 bytes) long.
+                if len(self.buffer) == 32:
+                    # SHA256 is 256 bits (32 bytes) long.
                     self.valid = True
                 self.verify([], integrity_blob)
 
             elif credentials_type == self.CREDENTIALS_TYPE_SHA384:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA384
                 self.buffer = buffer[4:]
-                if len(self.buffer) == 96:
-                    # SHA384 is 384 bits (96 bytes) long.
+                if len(self.buffer) == 48:
+                    # SHA384 is 384 bits (48 bytes) long.
                     self.valid = True
                 self.verify([], integrity_blob)
 
             elif credentials_type == self.CREDENTIALS_TYPE_SHA512:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA512
                 self.buffer = buffer[4:]
-                if len(self.buffer) == 128:
-                    # SHA512 is 512 bits (128 bytes) long.
+                if len(self.buffer) == 64:
+                    # SHA512 is 512 bits (64 bytes) long.
                     self.valid = True
                 self.verify([], integrity_blob)
 
@@ -1108,6 +1108,20 @@ class TBFFooterTLVCredentials(TBFTLV):
             else "Unknown"
         )
         return name
+
+    def _credentials_name_to_id(credential_type):
+        ids = {
+            "reserved": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RESERVED,
+            "clear_text_id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_CLEARTEXTID,
+            "rsa3072": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA3072KEY,
+            "rsa4096": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA4096KEY,
+            "rsa3072id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA3072KEYID,
+            "rsa4096id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA4096KEYID,
+            "sha256": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA256,
+            "sha384": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA384,
+            "sha512": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA512,
+        }
+        return ids.get(credential_type)
 
     def verify(self, keys, integrity_blob):
         if integrity_blob == None:
@@ -1173,6 +1187,17 @@ class TBFFooterTLVCredentials(TBFTLV):
                     # Only try one matching key.
                     break
 
+    def shrink(self, num_bytes):
+        """
+        Shrink a reserved credential by the number of bytes specified. Do
+        nothing if this is not a reserved credential.
+        """
+        if self.credentials_type == self.CREDENTIALS_TYPE_RESERVED:
+            if len(self.buffer) > num_bytes:
+                self.buffer = self.buffer[0 : -1 * num_bytes]
+            else:
+                self.buffer = bytearray()
+
     def pack(self):
         buf = struct.pack(
             "<HHI",
@@ -1199,6 +1224,41 @@ class TBFFooterTLVCredentials(TBFTLV):
         # out += " ".join("{:02x}".format(x) for x in self.buffer)
         # out += "\n\n"
         return out
+
+
+class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
+    def __init__(self, credential_id):
+        self.credentials_type = credential_id
+        self.valid = False
+
+        if self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
+            self.buffer = bytearray(64)
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA384:
+            self.buffer = bytearray(96)
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA512:
+            self.buffer = bytearray(128)
+        elif self.credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
+            self.buffer = bytearray(1024)
+        else:
+            self.buffer = bytearray()
+
+    def compute(self, integrity_blob):
+        if self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
+            self.buffer = hashlib.sha256(integrity_blob).digest()
+            self.valid = True
+            self.verified = "yes"
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA384:
+            self.buffer = hashlib.sha384(integrity_blob).digest()
+            self.valid = True
+            self.verified = "yes"
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA512:
+            self.buffer = hashlib.sha512(integrity_blob).digest()
+            self.valid = True
+            self.verified = "yes"
+        elif self.credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
+            pass
+        else:
+            pass
 
 
 class TBFFooter:
@@ -1257,9 +1317,100 @@ class TBFFooter:
             self.tlvs.pop(index)
             self.modified = True
 
+    def add_credential(self, credential_type, integrity_blob):
+        """
+        Add credential by credential type name.
+        """
+        logging.debug("Adding credential '{}' to TBF fooer.".format(credential_type))
+        credential_id = TBFFooterTLVCredentials._credentials_name_to_id(credential_type)
+        if credential_id == None:
+            raise TockLoaderException(
+                'Unknown credential type "{}"'.format(credential_type)
+            )
+
+        new_credential = TBFFooterTLVCredentialsConstructor(credential_id)
+
+        # Now we have to decide how to actually add this credential. There are
+        # four possible cases:
+        #
+        # 1. There is no footer. We can simply add a footer, include the
+        #    credential there, and update the TBF header as needed.
+        #
+        # 2. There is a footer, and it contains a reserved section, and that
+        #    reserved section is long enough to include the credential we are
+        #    trying to add. We can shorten the reserved section and add our
+        #    credential.
+        #
+        # 3. There is a footer, and it contains a reserved section, and that
+        #    reserved section is NOT long enough to include the credential
+        #    trying to add. We can't add the credential and instead fail.
+        #
+        # 4. There is a footer, and it does not contain a reserved section. We
+        #    have nowhere to add the credential (since we can't change the TBF
+        #    header due to the existing credential) and fail.
+
+        if len(self.tlvs) == 0:
+            # For now, we consider this the case where there is no footer. It
+            # may make sense to determine this differently but, concluding that
+            # if there are no tlvs then there is no footer should work for now.
+            #
+            # CASE 1
+            raise TockLoaderException(
+                "Adding credential without existing footer currently not implemented."
+            )
+        else:
+            reserved_credential = None
+            for tlv in self.tlvs:
+                if tlv.get_tlvid() == self.FOOTER_TYPE_CREDENTIALS:
+                    if (
+                        tlv.credentials_type
+                        == TBFFooterTLVCredentials.CREDENTIALS_TYPE_RESERVED
+                    ):
+                        reserved_credential = tlv
+                        break
+
+            if reserved_credential != None:
+                # Check if we have room in the reserved region for the new
+                # credential.
+                if reserved_credential.get_size() > new_credential.get_size():
+                    # We have room.
+                    #
+                    # CASE 2
+                    new_credential.compute(integrity_blob)
+
+                    # Need to shrink the reservation credential. Adding a
+                    # credential requires at least 6 bytes, make sure we have
+                    # room for 6 bytes.
+                    if reserved_credential.get_size() >= (
+                        new_credential.get_size() + 6
+                    ):
+                        # We can simply shrink the reservation credential and
+                        # then add our new credential.
+                        reserved_credential.shrink(new_credential.get_size())
+                        self.tlvs.insert(len(self.tlvs) - 1, new_credential)
+                    else:
+                        # We have to remove the reserved credential.
+                        self.tlvs.pop(len(self.tlvs) - 1)
+                        self.tlvs.append(new_credential)
+
+                else:
+                    # Reserved area not large enough.
+                    #
+                    # CASE 3
+                    raise TockLoaderException(
+                        "Unable to add credential. Not enough reserved space."
+                    )
+            else:
+                # No reserved space.
+                #
+                # CASE 4
+                raise TockLoaderException(
+                    "Unable to add credential. No reserved space."
+                )
+
     def delete_credential(self, credential_id):
         """
-        Remove credential by credential type.
+        Remove credential by credential id.
         """
         indices = []
         for i, tlv in enumerate(self.tlvs):

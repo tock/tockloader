@@ -412,6 +412,32 @@ def command_tbf_modify_tlv(args):
                 tab.update_tbf(app)
 
 
+def command_tbf_add_credential(args):
+    tabs = collect_tabs(args)
+
+    if len(tabs) == 0:
+        raise TockLoaderException("No TABs found, no TBF footers to process")
+
+    credential_type = args.credential_type
+    logging.status(
+        "Adding Credential type '{}' to the TBF footer...".format(credential_type)
+    )
+    for tab in tabs:
+        # Ask the user which TBF binaries to update.
+        tbf_names = tab.get_tbf_names()
+        index = helpers.menu(
+            tbf_names + ["All"],
+            return_type="index",
+            title="Which TBF to modify TLV?",
+            default_index=len(tbf_names),
+        )
+        for i, tbf_name in enumerate(tbf_names):
+            if i == index or index == len(tbf_names):
+                app = tab.extract_tbf(tbf_name)
+                app.add_credential(credential_type)
+                tab.update_tbf(app)
+
+
 def command_tbf_delete_credential(args):
     tabs = collect_tabs(args)
 
@@ -938,6 +964,19 @@ def main():
         "value", help="TLV field new value", type=lambda x: int(x, 0)
     )
     tbfmodifytlv.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
+
+    tbfaddcredential = subparser.add_parser(
+        "tbf-add-credential",
+        parents=[parent],
+        help="Add a credential TLV from the TBF footer",
+    )
+    tbfaddcredential.set_defaults(func=command_tbf_add_credential)
+    tbfaddcredential.add_argument(
+        "credential_type",
+        help="Credential type to add",
+        choices=["sha256", "sha384", "sha512"],
+    )
+    tbfaddcredential.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
 
     tbfdeletecredential = subparser.add_parser(
         "tbf-delete-credential",

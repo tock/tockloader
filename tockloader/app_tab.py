@@ -314,6 +314,13 @@ class TabApp:
         for tbf in self.tbfs:
             tbf.tbfh.modify_tlv(tlvid, field, value)
 
+    def delete_credential(self, credential_id):
+        """
+        Remove a credential by ID from the TBF footer.
+        """
+        for tbf in self.tbfs:
+            tbf.tbff.delete_credential(credential_id)
+
     def verify_credentials(self, public_keys):
         """
         Using an optional array of public_key binaries, try to check any

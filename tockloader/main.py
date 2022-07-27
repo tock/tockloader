@@ -412,6 +412,30 @@ def command_tbf_modify_tlv(args):
                 tab.update_tbf(app)
 
 
+def command_tbf_delete_credential(args):
+    tabs = collect_tabs(args)
+
+    if len(tabs) == 0:
+        raise TockLoaderException("No TABs found, no TBF footers to process")
+
+    credential_id = args.credential_id
+    logging.status("Removing Credential ID {} from TBF footer...".format(credential_id))
+    for tab in tabs:
+        # Ask the user which TBF binaries to update.
+        tbf_names = tab.get_tbf_names()
+        index = helpers.menu(
+            tbf_names + ["All"],
+            return_type="index",
+            title="Which TBF to modify TLV?",
+            default_index=len(tbf_names),
+        )
+        for i, tbf_name in enumerate(tbf_names):
+            if i == index or index == len(tbf_names):
+                app = tab.extract_tbf(tbf_name)
+                app.delete_credential(credential_id)
+                tab.update_tbf(app)
+
+
 def command_dump_flash_page(args):
     tock_loader = TockLoader(args)
     tock_loader.open()
@@ -914,6 +938,17 @@ def main():
         "value", help="TLV field new value", type=lambda x: int(x, 0)
     )
     tbfmodifytlv.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
+
+    tbfdeletecredential = subparser.add_parser(
+        "tbf-delete-credential",
+        parents=[parent],
+        help="Delete a credential TLV from the TBF footer",
+    )
+    tbfdeletecredential.set_defaults(func=command_tbf_delete_credential)
+    tbfdeletecredential.add_argument(
+        "credential_id", help="Credential type number", type=lambda x: int(x, 0)
+    )
+    tbfdeletecredential.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
 
     list_known_boards = subparser.add_parser(
         "list-known-boards",

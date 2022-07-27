@@ -1257,6 +1257,22 @@ class TBFFooter:
             self.tlvs.pop(index)
             self.modified = True
 
+    def delete_credential(self, credential_id):
+        """
+        Remove credential by credential type.
+        """
+        indices = []
+        for i, tlv in enumerate(self.tlvs):
+            if tlv.get_tlvid() == self.FOOTER_TYPE_CREDENTIALS:
+                if tlv.credentials_type == credential_id:
+                    # Reverse the list
+                    indices.insert(0, i)
+        # Pop starting with the last match
+        for index in indices:
+            logging.debug("Removing credential TLV at index {}".format(index))
+            self.tlvs.pop(index)
+            self.modified = True
+
     def verify_credentials(self, public_keys, integrity_blob):
         """
         Check credential TLVs with an optional array of public keys (stored as

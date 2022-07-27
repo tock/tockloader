@@ -38,7 +38,7 @@ class TBFTLVUnknown(TBFTLV):
         # Need to ensure that whatever this header is that it is a multiple
         # of 4 in length.
         padding = (4 - (len(out) % 4)) % 4
-        out += b"0" * padding
+        out += b"\0" * padding
 
         return out
 

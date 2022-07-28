@@ -1242,7 +1242,10 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
         else:
             self.buffer = bytearray()
 
-    def compute(self, integrity_blob):
+    def compute(self, public_key, private_key, integrity_blob):
+        """
+        Actually generate the credential.
+        """
         if self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
             self.buffer = hashlib.sha256(integrity_blob).digest()
             self.valid = True
@@ -1256,7 +1259,14 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
             self.valid = True
             self.verified = "yes"
         elif self.credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
-            pass
+            # Load keys to Crypto objects.
+            pub_key = Crypto.PublicKey.RSA.importKey(public_key)
+            pri_key = Crypto.PublicKey.RSA.importKey(private_key)
+            # Compute hash and signature.
+            hash = Crypto.Hash.SHA512.new(integrity_blob)
+            signature = Crypto.Signature.pkcs1_15.new(pri_key).sign(hash)
+            # Store the pub key n value and the signature.
+            self.buffer = pub_key.n.to_bytes(512, "big") + signature
         else:
             pass
 
@@ -1317,7 +1327,7 @@ class TBFFooter:
             self.tlvs.pop(index)
             self.modified = True
 
-    def add_credential(self, credential_type, integrity_blob):
+    def add_credential(self, credential_type, public_key, private_key, integrity_blob):
         """
         Add credential by credential type name.
         """
@@ -1376,7 +1386,7 @@ class TBFFooter:
                     # We have room.
                     #
                     # CASE 2
-                    new_credential.compute(integrity_blob)
+                    new_credential.compute(public_key, private_key, integrity_blob)
 
                     # Need to shrink the reservation credential. Adding a
                     # credential requires at least 6 bytes, make sure we have

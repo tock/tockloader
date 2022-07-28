@@ -314,13 +314,15 @@ class TabApp:
         for tbf in self.tbfs:
             tbf.tbfh.modify_tlv(tlvid, field, value)
 
-    def add_credential(self, credential_type):
+    def add_credential(self, credential_type, public_key, private_key):
         """
         Add a credential by type to the TBF footer.
         """
         for tbf in self.tbfs:
             integrity_blob = tbf.tbfh.get_binary() + tbf.binary
-            tbf.tbff.add_credential(credential_type, integrity_blob)
+            tbf.tbff.add_credential(
+                credential_type, public_key, private_key, integrity_blob
+            )
 
     def delete_credential(self, credential_id):
         """

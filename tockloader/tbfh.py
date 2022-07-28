@@ -1461,7 +1461,15 @@ class TBFFooter:
         return buf
 
     def __str__(self):
-        out = ""
+        footer_size = 0
+        for tlv in self.tlvs:
+            footer_size += tlv.get_size()
+
+        out = "Footer\n"
+        out += "{:<22}: {:>10} {:>#12x}\n".format(
+            "  footer_size", footer_size, footer_size
+        )
+
         for tlv in self.tlvs:
             out += str(tlv)
         return out

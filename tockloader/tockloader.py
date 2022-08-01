@@ -446,10 +446,12 @@ class TockLoader:
                     # And let the user know the state of the world now that we're done
                     apps = self._extract_all_app_headers()
                     if len(apps):
+                        app_names = ", ".join(map(lambda x: x.get_name(), apps))
                         logging.info(
-                            "After uninstall, remaining apps on board: ", end=""
+                            "After uninstall, remaining apps on board: {}".format(
+                                app_names
+                            )
                         )
-                        self._print_apps(apps, verbose=False, quiet=True)
                     else:
                         logging.info("After uninstall, no apps on board.")
 

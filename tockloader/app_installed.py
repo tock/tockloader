@@ -199,6 +199,14 @@ class InstalledApp:
         """
         return self.address
 
+    def verify_credentials(self, public_keys):
+        """
+        Using an optional array of public_key binaries, try to check any
+        contained credentials to verify they are valid.
+        """
+        integrity_blob = self.tbfh.get_binary() + self.app_binary
+        self.tbff.verify_credentials(public_keys, integrity_blob)
+
     def has_app_binary(self):
         """
         Whether we have the actual application binary for this app.

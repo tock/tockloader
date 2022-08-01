@@ -116,9 +116,19 @@ def command_listen(args):
 
 
 def command_list(args):
+    # Optimistically try to verify any included credentials if asked to. We have
+    # to read in the actual key contents.
+    public_keys = None
+    if args.verify_credentials != None:
+        public_keys = []
+        if args.verify_credentials:
+            for key_path in args.verify_credentials:
+                with open(key_path, "rb") as f:
+                    public_keys.append(f.read())
+
     tock_loader = TockLoader(args)
     tock_loader.open()
-    tock_loader.list_apps(args.verbose, args.quiet)
+    tock_loader.list_apps(args.verbose, args.quiet, public_keys)
 
 
 def command_install(args):
@@ -791,6 +801,11 @@ def main():
         "-q",
         help="Print just a list of application names",
         action="store_true",
+    )
+    listcmd.add_argument(
+        "--verify-credentials",
+        help="Check credentials with a list of public keys",
+        nargs="*",
     )
 
     info = subparser.add_parser(

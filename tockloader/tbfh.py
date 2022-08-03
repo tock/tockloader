@@ -99,10 +99,22 @@ class TBFTLVMain(TBFTLV):
 class TBFTLVProgram(TBFTLV):
     TLVID = 0x09
 
-    def __init__(self, buffer):
+    def __init__(self, buffer, total_size=0):
+        """
+        Create a Program TLV. To create an empty program TLV, pass `None` in as
+        the buffer and the total size of the app in `total_size`.
+        """
         self.valid = False
 
-        if len(buffer) == 20:
+        if buffer == None:
+            self.init_fn_offset = 0
+            self.protected_size = 0
+            self.minimum_ram_size = 0
+            self.binary_end_offset = total_size
+            self.app_version = 0
+            self.valid = True
+
+        elif len(buffer) == 20:
             base = struct.unpack("<IIIII", buffer)
             self.init_fn_offset = base[0]
             self.protected_size = base[1]
@@ -906,6 +918,10 @@ class TBFHeader:
         tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
         if tlv == None:
             tlv = self._get_tlv(self.HEADER_TYPE_MAIN)
+            if tlv == None:
+                # If we don't have either a program or main header then we use
+                # an empty program header.
+                tlv = TBFTLVProgram(None, self.get_app_size())
         return tlv
 
     def _get_tlv(self, tlvid):

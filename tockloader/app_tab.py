@@ -340,6 +340,13 @@ class TabApp:
             integrity_blob = tbf.tbfh.get_binary() + tbf.binary
             tbf.tbff.verify_credentials(public_keys, integrity_blob)
 
+    def corrupt_tbf(self, field_name, value):
+        """
+        Modify the TBF root header just before installing the application.
+        """
+        for tbf in self.tbfs:
+            tbf.tbfh.corrupt_tbf(field_name, value)
+
     def has_app_binary(self):
         """
         Return true if we have an application binary with this app.

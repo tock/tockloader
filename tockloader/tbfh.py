@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import logging
 import struct
@@ -789,6 +790,12 @@ class TBFHeader:
                     setattr(tlv, field, value)
                     self.modified = True
 
+    def corrupt_tbf(self, field_name, value):
+        """
+        Give a field name and value to set when creating the binary.
+        """
+        self.corrupt_tbf_base = (field_name, value)
+
     def adjust_starting_address(self, address):
         """
         Alter this TBF header so the fixed address in flash will be correct
@@ -866,12 +873,19 @@ class TBFHeader:
             buf += struct.pack("<I", checksum)
 
         elif self.version == 2:
+
+            base = copy.deepcopy(self.fields)
+            base["version"] = self.version
+
+            if hasattr(self, "corrupt_tbf_base"):
+                base[self.corrupt_tbf_base[0]] = self.corrupt_tbf_base[1]
+
             buf = struct.pack(
                 "<HHIII",
-                self.version,
-                self.fields["header_size"],
-                self.fields["total_size"],
-                self.fields["flags"],
+                base["version"],
+                base["header_size"],
+                base["total_size"],
+                base["flags"],
                 0,
             )
             if self.app:
@@ -882,7 +896,7 @@ class TBFHeader:
             nbuf[:] = buf
             buf = nbuf
 
-            checksum = self._checksum(buf)
+            checksum = self._checksum(buf[0 : base["header_size"]])
             struct.pack_into("<I", buf, 12, checksum)
 
             tlv_binary = self._get_binary_tlv()

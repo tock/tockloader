@@ -1369,6 +1369,11 @@ class TockLoader:
             # Enforce other sizing constraints here.
             app.set_size_constraint(self.app_settings["size_constraint"])
 
+            if self.args.corrupt_tbf:
+                app.corrupt_tbf(
+                    self.args.corrupt_tbf[0], int(self.args.corrupt_tbf[1], 0)
+                )
+
             apps.append(app)
 
         if len(apps) == 0:

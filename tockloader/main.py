@@ -770,6 +770,11 @@ def main():
     install.add_argument(
         "--sticky", help="Make the installed app(s) sticky.", action="store_true"
     )
+    install.add_argument(
+        "--corrupt-tbf",
+        help="Modify the root TBF header when installing an app.",
+        nargs=2,
+    )
 
     update = subparser.add_parser(
         "update",

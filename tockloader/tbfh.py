@@ -976,8 +976,22 @@ class TBFHeader:
             "sticky", ["No", "Yes"][(self.fields["flags"] >> 1) & 0x01]
         )
 
+        # Base header takes 16 bytes.
+        index = 16
+
         for tlv in self.tlvs:
-            out += str(tlv)
+            # Format the offset so we know the size of each TLV.
+            offset = "[{:<#5x}] ".format(index)
+            # Create the base TLV format.
+            tlv_str = str(tlv)
+            # Insert the address at the end of the first line of the TLV str.
+            lines = tlv_str.split("\n")
+            lines[0] = "{:<48}{}".format(lines[0], offset)
+            # Recreate string.
+            out += "\n".join(lines)
+
+            # Increment the byte index with the size of the TLV.
+            index += tlv.get_size()
 
         return out
 

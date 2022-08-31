@@ -340,6 +340,23 @@ def _decode_attribute(self, raw)
 
 
 
+### \_gather\_openocd\_cmdline
+```py
+
+def _gather_openocd_cmdline(self, commands, binary, write=True, exit=True)
+
+```
+
+
+
+- `commands`: List of openocd commands. Use {binary} for where the name
+  of the binary file should be substituted.
+- `binary`: A bytes() object that will be used to write to the board.
+- `write`: Set to true if the command writes binaries to the board. Set
+  to false if the command will read bits from the board.
+- `exit`: When `True`, openocd will exit after executing commands.
+
+
 ### \_list\_emulators
 ```py
 
@@ -359,13 +376,6 @@ def _run_openocd_commands(self, commands, binary, write=True)
 
 ```
 
-
-
-- `commands`: String of openocd commands. Use {binary} for where the name
-  of the binary file should be substituted.
-- `binary`: A bytes() object that will be used to write to the board.
-- `write`: Set to true if the command writes binaries to the board. Set
-  to false if the command will read bits from the board.
 
 
 

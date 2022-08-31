@@ -7,6 +7,7 @@ import argparse
 import sys
 
 import colorama
+import questionary
 
 
 def set_terminal_title(title):
@@ -27,7 +28,7 @@ def set_terminal_title_from_port_info(info):
     if info.description and info.description != "n/a":
         extras.append(info.description)
     # if info.hwid and info.hwid != 'n/a':
-    # 	extras.append(info.hwid)
+    #  extras.append(info.hwid)
     if info.product and info.product != "n/a":
         if info.product != info.description:
             extras.append(info.product)
@@ -41,6 +42,42 @@ def set_terminal_title_from_port(port):
     Set the title of the user's terminal for Tockloader.
     """
     set_terminal_title("Tockloader : {}".format(port))
+
+
+def menu_new(options, *, return_type, default_index=None, prompt="", title=""):
+    """
+    Present an interactive menu of choices to a user.
+
+    `options` should be a like-list object whose iterated objects can be coerced
+    into strings.
+
+    `return_type` must be set to one of:
+      - "index" - for the index into the options array
+      - "value" - for the option value chosen
+
+    `default_index` is the index to present as the default value (what happens
+    if the user simply presses enter). Passing `None` disables default
+    selection.
+    """
+
+    prompt_to_show = prompt
+    if len(title) > len(prompt_to_show):
+        prompt_to_show = title
+
+    default = None
+    if default_index:
+        default = options[default_index]
+
+    response = questionary.select(
+        prompt_to_show, choices=options, default=default, qmark=""
+    ).ask()
+
+    if return_type == "index":
+        return options.index(response)
+    elif return_type == "value":
+        return response
+    else:
+        raise NotImplementedError("Menu caller asked for bad return_type")
 
 
 def menu(options, *, return_type, default_index=0, prompt="Which option? ", title=""):

@@ -327,7 +327,7 @@ def command_inspect_tab(args):
 
         # Ask the user if they want to see more detail about a certain TBF.
         tbf_names = tab.get_tbf_names()
-        index = helpers.menu(
+        index = helpers.menu_new(
             tbf_names + ["None"],
             return_type="index",
             title="Which TBF to inspect further?",

@@ -35,5 +35,6 @@ setup(
         "pyserial >= 3.0.1",
         "toml >= 0.10.2",
         "tqdm >= 4.45.0 ",
+        "questionary >= 1.10.0",
     ],
 )

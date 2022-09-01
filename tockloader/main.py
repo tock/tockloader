@@ -834,7 +834,7 @@ def main():
 
     listattributes = subparser.add_parser(
         "list-attributes",
-        parents=[parent, parent_channel],
+        parents=[parent, parent_channel, parent_format],
         help="List attributes stored on the board",
     )
     listattributes.set_defaults(func=command_list_attributes)

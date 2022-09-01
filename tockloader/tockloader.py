@@ -26,7 +26,6 @@ from .app_padding import InstalledPaddingApp
 from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
-from .display import JSONDisplay
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 from .jlinkexe import JLinkExe
@@ -534,7 +533,15 @@ class TockLoader:
                     "No bootloader found! That means there is nowhere for attributes to go."
                 )
 
-            self._print_attributes(self.channel.get_all_attributes())
+            attributes = self.channel.get_all_attributes()
+
+            if self.args.output_format == "json":
+                displayer = display.JSONDisplay()
+            else:
+                displayer = display.HumanReadableDisplay()
+
+            displayer.list_attributes(attributes)
+            print(displayer.get())
 
     def set_attribute(self, key, value):
         """

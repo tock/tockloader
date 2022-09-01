@@ -18,6 +18,12 @@ class Display:
         """
         pass
 
+    def list_attributes(self, attributes):
+        """
+        Show the key value pairs for a list of attributes.
+        """
+        pass
+
     def get(self):
         return self.out
 
@@ -57,11 +63,22 @@ class HumanReadableDisplay(Display):
             # In quiet mode just show the names.
             self.out += " ".join([app.get_name() for app in apps])
 
+    def list_attributes(self, attributes):
+        for index, attribute in enumerate(attributes):
+            if attribute:
+                self.out += "{:02d}: {:>8} = {}\n".format(
+                    index, attribute["key"], attribute["value"]
+                )
+
+            else:
+                self.out += "{:02d}:\n".format(index)
+        self.out = self.out.strip()
+
 
 class JSONDisplay(Display):
-	"""
-	Format output as JSON.
-	"""
+    """
+    Format output as JSON.
+    """
 
     def __init__(self):
         self.object = {}
@@ -71,6 +88,14 @@ class JSONDisplay(Display):
 
         for app in apps:
             self.object["apps"].append(app.object())
+
+    def list_attributes(self, attributes):
+        self.object["attributes"] = []
+        for index, attribute in enumerate(attributes):
+            if attribute:
+                self.object["attributes"].append((attribute["key"], attribute["value"]))
+            else:
+                self.object["attributes"].append(None)
 
     def get(self):
         return json.dumps(self.object, indent=2)

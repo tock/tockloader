@@ -9,7 +9,11 @@ from . import helpers
 
 
 class Display:
-    def __init__(self):
+    def __init__(self, show_headers):
+        """
+        Arguments:
+        - show_headers: bool, if True, label each section in the display output.
+        """
         pass
 
     def list_apps(self, apps, verbose, quiet):
@@ -24,6 +28,12 @@ class Display:
         """
         pass
 
+    def bootloader_version(self, version):
+        """
+        Show the bootloader version stored in the bootloader itself.
+        """
+        pass
+
     def get(self):
         return self.out
 
@@ -33,10 +43,14 @@ class HumanReadableDisplay(Display):
     Format output as a string meant to be human readable.
     """
 
-    def __init__(self):
+    def __init__(self, show_headers=False):
         self.out = ""
+        self.show_headers = show_headers
 
     def list_apps(self, apps, verbose, quiet):
+        if self.show_headers:
+            self.out += "Apps:\n"
+
         if not quiet:
             # Print info about each app
             for i, app in enumerate(apps):
@@ -64,6 +78,9 @@ class HumanReadableDisplay(Display):
             self.out += " ".join([app.get_name() for app in apps])
 
     def list_attributes(self, attributes):
+        if self.show_headers:
+            self.out += "Attributes:\n"
+
         for index, attribute in enumerate(attributes):
             if attribute:
                 self.out += "{:02d}: {:>8} = {}\n".format(
@@ -72,7 +89,9 @@ class HumanReadableDisplay(Display):
 
             else:
                 self.out += "{:02d}:\n".format(index)
-        self.out = self.out.strip()
+
+    def bootloader_version(self, version):
+        self.out += "Bootloader version: {}".format(version)
 
 
 class JSONDisplay(Display):
@@ -96,6 +115,9 @@ class JSONDisplay(Display):
                 self.object["attributes"].append((attribute["key"], attribute["value"]))
             else:
                 self.object["attributes"].append(None)
+
+    def bootloader_version(self, version):
+        self.object["bootloader_version"] = version
 
     def get(self):
         return json.dumps(self.object, indent=2)

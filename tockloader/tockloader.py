@@ -610,25 +610,27 @@ class TockLoader:
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
 
+            if self.args.output_format == "json":
+                displayer = display.JSONDisplay()
+            else:
+                displayer = display.HumanReadableDisplay(show_headers=True)
+
             # Print all apps
-            print("Apps:")
             apps = self._extract_all_app_headers()
-            self._print_apps(apps, True, False)
+            displayer.list_apps(apps, True, False)
 
             if self._bootloader_is_present():
                 # Print all attributes
-                print("Attributes:")
                 attributes = self.channel.get_all_attributes()
-                self._print_attributes(attributes)
-                print("")
+                displayer.list_attributes(attributes)
 
                 # Show bootloader version
                 version = self.channel.get_bootloader_version()
                 if version == None:
                     version = "unknown"
-                print("Bootloader version: {}".format(version))
-            else:
-                print("No bootloader.")
+                displayer.bootloader_version(version)
+
+            print(displayer.get())
 
     def dump_flash_page(self, page_num):
         """

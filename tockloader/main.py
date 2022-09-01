@@ -719,7 +719,7 @@ def main():
 
     info = subparser.add_parser(
         "info",
-        parents=[parent, parent_apps, parent_channel],
+        parents=[parent, parent_apps, parent_channel, parent_format],
         help="Verbose information about the connected board",
     )
     info.set_defaults(func=command_info)

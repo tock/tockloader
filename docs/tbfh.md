@@ -227,6 +227,15 @@ def modify_tlv(self, tlvid, field, value)
 Modify a TLV by setting a particular field in the TLV object to value.
 
 
+### object
+```py
+
+def object(self)
+
+```
+
+
+
 ### set\_app\_size
 ```py
 
@@ -523,6 +532,15 @@ def modify_tlv(self, tlvid, field, value)
 Modify a TLV by setting a particular field in the TLV object to value.
 
 
+### object
+```py
+
+def object(self)
+
+```
+
+
+
 ### set\_app\_size
 ```py
 
@@ -644,6 +662,15 @@ def get_tlvid(self)
 
 
 
+### object
+```py
+
+def object(self)
+
+```
+
+
+
 ### pack
 ```py
 
@@ -694,6 +721,15 @@ def get_size(self)
 ```py
 
 def get_tlvid(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
 
 ```
 
@@ -754,6 +790,15 @@ def get_tlvid(self)
 
 
 
+### object
+```py
+
+def object(self)
+
+```
+
+
+
 ### pack
 ```py
 
@@ -809,6 +854,15 @@ def get_tlvid(self)
 
 
 
+### object
+```py
+
+def object(self)
+
+```
+
+
+
 ### pack
 ```py
 
@@ -859,6 +913,15 @@ def get_size(self)
 ```py
 
 def get_tlvid(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
 
 ```
 
@@ -957,6 +1020,15 @@ def get_size(self)
 ```py
 
 def get_tlvid(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
 
 ```
 

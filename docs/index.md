@@ -235,6 +235,7 @@ Features
   - Segger JLinkExe JTAG support
   - OpenOCD JTAG support
 - JLink RTT listener
+- JSON output using `--output-format json` for certain commands.
 
 
 Complete Install Instructions

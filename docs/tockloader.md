@@ -324,18 +324,6 @@ def _print_apps(self, apps, verbose, quiet)
 Print information about a list of apps
 
 
-### \_print\_attributes
-```py
-
-def _print_attributes(self, attributes)
-
-```
-
-
-
-Print the list of attributes in the bootloader.
-
-
 ### \_print\_flash
 ```py
 

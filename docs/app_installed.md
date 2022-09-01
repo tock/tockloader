@@ -244,6 +244,18 @@ Returns true if the app is set as sticky and will not be removed with
 a normal app erase command. Sticky apps must be force removed.
 
 
+### object
+```py
+
+def object(self)
+
+```
+
+
+
+Return a dict object containing the information about this app.
+
+
 ### set\_app\_binary
 ```py
 

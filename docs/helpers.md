@@ -101,6 +101,29 @@ if the user simply presses enter). Passing `None` disables default
 selection.
 
 
+### menu\_new
+```py
+
+def menu_new(options, *, return_type, default_index=None, prompt='', title='')
+
+```
+
+
+
+Present an interactive menu of choices to a user.
+
+`options` should be a like-list object whose iterated objects can be coerced
+into strings.
+
+`return_type` must be set to one of:
+  - "index" - for the index into the options array
+  - "value" - for the option value chosen
+
+`default_index` is the index to present as the default value (what happens
+if the user simply presses enter). Passing `None` disables default
+selection.
+
+
 ### plural
 ```py
 

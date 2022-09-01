@@ -1403,17 +1403,3 @@ class TockLoader:
         else:
             # In quiet mode just show the names.
             print(" ".join([app.get_name() for app in apps]))
-
-    def _print_attributes(self, attributes):
-        """
-        Print the list of attributes in the bootloader.
-        """
-        for index, attribute in enumerate(attributes):
-            if attribute:
-                print(
-                    "{:02d}: {:>8} = {}".format(
-                        index, attribute["key"], attribute["value"]
-                    )
-                )
-            else:
-                print("{:02d}:".format(index))

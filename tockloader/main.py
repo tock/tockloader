@@ -567,6 +567,16 @@ def main():
         help="Tell Tockloader to assume the bootloader is already active.",
     )
 
+    # Parser for all output formatting related flags shared by multiple
+    # commands.
+    parent_format = argparse.ArgumentParser(add_help=False)
+    parent_format.add_argument(
+        "--output-format",
+        help="Address where apps are located",
+        choices=["terminal", "json"],
+        default="terminal",
+    )
+
     # Support multiple commands for this tool
     subparser = parser.add_subparsers(title="Commands", metavar="")
 
@@ -693,7 +703,7 @@ def main():
 
     listcmd = subparser.add_parser(
         "list",
-        parents=[parent, parent_apps, parent_channel],
+        parents=[parent, parent_apps, parent_channel, parent_format],
         help="List the apps installed on the board",
     )
     listcmd.set_defaults(func=command_list)

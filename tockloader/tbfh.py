@@ -66,6 +66,15 @@ class TBFTLVMain(TBFTLV):
         )
         return out
 
+    def object(self):
+        return {
+            "type": "main",
+            "id": self.TLVID,
+            "init_fn_offset": self.init_fn_offset,
+            "protected_size": self.protected_size,
+            "minimum_ram_size": self.minimum_ram_size,
+        }
+
 
 class TBFTLVWriteableFlashRegions(TBFTLV):
     TLVID = 0x02
@@ -97,6 +106,17 @@ class TBFTLVWriteableFlashRegions(TBFTLV):
             out += "    {:<18}: {:>8} {:>#12x}\n".format("length", wfr[1], wfr[1])
         return out
 
+    def object(self):
+        out = {
+            "type": "writeable_flash_regions",
+            "id": self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS,
+            "wfrs": [],
+        }
+
+        for wfr in self.writeable_flash_regions:
+            out["wfrs"].append({"offset": wfr[0], "length": wfr[1]})
+        return out
+
 
 class TBFTLVPackageName(TBFTLV):
     TLVID = 0x03
@@ -119,6 +139,13 @@ class TBFTLVPackageName(TBFTLV):
         out = "TLV: Package Name ({})\n".format(self.TLVID)
         out += "  {:<20}: {}\n".format("package_name", self.package_name)
         return out
+
+    def object(self):
+        return {
+            "type": "name",
+            "id": self.TLVID,
+            "package_name": self.package_name,
+        }
 
 
 class TBFTLVPicOption1(TBFTLV):
@@ -164,6 +191,22 @@ class TBFTLVPicOption1(TBFTLV):
         out += "  {:<20}: {}\n".format("PIC", "C Style")
         return out
 
+    def object(self):
+        return {
+            "type": "pic_option_1",
+            "id": self.TLVID,
+            "text_offset": self.text_offset,
+            "data_offset": self.data_offset,
+            "data_size": self.data_size,
+            "bss_memory_offset": self.bss_memory_offset,
+            "bss_size": self.bss_size,
+            "relocation_data_offset": self.relocation_data_offset,
+            "relocation_data_size": self.relocation_data_size,
+            "got_offset": self.got_offset,
+            "got_size": self.got_size,
+            "minimum_stack_length": self.minimum_stack_length,
+        }
+
 
 class TBFTLVFixedAddress(TBFTLV):
     TLVID = 0x05
@@ -192,6 +235,14 @@ class TBFTLVFixedAddress(TBFTLV):
         )
         return out
 
+    def object(self):
+        return {
+            "type": "fixed_addresses",
+            "id": self.TLVID,
+            "fixed_address_ram": self.fixed_address_ram,
+            "fixed_address_flash": self.fixed_address_flash,
+        }
+
 
 class TBFTLVKernelVersion(TBFTLV):
     TLVID = 0x08
@@ -216,6 +267,14 @@ class TBFTLVKernelVersion(TBFTLV):
             "kernel version", self.kernel_major, self.kernel_minor
         )
         return out
+
+    def object(self):
+        return {
+            "type": "kernel_version",
+            "id": self.TLVID,
+            "kernel_major": self.kernel_major,
+            "kernel_minor": self.kernel_minor,
+        }
 
 
 class TBFHeader:
@@ -766,6 +825,27 @@ class TBFHeader:
 
         for tlv in self.tlvs:
             out += str(tlv)
+
+        return out
+
+    def object(self):
+        out = {"version": self.version}
+
+        # Special case version 1. However, at this point (May 2020), I would be
+        # shocked if this ever gets run on a version 1 TBFH.
+        if self.version == 1:
+            for k, v in sorted(self.fields.items()):
+                out[k] = v
+            return out
+
+        out["header_size"] = self.fields["header_size"]
+        out["total_size"] = self.fields["total_size"]
+        out["checksum"] = self.fields["checksum"]
+        out["flags"] = self.fields["flags"]
+
+        out["tlvs"] = []
+        for tlv in self.tlvs:
+            out["tlvs"].append(tlv.object())
 
         return out
 

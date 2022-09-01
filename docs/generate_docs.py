@@ -109,6 +109,7 @@ generatedocs("tockloader.app_padding", "app_padding.md")
 generatedocs("tockloader.tbfh", "tbfh.md")
 generatedocs("tockloader.exceptions", "exceptions.md")
 generatedocs("tockloader.helpers", "helpers.md")
+generatedocs("tockloader.display", "display.md")
 
 # Make index from readme
 with open("../README.md") as infile:

@@ -19,12 +19,14 @@ import textwrap
 import time
 
 from . import helpers
+from . import display
 from .app_installed import InstalledApp
 from .app_padding import PaddingApp
 from .app_padding import InstalledPaddingApp
 from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
+from .display import JSONDisplay
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
 from .jlinkexe import JLinkExe
@@ -249,7 +251,13 @@ class TockLoader:
             # Get all apps based on their header
             apps = self._extract_all_app_headers(verbose)
 
-            self._print_apps(apps, verbose, quiet)
+            if self.args.output_format == "json":
+                displayer = display.JSONDisplay()
+            else:
+                displayer = display.HumanReadableDisplay()
+
+            displayer.list_apps(apps, verbose, quiet)
+            print(displayer.get())
 
     def install(self, tabs, replace="yes", erase=False, sticky=False):
         """

@@ -282,5 +282,18 @@ class InstalledApp:
             out += textwrap.indent(str(self.tbfh), "  ")
         return out
 
+    def object(self):
+        """
+        Return a dict object containing the information about this app.
+        """
+        return {
+            "name": self.get_name(),
+            "enabled": self.tbfh.is_enabled(),
+            "sticky": self.tbfh.is_sticky(),
+            "size": self.get_size(),
+            "address": self.address,
+            "header": self.tbfh.object(),
+        }
+
     def __str__(self):
         return self.get_name()

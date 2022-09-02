@@ -146,7 +146,7 @@ class BoardInterface:
         },
         "litex_sim": {
             "description": "LiteX SoC running on Verilated simulation",
-            "arch": "rv32i",
+            "arch": "rv32imc",
             "no_attribute_table": True,
             "flash_file": {
                 # This corresponds to the --integrated-rom-size when starting

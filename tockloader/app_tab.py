@@ -292,8 +292,10 @@ class TabApp:
         """
         Return true if we have an application binary with this app.
         """
-        # By definition, a TabApp will have an app binary.
-        return True
+        # By definition, a TabApp which is constructed over at least one TBF
+        # will have an app binary. However, it is possible to construct a TabApp
+        # over no TBFs, in which case it has no binary associated:
+        return len(self.tbfs) != 0
 
     def get_binary(self, address):
         """

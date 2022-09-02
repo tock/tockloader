@@ -4,6 +4,7 @@ Utilities for creating output in various formats.
 
 import json
 import textwrap
+import logging
 
 from . import helpers
 

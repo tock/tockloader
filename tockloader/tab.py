@@ -53,7 +53,8 @@ class TAB:
 
     def extract_app(self, arch):
         """
-        Return a `TabApp` object from this TAB. You must specify the desired MCU
+        Return a `TabApp` object from this TAB, or `None` if the requested
+        architecture is not present in the TAB. You must specify the desired MCU
         architecture so the correct App object can be retrieved. Note that an
         architecture may have multiple TBF files if the app is compiled for a
         fixed address, and multiple fixed address versions are included in the
@@ -68,6 +69,10 @@ class TAB:
             if len(name_pieces) >= 2 and name_pieces[-1] == "tbf":
                 if name_pieces[0] == arch:
                     matching_tbf_filenames.append(contained_file)
+
+        if len(matching_tbf_filenames) == 0:
+            # No match for this architecture! Just return None.
+            return None
 
         # Get all of the TBF headers and app binaries to create a TabApp.
         tbfs = []

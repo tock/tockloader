@@ -44,6 +44,11 @@ class TabApp:
         """
         Create a `TabApp` from a list of TabTbfs.
         """
+        if len(tbfs) == 0:
+            raise TockLoaderException(
+                "There must be at least one TBF to create a TabApp"
+            )
+
         self.tbfs = tbfs  # A list of TabTbfs.
 
     def get_name(self):

@@ -1308,6 +1308,12 @@ class TockLoader:
             # This app is good to install, continue the process.
 
             app = tab.extract_app(arch)
+            if app == None:
+                raise TockLoaderException(
+                    "Unable to locate a valid application binary matching the target architecture ({})".format(
+                        arch
+                    )
+                )
 
             # Enforce other sizing constraints here.
             app.set_size_constraint(self.app_settings["size_constraint"])

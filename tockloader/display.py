@@ -3,6 +3,7 @@ Utilities for creating output in various formats.
 """
 
 import json
+import logging
 import textwrap
 
 from . import helpers

@@ -311,6 +311,7 @@ class InstalledApp:
             "size": self.get_size(),
             "address": self.address,
             "header": self.tbfh.object(),
+            "footer": self.tbff.object(),
         }
 
     def __str__(self):

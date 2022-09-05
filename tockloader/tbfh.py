@@ -155,6 +155,17 @@ class TBFTLVProgram(TBFTLV):
         )
         return out
 
+    def object(self):
+        return {
+            "type": "program",
+            "id": self.TLVID,
+            "init_fn_offset": self.init_fn_offset,
+            "protected_size": self.protected_size,
+            "minimum_ram_size": self.minimum_ram_size,
+            "binary_end_offset": self.binary_end_offset,
+            "app_version": self.app_version,
+        }
+
 
 class TBFTLVWriteableFlashRegions(TBFTLV):
     TLVID = 0x02
@@ -1269,6 +1280,15 @@ class TBFFooterTLVCredentials(TBFTLV):
         # out += "\n\n"
         return out
 
+    def object(self):
+        return {
+            "type": "credential",
+            "id": self.TLVID,
+            "credential_type": self._credentials_type_to_str(),
+            "length": len(self.buffer),
+            "verified": self.verified,
+        }
+
 
 class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
     def __init__(self, credential_id):
@@ -1504,10 +1524,14 @@ class TBFFooter:
 
         return buf
 
-    def __str__(self):
+    def get_size(self):
         footer_size = 0
         for tlv in self.tlvs:
             footer_size += tlv.get_size()
+        return footer_size
+
+    def __str__(self):
+        footer_size = self.get_size()
 
         out = "Footer\n"
         out += "{:<22}: {:>10} {:>#12x}\n".format(
@@ -1516,4 +1540,12 @@ class TBFFooter:
 
         for tlv in self.tlvs:
             out += str(tlv)
+        return out
+
+    def object(self):
+        out = {"version": self.version, "tlvs": []}
+
+        for tlv in self.tlvs:
+            out["tlvs"].append(tlv.object())
+
         return out

@@ -28,6 +28,7 @@ from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
 from .exceptions import TockLoaderException
 from .tbfh import TBFHeader
+from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
 from .openocd import OpenOCD, collect_temp_files
 from .flash_file import FlashFile
@@ -241,15 +242,33 @@ class TockLoader:
                         logging.debug("Unable to set attribute after flash command.")
                         logging.debug(ret)
 
-    def list_apps(self, verbose, quiet):
+    def list_apps(self, verbose, quiet, verify_credentials_public_keys):
         """
         Query the chip's flash to determine which apps are installed.
+
+        - `verbose` - bool: Show details about TBF.
+        - `quiet` - bool: Just show the app name.
+        - `verify_credentials_public_keys`: Either `None`, meaning do not verify
+          any credentials, or a list of public keys binaries to use to help
+          verify credentials. The list can be empty and all credentials that can
+          be checked without keys will be verified.
         """
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
 
+            # Only get the entire app to verify credentials if requested.
+            extract_app_binary = False
+            if not verify_credentials_public_keys == None:
+                extract_app_binary = True
+                # Need to force verbose mode to actually show the result.
+                verbose = True
+
             # Get all apps based on their header
-            apps = self._extract_all_app_headers(verbose)
+            apps = self._extract_all_app_headers(verbose, extract_app_binary)
+
+            if not verify_credentials_public_keys == None:
+                for app in apps:
+                    app.verify_credentials(verify_credentials_public_keys)
 
             if self.args.output_format == "json":
                 displayer = display.JSONDisplay()
@@ -427,10 +446,12 @@ class TockLoader:
                     # And let the user know the state of the world now that we're done
                     apps = self._extract_all_app_headers()
                     if len(apps):
+                        app_names = ", ".join(map(lambda x: x.get_name(), apps))
                         logging.info(
-                            "After uninstall, remaining apps on board: ", end=""
+                            "After uninstall, remaining apps on board: {}".format(
+                                app_names
+                            )
                         )
-                        self._print_apps(apps, verbose=False, quiet=True)
                     else:
                         logging.info("After uninstall, no apps on board.")
 
@@ -1214,10 +1235,15 @@ class TockLoader:
         )
         self.channel.flash_binary(address, padding.get_tbfh().get_binary())
 
-    def _extract_all_app_headers(self, verbose=False):
+    def _extract_all_app_headers(self, verbose=False, extract_app_binary=False):
         """
         Iterate through the flash on the board for the header information about
         each app.
+
+        Options:
+        - `verbose`: Show ALL apps, including padding apps.
+        - `extract_app_binary`: Get the actual app binary in addition to the
+          headers.
         """
         apps = []
 
@@ -1242,7 +1268,31 @@ class TockLoader:
 
             if tbfh.is_valid():
                 if tbfh.is_app():
-                    app = InstalledApp(tbfh, address)
+                    # This app could have a footer. If so, we need to extract it
+                    # and include it.
+                    tbff = None
+                    app_binary = None
+                    if tbfh.has_footer():
+                        footer_start = address + tbfh.get_binary_end_offset()
+                        footer_length = tbfh.get_footer_size()
+                        logging.debug(
+                            "Reading for app footer @{:#x}, {} bytes".format(
+                                footer_start, footer_length
+                            )
+                        )
+                        flash = self.channel.read_range(footer_start, footer_length)
+                        tbff = TBFFooter(tbfh, None, flash)
+
+                    if extract_app_binary:
+                        app_binary_start = address + tbfh.get_header_size()
+                        app_binary_len = (
+                            tbfh.get_binary_end_offset() - tbfh.get_header_size()
+                        )
+                        app_binary = self.channel.read_range(
+                            app_binary_start, app_binary_len
+                        )
+
+                    app = InstalledApp(tbfh, tbff, address, app_binary)
                     apps.append(app)
                 else:
                     app = InstalledPaddingApp(tbfh, address)
@@ -1318,6 +1368,11 @@ class TockLoader:
 
             # Enforce other sizing constraints here.
             app.set_size_constraint(self.app_settings["size_constraint"])
+
+            if self.args.corrupt_tbf:
+                app.corrupt_tbf(
+                    self.args.corrupt_tbf[0], int(self.args.corrupt_tbf[1], 0)
+                )
 
             apps.append(app)
 

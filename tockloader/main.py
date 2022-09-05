@@ -116,9 +116,19 @@ def command_listen(args):
 
 
 def command_list(args):
+    # Optimistically try to verify any included credentials if asked to. We have
+    # to read in the actual key contents.
+    public_keys = None
+    if args.verify_credentials != None:
+        public_keys = []
+        if args.verify_credentials:
+            for key_path in args.verify_credentials:
+                with open(key_path, "rb") as f:
+                    public_keys.append(f.read())
+
     tock_loader = TockLoader(args)
     tock_loader.open()
-    tock_loader.list_apps(args.verbose, args.quiet)
+    tock_loader.list_apps(args.verbose, args.quiet, public_keys)
 
 
 def command_install(args):
@@ -333,9 +343,22 @@ def command_inspect_tab(args):
             title="Which TBF to inspect further?",
         )
         if index < len(tbf_names):
+            app = tab.extract_tbf(tbf_names[index])
+
+            # Optimistically try to verify any included credentials.
+            # We have to read in the actual key contents.
+            public_keys = []
+            if args.verify_credentials:
+                for key_path in args.verify_credentials:
+                    with open(key_path, "rb") as f:
+                        public_keys.append(f.read())
+
+            # We may have a footer in this app, it may be possible to verify
+            # any contained credentials now.
+            app.verify_credentials(public_keys)
+
             print("")
             print("{}:".format(tbf_names[index]))
-            app = tab.extract_tbf(tbf_names[index])
             print(textwrap.indent(str(app.get_header()), "  "))
 
             # If the user asked for the crt0 header, display that for the
@@ -344,6 +367,8 @@ def command_inspect_tab(args):
                 print("  crt0 header")
                 print(textwrap.indent(app.get_crt0_header_str(), "    "))
 
+            print("TBF Footers")
+            print(textwrap.indent(str(app.get_footers()), "  "))
         print("")
 
 
@@ -351,10 +376,10 @@ def command_tbf_delete_tlv(args):
     tabs = collect_tabs(args)
 
     if len(tabs) == 0:
-        raise TockLoaderException("No TABs found, no TBF headers to process")
+        raise TockLoaderException("No TABs found, no TBF to process")
 
     tlvid = args.tlvid
-    logging.status("Removing TLV ID {} from TBF headers...".format(tlvid))
+    logging.status("Removing TLV ID {} from TBF...".format(tlvid))
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
@@ -367,7 +392,7 @@ def command_tbf_delete_tlv(args):
         for i, tbf_name in enumerate(tbf_names):
             if i == index or index == len(tbf_names):
                 app = tab.extract_tbf(tbf_name)
-                app.delete_tbfh_tlv(tlvid)
+                app.delete_tlv(tlvid)
                 tab.update_tbf(app)
 
 
@@ -394,6 +419,67 @@ def command_tbf_modify_tlv(args):
             if i == index or index == len(tbf_names):
                 app = tab.extract_tbf(tbf_name)
                 app.modify_tbfh_tlv(tlvid, field, value)
+                tab.update_tbf(app)
+
+
+def command_tbf_add_credential(args):
+    tabs = collect_tabs(args)
+
+    if len(tabs) == 0:
+        raise TockLoaderException("No TABs found, no TBF footers to process")
+
+    credential_type = args.credential_type
+    logging.status(
+        "Adding Credential type '{}' to the TBF footer...".format(credential_type)
+    )
+
+    # Get keys
+    pub_key = None
+    pri_key = None
+    if args.public_key != None:
+        with open(args.public_key[0], "rb") as f:
+            pub_key = f.read()
+    if args.private_key != None:
+        with open(args.private_key[0], "rb") as f:
+            pri_key = f.read()
+
+    for tab in tabs:
+        # Ask the user which TBF binaries to update.
+        tbf_names = tab.get_tbf_names()
+        index = helpers.menu(
+            tbf_names + ["All"],
+            return_type="index",
+            title="Which TBF to modify TLV?",
+            default_index=len(tbf_names),
+        )
+        for i, tbf_name in enumerate(tbf_names):
+            if i == index or index == len(tbf_names):
+                app = tab.extract_tbf(tbf_name)
+                app.add_credential(credential_type, pub_key, pri_key)
+                tab.update_tbf(app)
+
+
+def command_tbf_delete_credential(args):
+    tabs = collect_tabs(args)
+
+    if len(tabs) == 0:
+        raise TockLoaderException("No TABs found, no TBF footers to process")
+
+    credential_id = args.credential_id
+    logging.status("Removing Credential ID {} from TBF footer...".format(credential_id))
+    for tab in tabs:
+        # Ask the user which TBF binaries to update.
+        tbf_names = tab.get_tbf_names()
+        index = helpers.menu(
+            tbf_names + ["All"],
+            return_type="index",
+            title="Which TBF to modify TLV?",
+            default_index=len(tbf_names),
+        )
+        for i, tbf_name in enumerate(tbf_names):
+            if i == index or index == len(tbf_names):
+                app = tab.extract_tbf(tbf_name)
+                app.delete_credential(credential_id)
                 tab.update_tbf(app)
 
 
@@ -684,6 +770,11 @@ def main():
     install.add_argument(
         "--sticky", help="Make the installed app(s) sticky.", action="store_true"
     )
+    install.add_argument(
+        "--corrupt-tbf",
+        help="Modify the root TBF header when installing an app.",
+        nargs=2,
+    )
 
     update = subparser.add_parser(
         "update",
@@ -715,6 +806,11 @@ def main():
         "-q",
         help="Print just a list of application names",
         action="store_true",
+    )
+    listcmd.add_argument(
+        "--verify-credentials",
+        help="Check credentials with a list of public keys",
+        nargs="*",
     )
 
     info = subparser.add_parser(
@@ -873,6 +969,11 @@ def main():
     inspect_tab.add_argument(
         "--crt0-header", help="Dump crt0 header as well", action="store_true"
     )
+    inspect_tab.add_argument(
+        "--verify-credentials",
+        help="Check credentials with a list of public keys",
+        nargs="+",
+    )
     inspect_tab.add_argument("tab", help="The TAB or TABs to inspect", nargs="*")
 
     tbfdeletetlv = subparser.add_parser(
@@ -894,6 +995,40 @@ def main():
         "value", help="TLV field new value", type=lambda x: int(x, 0)
     )
     tbfmodifytlv.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
+
+    tbfaddcredential = subparser.add_parser(
+        "tbf-add-credential",
+        parents=[parent],
+        help="Add a credential TLV from the TBF footer",
+    )
+    tbfaddcredential.set_defaults(func=command_tbf_add_credential)
+    tbfaddcredential.add_argument(
+        "credential_type",
+        help="Credential type to add",
+        choices=["sha256", "sha384", "sha512", "rsa4096"],
+    )
+    tbfaddcredential.add_argument(
+        "--public-key",
+        help="Public key to use in signature credential",
+        nargs=1,
+    )
+    tbfaddcredential.add_argument(
+        "--private-key",
+        help="Private key to use in signing credential",
+        nargs=1,
+    )
+    tbfaddcredential.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
+
+    tbfdeletecredential = subparser.add_parser(
+        "tbf-delete-credential",
+        parents=[parent],
+        help="Delete a credential TLV from the TBF footer",
+    )
+    tbfdeletecredential.set_defaults(func=command_tbf_delete_credential)
+    tbfdeletecredential.add_argument(
+        "credential_id", help="Credential type number", type=lambda x: int(x, 0)
+    )
+    tbfdeletecredential.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
 
     list_known_boards = subparser.add_parser(
         "list-known-boards",

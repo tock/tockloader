@@ -1,5 +1,13 @@
+import copy
+import hashlib
 import logging
 import struct
+import traceback
+
+import Crypto
+from Crypto.Signature import pkcs1_15
+from Crypto.PublicKey import RSA
+from Crypto.Hash import SHA512
 
 from .exceptions import TockLoaderException
 
@@ -27,6 +35,19 @@ class TBFTLVUnknown(TBFTLV):
     def pack(self):
         out = struct.pack("<HH", self.tipe, len(self.buffer))
         out += self.buffer
+
+        # Need to ensure that whatever this header is that it is a multiple
+        # of 4 in length.
+        padding = (4 - (len(out) % 4)) % 4
+        out += b"\0" * padding
+
+        return out
+
+    def __str__(self):
+        out = "TLV: UNKNOWN ({})\n".format(self.tipe)
+        out += "  buffer: {}\n".format(
+            "".join(map(lambda x: "{:02x}".format(x), self.buffer))
+        )
         return out
 
 
@@ -73,6 +94,76 @@ class TBFTLVMain(TBFTLV):
             "init_fn_offset": self.init_fn_offset,
             "protected_size": self.protected_size,
             "minimum_ram_size": self.minimum_ram_size,
+        }
+
+
+class TBFTLVProgram(TBFTLV):
+    TLVID = 0x09
+
+    def __init__(self, buffer, total_size=0):
+        """
+        Create a Program TLV. To create an empty program TLV, pass `None` in as
+        the buffer and the total size of the app in `total_size`.
+        """
+        self.valid = False
+
+        if buffer == None:
+            self.init_fn_offset = 0
+            self.protected_size = 0
+            self.minimum_ram_size = 0
+            self.binary_end_offset = total_size
+            self.app_version = 0
+            self.valid = True
+
+        elif len(buffer) == 20:
+            base = struct.unpack("<IIIII", buffer)
+            self.init_fn_offset = base[0]
+            self.protected_size = base[1]
+            self.minimum_ram_size = base[2]
+            self.binary_end_offset = base[3]
+            self.app_version = base[4]
+            self.valid = True
+
+    def pack(self):
+        return struct.pack(
+            "<HHIIIII",
+            self.TLVID,
+            20,
+            self.init_fn_offset,
+            self.protected_size,
+            self.minimum_ram_size,
+            self.binary_end_offset,
+            self.app_version,
+        )
+
+    def __str__(self):
+        out = "TLV: Program ({})\n".format(self.TLVID)
+        out += "  {:<20}: {:>10} {:>#12x}\n".format(
+            "init_fn_offset", self.init_fn_offset, self.init_fn_offset
+        )
+        out += "  {:<20}: {:>10} {:>#12x}\n".format(
+            "protected_size", self.protected_size, self.protected_size
+        )
+        out += "  {:<20}: {:>10} {:>#12x}\n".format(
+            "minimum_ram_size", self.minimum_ram_size, self.minimum_ram_size
+        )
+        out += "  {:<20}: {:>10} {:>#12x}\n".format(
+            "binary_end_offset", self.binary_end_offset, self.binary_end_offset
+        )
+        out += "  {:<20}: {:>10} {:>#12x}\n".format(
+            "app_version", self.app_version, self.app_version
+        )
+        return out
+
+    def object(self):
+        return {
+            "type": "program",
+            "id": self.TLVID,
+            "init_fn_offset": self.init_fn_offset,
+            "protected_size": self.protected_size,
+            "minimum_ram_size": self.minimum_ram_size,
+            "binary_end_offset": self.binary_end_offset,
+            "app_version": self.app_version,
         }
 
 
@@ -289,6 +380,7 @@ class TBFHeader:
     HEADER_TYPE_PIC_OPTION_1 = 0x04
     HEADER_TYPE_FIXED_ADDRESSES = 0x05
     HEADER_TYPE_KERNEL_VERSION = 0x08
+    HEADER_TYPE_PROGRAM = 0x09
 
     def __init__(self, buffer):
         # Flag that records if this TBF header is valid. This is calculated once
@@ -387,6 +479,10 @@ class TBFHeader:
                             if remaining >= 12 and length == 12:
                                 self.tlvs.append(TBFTLVMain(buffer[0:12]))
 
+                        elif tipe == self.HEADER_TYPE_PROGRAM:
+                            if remaining >= 20 and length == 20:
+                                self.tlvs.append(TBFTLVProgram(buffer[0:20]))
+
                         elif tipe == self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
                             if remaining >= length:
                                 self.tlvs.append(
@@ -431,6 +527,7 @@ class TBFHeader:
                                 self.fields["checksum"], checksum
                             )
                         )
+                        self.valid = True
 
                 else:
                     # This is just padding and not an app.
@@ -540,8 +637,8 @@ class TBFHeader:
         else:
             header_size = self.fields["header_size"]
 
-            main_tlv = self._get_tlv(self.HEADER_TYPE_MAIN)
-            protected_size = main_tlv.protected_size
+            binary_tlv = self._get_binary_tlv()
+            protected_size = binary_tlv.protected_size
 
             return header_size + protected_size
 
@@ -562,6 +659,16 @@ class TBFHeader:
             )
         else:
             return ""
+
+    def get_app_version(self):
+        """
+        Return the version number of the application, if there is one.
+        """
+        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        if tlv:
+            return tlv.app_version
+        else:
+            return 0
 
     def has_fixed_addresses(self):
         """
@@ -597,6 +704,40 @@ class TBFHeader:
         else:
             return None
 
+    def has_footer(self):
+        """
+        Return true if this TBF has a footer.
+        """
+        # For a TBF to have a footer, it must have a program header, and the
+        # binary end offset must be less than the total length (leaving room for
+        # a footer).
+        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        if tlv:
+            footer_start = tlv.binary_end_offset
+            if footer_start < self.fields["total_size"]:
+                return True
+
+        return False
+
+    def get_binary_end_offset(self):
+        """
+        Return at what offset the application binary ends. Remaining space
+        is taken up by footers.
+        """
+        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        if tlv:
+            return tlv.binary_end_offset
+        else:
+            return self.fields["total_size"]
+
+    def get_footer_size(self):
+        """
+        Return the size in bytes of the footer. If no footer is included this
+        will return 0.
+        """
+        footer_start = self.get_binary_end_offset()
+        return self.fields["total_size"] - footer_start
+
     def delete_tlv(self, tlvid):
         """
         Delete a particular TLV by ID if it exists.
@@ -618,10 +759,16 @@ class TBFHeader:
         # Now update the base information since we have changed the length.
         self.fields["header_size"] -= size
 
+        # Support both Main and Program.
+        tlv_main = self._get_tlv(self.HEADER_TYPE_MAIN)
+        tlv_program = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+
         # Increase the protected size so that the actual application
         # binary hasn't moved.
-        tlv_main = self._get_tlv(self.HEADER_TYPE_MAIN)
-        tlv_main.protected_size += size
+        if tlv_main:
+            tlv_main.protected_size += size
+        if tlv_program:
+            tlv_program.protected_size += size
         #####
         ##### NOTE! Based on how things are implemented in the Tock
         ##### universe, it seems we also need to increase the
@@ -630,7 +777,10 @@ class TBFHeader:
         ##### the actual application binary (like the documentation
         ##### indicates it should be).
         #####
-        tlv_main.init_fn_offset += size
+        if tlv_main:
+            tlv_main.init_fn_offset += size
+        if tlv_program:
+            tlv_program.init_fn_offset += size
 
     def modify_tlv(self, tlvid, field, value):
         """
@@ -651,6 +801,12 @@ class TBFHeader:
                     setattr(tlv, field, value)
                     self.modified = True
 
+    def corrupt_tbf(self, field_name, value):
+        """
+        Give a field name and value to set when creating the binary.
+        """
+        self.corrupt_tbf_base = (field_name, value)
+
     def adjust_starting_address(self, address):
         """
         Alter this TBF header so the fixed address in flash will be correct
@@ -660,23 +816,25 @@ class TBFHeader:
         # meaningless.
         tlv_fixed_addr = self._get_tlv(self.HEADER_TYPE_FIXED_ADDRESSES)
         if tlv_fixed_addr:
-            tlv_main = self._get_tlv(self.HEADER_TYPE_MAIN)
+            tlv_program = self._get_binary_tlv()
             # Now see if the header is already the right length.
             if (
-                address + self.fields["header_size"] + tlv_main.protected_size
+                address + self.fields["header_size"] + tlv_program.protected_size
                 != tlv_fixed_addr.fixed_address_flash
             ):
                 # Make sure we need to make the header bigger
                 if (
-                    address + self.fields["header_size"] + tlv_main.protected_size
+                    address + self.fields["header_size"] + tlv_program.protected_size
                     < tlv_fixed_addr.fixed_address_flash
                 ):
                     # The header is too small, so we can fix it.
                     delta = tlv_fixed_addr.fixed_address_flash - (
-                        address + self.fields["header_size"] + tlv_main.protected_size
+                        address
+                        + self.fields["header_size"]
+                        + tlv_program.protected_size
                     )
                     # Increase the protected size to match this.
-                    tlv_main.protected_size += delta
+                    tlv_program.protected_size += delta
 
                     #####
                     ##### NOTE! Based on how things are implemented in the Tock
@@ -686,7 +844,7 @@ class TBFHeader:
                     ##### the actual application binary (like the documentation
                     ##### indicates it should be).
                     #####
-                    tlv_main.init_fn_offset += delta
+                    tlv_program.init_fn_offset += delta
 
                 else:
                     # The header actually needs to shrink, which we can't do.
@@ -726,12 +884,19 @@ class TBFHeader:
             buf += struct.pack("<I", checksum)
 
         elif self.version == 2:
+
+            base = copy.deepcopy(self.fields)
+            base["version"] = self.version
+
+            if hasattr(self, "corrupt_tbf_base"):
+                base[self.corrupt_tbf_base[0]] = self.corrupt_tbf_base[1]
+
             buf = struct.pack(
                 "<HHIII",
-                self.version,
-                self.fields["header_size"],
-                self.fields["total_size"],
-                self.fields["flags"],
+                base["version"],
+                base["header_size"],
+                base["total_size"],
+                base["flags"],
                 0,
             )
             if self.app:
@@ -742,15 +907,15 @@ class TBFHeader:
             nbuf[:] = buf
             buf = nbuf
 
-            checksum = self._checksum(buf)
+            checksum = self._checksum(buf[0 : base["header_size"]])
             struct.pack_into("<I", buf, 12, checksum)
 
-            tlv_main = self._get_tlv(self.HEADER_TYPE_MAIN)
-            if tlv_main and tlv_main.protected_size > 0:
+            tlv_binary = self._get_binary_tlv()
+            if tlv_binary and tlv_binary.protected_size > 0:
                 # Add padding to this header binary to account for the
                 # protected region between the header and the application
                 # binary.
-                buf += b"\0" * tlv_main.protected_size
+                buf += b"\0" * tlv_binary.protected_size
 
         return buf
 
@@ -770,6 +935,19 @@ class TBFHeader:
             checksum ^= struct.unpack("<I", buffer[i : i + 4])[0]
 
         return checksum
+
+    def _get_binary_tlv(self):
+        """
+        Get the TLV for the binary header, whether it's a program or main.
+        """
+        tlv = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        if tlv == None:
+            tlv = self._get_tlv(self.HEADER_TYPE_MAIN)
+            if tlv == None:
+                # If we don't have either a program or main header then we use
+                # an empty program header.
+                tlv = TBFTLVProgram(None, self.get_app_size())
+        return tlv
 
     def _get_tlv(self, tlvid):
         """
@@ -823,8 +1001,22 @@ class TBFHeader:
             "sticky", ["No", "Yes"][(self.fields["flags"] >> 1) & 0x01]
         )
 
+        # Base header takes 16 bytes.
+        index = 16
+
         for tlv in self.tlvs:
-            out += str(tlv)
+            # Format the offset so we know the size of each TLV.
+            offset = "[{:<#5x}] ".format(index)
+            # Create the base TLV format.
+            tlv_str = str(tlv)
+            # Insert the address at the end of the first line of the TLV str.
+            lines = tlv_str.split("\n")
+            lines[0] = "{:<48}{}".format(lines[0], offset)
+            # Recreate string.
+            out += "\n".join(lines)
+
+            # Increment the byte index with the size of the TLV.
+            index += tlv.get_size()
 
         return out
 
@@ -874,3 +1066,486 @@ class TBFHeaderPadding(TBFHeader):
         self.fields["total_size"] = size
         self.fields["flags"] = 0
         self.fields["checksum"] = self._checksum(self.get_binary())
+
+
+class TBFFooterTLVCredentials(TBFTLV):
+    """
+    Represent a Credentials TLV in the footer of a TBF.
+    """
+
+    TLVID = 0x80
+
+    CREDENTIALS_TYPE_RESERVED = 0x00
+    CREDENTIALS_TYPE_CLEARTEXTID = 0x01
+    CREDENTIALS_TYPE_RSA3072KEY = 0x02
+    CREDENTIALS_TYPE_RSA4096KEY = 0x03
+    CREDENTIALS_TYPE_RSA3072KEYID = 0x04
+    CREDENTIALS_TYPE_RSA4096KEYID = 0x05
+    CREDENTIALS_TYPE_SHA256 = 0x06
+    CREDENTIALS_TYPE_SHA384 = 0x07
+    CREDENTIALS_TYPE_SHA512 = 0x08
+
+    def __init__(self, buffer, integrity_blob):
+
+        # Valid means the TLV parsed correctly.
+        self.valid = False
+        # Verified means tockloader was able to double check the credential and
+        # verify it matches the app. Three options are:
+        # - `unknown`: cannot verify either way
+        # - `yes`: verified
+        # - `no`: verification failed
+        self.verified = "unknown"
+
+        # This TLV requires the first field to be the credentials type. Extract
+        # that, then verify the remainder of the buffer is as we expect.
+        if len(buffer) >= 4:
+            credentials_type = struct.unpack("<I", buffer[0:4])[0]
+
+            # Check each credentials type.
+            if credentials_type == self.CREDENTIALS_TYPE_RESERVED:
+                self.credentials_type = self.CREDENTIALS_TYPE_RESERVED
+                self.buffer = buffer[4:]
+                # We accept any size of reserved area for future credentials.
+                self.valid = True
+
+            elif credentials_type == self.CREDENTIALS_TYPE_SHA256:
+                self.credentials_type = self.CREDENTIALS_TYPE_SHA256
+                self.buffer = buffer[4:]
+                if len(self.buffer) == 32:
+                    # SHA256 is 256 bits (32 bytes) long.
+                    self.valid = True
+                self.verify([], integrity_blob)
+
+            elif credentials_type == self.CREDENTIALS_TYPE_SHA384:
+                self.credentials_type = self.CREDENTIALS_TYPE_SHA384
+                self.buffer = buffer[4:]
+                if len(self.buffer) == 48:
+                    # SHA384 is 384 bits (48 bytes) long.
+                    self.valid = True
+                self.verify([], integrity_blob)
+
+            elif credentials_type == self.CREDENTIALS_TYPE_SHA512:
+                self.credentials_type = self.CREDENTIALS_TYPE_SHA512
+                self.buffer = buffer[4:]
+                if len(self.buffer) == 64:
+                    # SHA512 is 512 bits (64 bytes) long.
+                    self.valid = True
+                self.verify([], integrity_blob)
+
+            elif credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
+                self.credentials_type = self.CREDENTIALS_TYPE_RSA4096KEY
+                self.buffer = buffer[4:]
+
+                if len(self.buffer) == 1024:
+                    # RSA4904 public key is 512 bytes, signature is 512 bytes.
+                    self.valid = True
+
+            else:
+                logging.warning("Unknown credential type in TBF footer TLV.")
+                logging.warning("You might want to update tockloader.")
+
+    def _credentials_type_to_str(self):
+        names = [
+            "Reserved",
+            "ClearTextID",
+            "RSA3072KEY",
+            "RSA4096KEY",
+            "RSA3072KEYID",
+            "RSA4096KEYID",
+            "SHA256",
+            "SHA384",
+            "SHA512",
+        ]
+
+        name = (
+            names[self.credentials_type]
+            if self.credentials_type < len(names)
+            else "Unknown"
+        )
+        return name
+
+    def _credentials_name_to_id(credential_type):
+        ids = {
+            "reserved": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RESERVED,
+            "clear_text_id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_CLEARTEXTID,
+            "rsa3072": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA3072KEY,
+            "rsa4096": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA4096KEY,
+            "rsa3072id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA3072KEYID,
+            "rsa4096id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA4096KEYID,
+            "sha256": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA256,
+            "sha384": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA384,
+            "sha512": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA512,
+        }
+        return ids.get(credential_type)
+
+    def verify(self, keys, integrity_blob):
+        if integrity_blob == None:
+            # If we don't have the actual binary then we can't verify any
+            # credentials. This can happen if the app came from a board and we
+            # didn't read the entire app binary.
+            return
+
+        if self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
+            hash = hashlib.sha256(integrity_blob).digest()
+            if self.buffer == hash:
+                self.verified = "yes"
+            else:
+                self.verified = "no"
+                logging.warning("SHA256 hash in footer does not match binary.")
+
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA384:
+            hash = hashlib.sha384(integrity_blob).digest()
+            if self.buffer == hash:
+                self.verified = "yes"
+            else:
+                self.verified = "no"
+                logging.warning("SHA384 hash in footer does not match binary.")
+
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA512:
+            hash = hashlib.sha512(integrity_blob).digest()
+            if self.buffer == hash:
+                self.verified = "yes"
+            else:
+                self.verified = "no"
+                logging.warning("SHA512 hash in footer does not match binary.")
+
+        elif self.credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
+            logging.debug("Verifying the RSA4096KEY credential.")
+
+            # Unpack the credential buffer.
+            pub_key_n_bytes = self.buffer[0:512]
+            signature = self.buffer[512:1024]
+
+            # Need an integer for n to compare to the public keys.
+            pub_key_n = int.from_bytes(pub_key_n_bytes, "big")
+
+            # First see if there is a key that matches. If no keys match then we
+            # can't verify this credential one way or another.
+            for key in keys:
+
+                # Compare the n value in the credential to the n included in the
+                # public key passed to tockloader.
+                if pub_key_n == key.n:
+                    # We found a key that matches. Get the hash of the main app
+                    # and then check the signature.
+                    hash = Crypto.Hash.SHA512.new(integrity_blob)
+
+                    try:
+                        Crypto.Signature.pkcs1_15.new(key).verify(hash, signature)
+                        # Signature verified!
+                        self.verified = "yes"
+                    except:
+                        # We were able to verify that the signature does not
+                        # match.
+                        self.verified = "no"
+
+                    # Only try one matching key.
+                    break
+
+    def shrink(self, num_bytes):
+        """
+        Shrink a reserved credential by the number of bytes specified. Do
+        nothing if this is not a reserved credential.
+        """
+        if self.credentials_type == self.CREDENTIALS_TYPE_RESERVED:
+            if len(self.buffer) > num_bytes:
+                self.buffer = self.buffer[0 : -1 * num_bytes]
+            else:
+                self.buffer = bytearray()
+
+    def pack(self):
+        buf = struct.pack(
+            "<HHI",
+            self.TLVID,
+            4 + len(self.buffer),
+            self.credentials_type,
+        )
+
+        return buf + self.buffer
+
+    def __str__(self):
+        verified = ""
+        if self.verified == "yes":
+            verified = " ✓ verified"
+        elif self.verified == "no":
+            verified = " ✗ verified failed"
+
+        out = "Footer TLV: Credentials ({})\n".format(self.TLVID)
+        out += "  Type: {} ({}){}\n".format(
+            self._credentials_type_to_str(), self.credentials_type, verified
+        )
+        out += "  Length: {}\n".format(len(self.buffer))
+        # out += "  Data: "
+        # out += " ".join("{:02x}".format(x) for x in self.buffer)
+        # out += "\n\n"
+        return out
+
+    def object(self):
+        return {
+            "type": "credential",
+            "id": self.TLVID,
+            "credential_type": self._credentials_type_to_str(),
+            "length": len(self.buffer),
+            "verified": self.verified,
+        }
+
+
+class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
+    def __init__(self, credential_id):
+        self.credentials_type = credential_id
+        self.valid = False
+
+        if self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
+            self.buffer = bytearray(64)
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA384:
+            self.buffer = bytearray(96)
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA512:
+            self.buffer = bytearray(128)
+        elif self.credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
+            self.buffer = bytearray(1024)
+        else:
+            self.buffer = bytearray()
+
+    def compute(self, public_key, private_key, integrity_blob):
+        """
+        Actually generate the credential.
+        """
+        if self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
+            self.buffer = hashlib.sha256(integrity_blob).digest()
+            self.valid = True
+            self.verified = "yes"
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA384:
+            self.buffer = hashlib.sha384(integrity_blob).digest()
+            self.valid = True
+            self.verified = "yes"
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA512:
+            self.buffer = hashlib.sha512(integrity_blob).digest()
+            self.valid = True
+            self.verified = "yes"
+        elif self.credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
+            # Load keys to Crypto objects.
+            pub_key = Crypto.PublicKey.RSA.importKey(public_key)
+            pri_key = Crypto.PublicKey.RSA.importKey(private_key)
+            # Compute hash and signature.
+            hash = Crypto.Hash.SHA512.new(integrity_blob)
+            signature = Crypto.Signature.pkcs1_15.new(pri_key).sign(hash)
+            # Store the pub key n value and the signature.
+            self.buffer = pub_key.n.to_bytes(512, "big") + signature
+        else:
+            pass
+
+
+class TBFFooter:
+    """
+    Represent an optional footer after the application binary in the TBF.
+    """
+
+    FOOTER_TYPE_CREDENTIALS = 0x80
+
+    def __init__(self, tbfh, app_binary, buffer):
+        # Use the same version as the header. Needed because a future version
+        # of the header may define a different footer structure.
+        self.version = tbfh.version
+        # List of all TLVs in the footer.
+        self.tlvs = []
+        # Keep track if tockloader has modified the footer.
+        self.modified = False
+
+        # So we can check the credentials, create the binary blob covered by
+        # integrity if it was provided to us. If the app came from a board then
+        # we may not have the app binary to use.
+        if app_binary != None:
+            integrity_blob = tbfh.get_binary() + app_binary
+        else:
+            integrity_blob = None
+
+        # Iterate all TLVs and add to list.
+        position = 0
+        while position < len(buffer):
+            base = struct.unpack("<HH", buffer[0:4])
+            buffer = buffer[4:]
+            tlv_type = base[0]
+            tlv_length = base[1]
+
+            remaining = len(buffer)
+            if tlv_type == self.FOOTER_TYPE_CREDENTIALS:
+                if remaining >= tlv_length:
+                    self.tlvs.append(
+                        TBFFooterTLVCredentials(buffer[0:tlv_length], integrity_blob)
+                    )
+
+            buffer = buffer[tlv_length:]
+
+    def delete_tlv(self, tlvid):
+        """
+        Delete a particular TLV by ID if it exists.
+        """
+        indices = []
+        for i, tlv in enumerate(self.tlvs):
+            if tlv.get_tlvid() == tlvid:
+                # Reverse the list
+                indices.insert(0, i)
+        # Pop starting with the last match
+        for index in indices:
+            logging.debug("Removing TLV at index {}".format(index))
+            self.tlvs.pop(index)
+            self.modified = True
+
+    def add_credential(self, credential_type, public_key, private_key, integrity_blob):
+        """
+        Add credential by credential type name.
+        """
+        logging.debug("Adding credential '{}' to TBF fooer.".format(credential_type))
+        credential_id = TBFFooterTLVCredentials._credentials_name_to_id(credential_type)
+        if credential_id == None:
+            raise TockLoaderException(
+                'Unknown credential type "{}"'.format(credential_type)
+            )
+
+        new_credential = TBFFooterTLVCredentialsConstructor(credential_id)
+
+        # Now we have to decide how to actually add this credential. There are
+        # four possible cases:
+        #
+        # 1. There is no footer. We can simply add a footer, include the
+        #    credential there, and update the TBF header as needed.
+        #
+        # 2. There is a footer, and it contains a reserved section, and that
+        #    reserved section is long enough to include the credential we are
+        #    trying to add. We can shorten the reserved section and add our
+        #    credential.
+        #
+        # 3. There is a footer, and it contains a reserved section, and that
+        #    reserved section is NOT long enough to include the credential
+        #    trying to add. We can't add the credential and instead fail.
+        #
+        # 4. There is a footer, and it does not contain a reserved section. We
+        #    have nowhere to add the credential (since we can't change the TBF
+        #    header due to the existing credential) and fail.
+
+        if len(self.tlvs) == 0:
+            # For now, we consider this the case where there is no footer. It
+            # may make sense to determine this differently but, concluding that
+            # if there are no tlvs then there is no footer should work for now.
+            #
+            # CASE 1
+            raise TockLoaderException(
+                "Adding credential without existing footer currently not implemented."
+            )
+        else:
+            reserved_credential = None
+            for tlv in self.tlvs:
+                if tlv.get_tlvid() == self.FOOTER_TYPE_CREDENTIALS:
+                    if (
+                        tlv.credentials_type
+                        == TBFFooterTLVCredentials.CREDENTIALS_TYPE_RESERVED
+                    ):
+                        reserved_credential = tlv
+                        break
+
+            if reserved_credential != None:
+                # Check if we have room in the reserved region for the new
+                # credential.
+                if reserved_credential.get_size() > new_credential.get_size():
+                    # We have room.
+                    #
+                    # CASE 2
+                    new_credential.compute(public_key, private_key, integrity_blob)
+
+                    # Need to shrink the reservation credential. Adding a
+                    # credential requires at least 6 bytes, make sure we have
+                    # room for 6 bytes.
+                    if reserved_credential.get_size() >= (
+                        new_credential.get_size() + 6
+                    ):
+                        # We can simply shrink the reservation credential and
+                        # then add our new credential.
+                        reserved_credential.shrink(new_credential.get_size())
+                        self.tlvs.insert(len(self.tlvs) - 1, new_credential)
+                    else:
+                        # We have to remove the reserved credential.
+                        self.tlvs.pop(len(self.tlvs) - 1)
+                        self.tlvs.append(new_credential)
+
+                else:
+                    # Reserved area not large enough.
+                    #
+                    # CASE 3
+                    raise TockLoaderException(
+                        "Unable to add credential. Not enough reserved space."
+                    )
+            else:
+                # No reserved space.
+                #
+                # CASE 4
+                raise TockLoaderException(
+                    "Unable to add credential. No reserved space."
+                )
+
+    def delete_credential(self, credential_id):
+        """
+        Remove credential by credential id.
+        """
+        indices = []
+        for i, tlv in enumerate(self.tlvs):
+            if tlv.get_tlvid() == self.FOOTER_TYPE_CREDENTIALS:
+                if tlv.credentials_type == credential_id:
+                    # Reverse the list
+                    indices.insert(0, i)
+        # Pop starting with the last match
+        for index in indices:
+            logging.debug("Removing credential TLV at index {}".format(index))
+            self.tlvs.pop(index)
+            self.modified = True
+
+    def verify_credentials(self, public_keys, integrity_blob):
+        """
+        Check credential TLVs with an optional array of public keys (stored as
+        binary arrays).
+        """
+        # Load all provided keys as Crypto objects.
+        keys = []
+        if public_keys:
+            for public_key in public_keys:
+                key = Crypto.PublicKey.RSA.importKey(public_key)
+                keys.append(key)
+
+        for tlv in self.tlvs:
+            tlv.verify(keys, integrity_blob)
+
+    def get_binary(self):
+        """
+        Get the TBF footer in a bytes array.
+        """
+        buf = bytearray()
+        if self.version == 2:
+            for tlv in self.tlvs:
+                buf += tlv.pack()
+
+        return buf
+
+    def get_size(self):
+        footer_size = 0
+        for tlv in self.tlvs:
+            footer_size += tlv.get_size()
+        return footer_size
+
+    def __str__(self):
+        footer_size = self.get_size()
+
+        out = "Footer\n"
+        out += "{:<22}: {:>10} {:>#12x}\n".format(
+            "  footer_size", footer_size, footer_size
+        )
+
+        for tlv in self.tlvs:
+            out += str(tlv)
+        return out
+
+    def object(self):
+        out = {"version": self.version, "tlvs": []}
+
+        for tlv in self.tlvs:
+            out["tlvs"].append(tlv.object())
+
+        return out

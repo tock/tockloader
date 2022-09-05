@@ -12,8 +12,9 @@ class InstalledApp:
     necessary if the app needs to be moved.
     """
 
-    def __init__(self, tbfh, address, app_binary=None):
-        self.tbfh = tbfh  # A `tbfh` object representing this app's header.
+    def __init__(self, tbfh, tbff, address, app_binary=None):
+        self.tbfh = tbfh  # A `TBFHeader` object representing this app's header.
+        self.tbff = tbff  # A `TBFFooter` object representing this app's footer.
         self.app_binary = app_binary  # A binary array of the app _after_ the header.
         self.address = address  # Where on the board this app currently is.
 
@@ -30,6 +31,12 @@ class InstalledApp:
         Return the app name.
         """
         return self.tbfh.get_app_name()
+
+    def get_app_version(self):
+        """
+        Return the version number stored in a program header.
+        """
+        return self.tbfh.get_app_version()
 
     def is_app(self):
         """
@@ -192,6 +199,14 @@ class InstalledApp:
         """
         return self.address
 
+    def verify_credentials(self, public_keys):
+        """
+        Using an optional array of public_key binaries, try to check any
+        contained credentials to verify they are valid.
+        """
+        integrity_blob = self.tbfh.get_binary() + self.app_binary
+        self.tbff.verify_credentials(public_keys, integrity_blob)
+
     def has_app_binary(self):
         """
         Whether we have the actual application binary for this app.
@@ -273,6 +288,7 @@ class InstalledApp:
 
         out = ""
         out += "Name:                  {}\n".format(self.get_name())
+        out += "Version:               {}\n".format(self.get_app_version())
         out += "Enabled:               {}\n".format(self.tbfh.is_enabled())
         out += "Sticky:                {}\n".format(self.tbfh.is_sticky())
         out += "Total Size in Flash:   {} bytes\n".format(self.get_size())
@@ -280,6 +296,8 @@ class InstalledApp:
         if verbose:
             out += "Address in Flash:      {:#x}\n".format(offset)
             out += textwrap.indent(str(self.tbfh), "  ")
+            if self.tbff:
+                out += textwrap.indent(str(self.tbff), "  ")
         return out
 
     def object(self):
@@ -293,6 +311,7 @@ class InstalledApp:
             "size": self.get_size(),
             "address": self.address,
             "header": self.tbfh.object(),
+            "footer": self.tbff.object(),
         }
 
     def __str__(self):

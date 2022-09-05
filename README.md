@@ -125,6 +125,18 @@ Print which boards tockloader has default settings for built-in.
 
 Set the jump address the bootloader uses for the location of the kernel.
 
+#### `tockloader tbf-delete-tlv [TLVID]`
+
+Remove a TLV (by ID) from the TBF.
+
+#### `tockloader tbf-modify-tlv [TLVID] [field] [value]`
+
+Set a specific field (by name) to the given value in a specific TLV (by ID).
+
+#### `tockloader tbf-delete-credential [credential ID]`
+
+Remove a specific credential (by credential ID) from the TBF footer.
+
 
 Specifying the Board
 --------------------
@@ -226,6 +238,19 @@ operation based on the requirements of a particular hardware platform.
   bundle using only a single flash command. This will require that anytime any
   app changes in any way (e.g. its header changes or the app is updated or a new
   app is installed) all apps are re-written.
+
+Credentials and Integrity Support
+---------------------------------
+
+Tockloader supports working with credentials stored in the TBF footer.
+Tockloader will attempt to verify that stored credentials are valid for the
+given TBF. For credentials that require keys to verify, Tockloader can check the
+credential using:
+
+    $ tockloader inspect-tab --verify-credentials [list of key files]
+    example:
+    $ tockloader inspect-tab --verify-credentials tockkey.public.der
+
 
 Features
 --------

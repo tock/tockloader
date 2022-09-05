@@ -13,7 +13,7 @@ class TabTbf:
     This correlates to a specific .tbf file storing a .tab file.
     """
 
-    def __init__(self, filename, tbfh, binary):
+    def __init__(self, filename, tbfh, binary, tbff):
         """
         - `filename` is the identifier used in the .tab.
         - `tbfh` is the header object
@@ -22,6 +22,7 @@ class TabTbf:
         self.filename = filename
         self.tbfh = tbfh
         self.binary = binary
+        self.tbff = tbff
 
 
 class TabApp:
@@ -87,6 +88,14 @@ class TabApp:
             return self.tbfs[0].tbfh
         return None
 
+    def get_footers(self):
+        """
+        Return the footers if there are any.
+        """
+        if len(self.tbfs) == 1:
+            return self.tbfs[0].tbff
+        return None
+
     def get_size(self):
         """
         Return the total size (including TBF header) of this app in bytes.
@@ -97,6 +106,17 @@ class TabApp:
             return self.tbfs[0].tbfh.get_app_size()
         else:
             raise TockLoaderException("Size only valid with one TBF")
+
+    def get_app_version(self):
+        """
+        Return the version number stored in a program header.
+
+        This is only valid if there is only one TBF.
+        """
+        if len(self.tbfs) == 1:
+            return self.tbfs[0].tbfh.get_version()
+        else:
+            raise TockLoaderException("Version number only valid with one TBF")
 
     def set_size(self, size):
         """
@@ -279,12 +299,13 @@ class TabApp:
         else:
             return None
 
-    def delete_tbfh_tlv(self, tlvid):
+    def delete_tlv(self, tlvid):
         """
-        Delete a particular TLV from each TBF header.
+        Delete a particular TLV from each TBF header and footer.
         """
         for tbf in self.tbfs:
             tbf.tbfh.delete_tlv(tlvid)
+            tbf.tbff.delete_tlv(tlvid)
 
     def modify_tbfh_tlv(self, tlvid, field, value):
         """
@@ -292,6 +313,39 @@ class TabApp:
         """
         for tbf in self.tbfs:
             tbf.tbfh.modify_tlv(tlvid, field, value)
+
+    def add_credential(self, credential_type, public_key, private_key):
+        """
+        Add a credential by type to the TBF footer.
+        """
+        for tbf in self.tbfs:
+            integrity_blob = tbf.tbfh.get_binary() + tbf.binary
+            tbf.tbff.add_credential(
+                credential_type, public_key, private_key, integrity_blob
+            )
+
+    def delete_credential(self, credential_id):
+        """
+        Remove a credential by ID from the TBF footer.
+        """
+        for tbf in self.tbfs:
+            tbf.tbff.delete_credential(credential_id)
+
+    def verify_credentials(self, public_keys):
+        """
+        Using an optional array of public_key binaries, try to check any
+        contained credentials to verify they are valid.
+        """
+        for tbf in self.tbfs:
+            integrity_blob = tbf.tbfh.get_binary() + tbf.binary
+            tbf.tbff.verify_credentials(public_keys, integrity_blob)
+
+    def corrupt_tbf(self, field_name, value):
+        """
+        Modify the TBF root header just before installing the application.
+        """
+        for tbf in self.tbfs:
+            tbf.tbfh.corrupt_tbf(field_name, value)
 
     def has_app_binary(self):
         """
@@ -313,15 +367,16 @@ class TabApp:
         if len(self.tbfs) == 1:
             tbfh = self.tbfs[0].tbfh
             app_binary = self.tbfs[0].binary
+            tbff = self.tbfs[0].tbff
 
             # If the TBF is not compiled for a fixed address, then we can just
             # use it.
             if tbfh.has_fixed_addresses() == False:
-                binary = tbfh.get_binary() + app_binary
+                binary = tbfh.get_binary() + app_binary + tbff.get_binary()
 
             else:
                 tbfh.adjust_starting_address(address)
-                binary = tbfh.get_binary() + app_binary
+                binary = tbfh.get_binary() + app_binary + tbff.get_binary()
 
             # Check that the binary is not longer than it is supposed to be.
             # This might happen if the size was changed, but any code using this
@@ -343,7 +398,7 @@ class TabApp:
         """
         out = []
         for tbf in self.tbfs:
-            binary = tbf.tbfh.get_binary() + tbf.binary
+            binary = tbf.tbfh.get_binary() + tbf.binary + tbf.tbff.get_binary()
             # Truncate in case the header grew and elf2tab padded the binary.
             binary = self._truncate_binary(binary)
             out.append((tbf.filename, binary))
@@ -389,6 +444,7 @@ class TabApp:
         """
         out = ""
         out += "Name:                  {}\n".format(self.get_name())
+        out += "Version:               {}\n".format(self.get_version())
         out += "Total Size in Flash:   {} bytes\n".format(self.get_size())
 
         if verbose:

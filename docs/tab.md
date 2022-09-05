@@ -23,7 +23,8 @@ def extract_app(self, arch)
 
 
 
-Return a `TabApp` object from this TAB. You must specify the desired MCU
+Return a `TabApp` object from this TAB, or `None` if the requested
+architecture is not present in the TAB. You must specify the desired MCU
 architecture so the correct App object can be retrieved. Note that an
 architecture may have multiple TBF files if the app is compiled for a
 fixed address, and multiple fixed address versions are included in the

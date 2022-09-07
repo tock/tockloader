@@ -273,6 +273,15 @@ class BoardInterface:
                            source [find target/nrf52.cfg];",
             },
         },
+        "particle_boron": {
+            "description": "nRF52-based cellular enabled development kit",
+            "arch": "cortex-m4",
+            "page_size": 4096,
+            "no_attribute_table": True,
+            "jlink": {
+                "device": "nrf52",
+            },
+        },
     }
 
     def __init__(self, args):

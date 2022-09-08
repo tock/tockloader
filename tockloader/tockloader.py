@@ -1044,11 +1044,11 @@ class TockLoader:
             # See if we can find an ordering that works.
             valid_order = brad_sort(slices)
             if valid_order == None:
-                logging.error("Unable to find a valid sort order to flash apps.")
+                errmsg = "Unable to find a valid sort order to flash apps."
                 if self.args.debug:
                     for app in apps:
-                        logging.debug("{}".format(app.info(True)))
-                return
+                        errmsg += "\n{}".format(app.info(True))
+                raise TockLoaderException(errmsg)
 
             # Get sorted apps array.
             logging.info("Found sort order:")

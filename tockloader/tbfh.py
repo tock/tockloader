@@ -1127,7 +1127,7 @@ class TBFHeader:
         """
         tlv = self._get_tlv(TBFTLV.HEADER_TYPE_PROGRAM)
         if tlv == None:
-            tlv = self._get_tlv(self.HEADER_TYPE_MAIN)
+            tlv = self._get_tlv(TBFTLV.HEADER_TYPE_MAIN)
             if tlv == None:
                 # If we don't have either a program or main header then we use
                 # an empty program header.

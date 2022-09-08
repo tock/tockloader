@@ -114,7 +114,7 @@ class TabApp:
         This is only valid if there is only one TBF.
         """
         if len(self.tbfs) == 1:
-            return self.tbfs[0].tbfh.get_version()
+            return self.tbfs[0].tbfh.get_app_version()
         else:
             raise TockLoaderException("Version number only valid with one TBF")
 
@@ -444,7 +444,7 @@ class TabApp:
         """
         out = ""
         out += "Name:                  {}\n".format(self.get_name())
-        out += "Version:               {}\n".format(self.get_version())
+        out += "Version:               {}\n".format(self.get_app_version())
         out += "Total Size in Flash:   {} bytes\n".format(self.get_size())
 
         if verbose:

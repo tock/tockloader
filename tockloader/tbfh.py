@@ -484,7 +484,7 @@ class TBFTLVPersistentACL(TBFTLV):
 
     def pack(self):
         out = bytearray()
-        length = 4 + 2 + len(self.read_ids) + 2 + len(self.access_ids)
+        length = 4 + 2 + (4 * len(self.read_ids)) + 2 + (4 * len(self.access_ids))
         out += struct.pack("<HHI", self.TLVID, length, self.write_id)
 
         # Read IDs

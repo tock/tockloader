@@ -395,16 +395,19 @@ class TBFTLVPermissions(TBFTLV):
     def pack(self):
         out = bytearray()
 
-        length = len(self.permissions) * 16
-        out += struct.pack("<HH", self.TLVID, length)
+        length = 2 + (len(self.permissions) * 16)
+        out += struct.pack("<HHH", self.TLVID, length, len(self.permissions))
 
         for permission in self.permissions:
             out += struct.pack(
-                "<HHI",
+                "<IIQ",
                 permission["driver_number"],
                 permission["offset"],
                 permission["allowed_commands"],
             )
+
+        # Need to pad to multiple of 4.
+        out += struct.pack("H", 0)
 
         return out
 

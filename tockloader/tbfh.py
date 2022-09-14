@@ -1342,7 +1342,7 @@ class TBFFooterTLVCredentials(TBFTLV):
     def _credentials_type_to_str(self):
         names = [
             "Reserved",
-            "ClearTextID",
+            "CleartextID",
             "RSA3072KEY",
             "RSA4096KEY",
             "RSA3072KEYID",
@@ -1362,7 +1362,7 @@ class TBFFooterTLVCredentials(TBFTLV):
     def _credentials_name_to_id(credential_type):
         ids = {
             "reserved": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RESERVED,
-            "clear_text_id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_CLEARTEXTID,
+            "cleartext_id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_CLEARTEXTID,
             "rsa3072": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA3072KEY,
             "rsa4096": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA4096KEY,
             "rsa3072id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA3072KEYID,
@@ -1495,7 +1495,9 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
         self.credentials_type = credential_id
         self.valid = False
 
-        if self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
+        if self.credentials_type == self.CREDENTIALS_TYPE_CLEARTEXTID:
+            self.buffer = bytearray(8)
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
             self.buffer = bytearray(64)
         elif self.credentials_type == self.CREDENTIALS_TYPE_SHA384:
             self.buffer = bytearray(96)
@@ -1506,11 +1508,15 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
         else:
             self.buffer = bytearray()
 
-    def compute(self, public_key, private_key, integrity_blob):
+    def compute(self, public_key, private_key, integrity_blob, cleartext_id):
         """
         Actually generate the credential.
         """
-        if self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
+        if self.credentials_type == self.CREDENTIALS_TYPE_CLEARTEXTID:
+            self.buffer = struct.pack("<Q", cleartext_id)
+            self.valid = True
+            self.verified = "unknown"
+        elif self.credentials_type == self.CREDENTIALS_TYPE_SHA256:
             self.buffer = hashlib.sha256(integrity_blob).digest()
             self.valid = True
             self.verified = "yes"
@@ -1591,11 +1597,13 @@ class TBFFooter:
             self.tlvs.pop(index)
             self.modified = True
 
-    def add_credential(self, credential_type, public_key, private_key, integrity_blob):
+    def add_credential(
+        self, credential_type, public_key, private_key, integrity_blob, cleartext_id
+    ):
         """
         Add credential by credential type name.
         """
-        logging.debug("Adding credential '{}' to TBF fooer.".format(credential_type))
+        logging.debug("Adding credential '{}' to TBF footer.".format(credential_type))
         credential_id = TBFFooterTLVCredentials._credentials_name_to_id(credential_type)
         if credential_id == None:
             raise TockLoaderException(
@@ -1650,7 +1658,9 @@ class TBFFooter:
                     # We have room.
                     #
                     # CASE 2
-                    new_credential.compute(public_key, private_key, integrity_blob)
+                    new_credential.compute(
+                        public_key, private_key, integrity_blob, cleartext_id
+                    )
 
                     # Need to shrink the reservation credential. Adding a
                     # credential requires at least 6 bytes, make sure we have

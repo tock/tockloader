@@ -441,6 +441,9 @@ def command_tbf_add_credential(args):
         "Adding Credential type '{}' to the TBF footer...".format(credential_type)
     )
 
+    # Get CleartextID, if provided
+    cleartext_id = args.cleartext_id[0]
+
     # Get keys
     pub_key = None
     pri_key = None
@@ -463,7 +466,7 @@ def command_tbf_add_credential(args):
         for i, tbf_name in enumerate(tbf_names):
             if i == index or index == len(tbf_names):
                 app = tab.extract_tbf(tbf_name)
-                app.add_credential(credential_type, pub_key, pri_key)
+                app.add_credential(credential_type, pub_key, pri_key, cleartext_id)
                 tab.update_tbf(app)
 
 
@@ -1016,7 +1019,7 @@ def main():
     tbfaddcredential.add_argument(
         "credential_type",
         help="Credential type to add",
-        choices=["sha256", "sha384", "sha512", "rsa4096"],
+        choices=["cleartext_id", "sha256", "sha384", "sha512", "rsa4096"],
     )
     tbfaddcredential.add_argument(
         "--public-key",
@@ -1027,6 +1030,12 @@ def main():
         "--private-key",
         help="Private key to use in signing credential",
         nargs=1,
+    )
+    tbfaddcredential.add_argument(
+        "--cleartext-id",
+        help="ID to use as credential",
+        nargs=1,
+        type=lambda x: int(x, 0),
     )
     tbfaddcredential.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
 

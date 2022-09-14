@@ -1296,6 +1296,13 @@ class TBFFooterTLVCredentials(TBFTLV):
                 # We accept any size of reserved area for future credentials.
                 self.valid = True
 
+            elif credentials_type == self.CREDENTIALS_TYPE_CLEARTEXTID:
+                self.credentials_type = self.CREDENTIALS_TYPE_CLEARTEXTID
+                self.buffer = buffer[4:]
+                if len(self.buffer) == 8:
+                    # ClearTextID is a 64 bit value.
+                    self.valid = True
+
             elif credentials_type == self.CREDENTIALS_TYPE_SHA256:
                 self.credentials_type = self.CREDENTIALS_TYPE_SHA256
                 self.buffer = buffer[4:]
@@ -1463,9 +1470,14 @@ class TBFFooterTLVCredentials(TBFTLV):
             self._credentials_type_to_str(), self.credentials_type, verified
         )
         out += "  Length: {}\n".format(len(self.buffer))
+
+        if self.credentials_type == self.CREDENTIALS_TYPE_CLEARTEXTID:
+            out += "  Value: {}\n".format(struct.unpack("<Q", self.buffer[0:8])[0])
+
         # out += "  Data: "
         # out += " ".join("{:02x}".format(x) for x in self.buffer)
         # out += "\n\n"
+
         return out
 
     def object(self):

@@ -81,7 +81,7 @@ class BoardInterface:
                 "options": ["noreset", "resume"],
                 "commands": {
                     "program": "flash write_image erase {{binary}} {address:#x};\
-			                    verify_image {{binary}} {address:#x};"
+                                verify_image {{binary}} {address:#x};"
                 },
             },
         },
@@ -104,18 +104,21 @@ class BoardInterface:
             "no_attribute_table": True,
             "openocd": {
                 "options": ["nocmdprefix"],
-                "prefix": 'source [find interface/ftdi/digilent-hs1.cfg];\
-		                          ftdi_device_desc \\"Digilent USB Device\\";\
-		                          adapter_khz 10000;\
-		                          transport select jtag;\
-		                          source [find cpld/xilinx-xc7.cfg];\
-		                          source [find cpld/jtagspi.cfg];\
-		                          proc jtagspi_read {{fname offset len}} {{\
-		                            global _FLASHNAME;\
-		                            flash read_bank $_FLASHNAME $fname $offset $len;\
-		                          }};\
-		                          init;\
-		                          jtagspi_init 0 {bitfile};'.format(
+                "prefix": "interface ftdi;\
+                           ftdi_vid_pid 0x0403 0x6010;\
+                           ftdi_channel 0;\
+                           ftdi_layout_init 0x0088 0x008b;\
+                           reset_config none;\
+                           adapter_khz 10000;\
+                           transport select jtag;\
+                           source [find cpld/xilinx-xc7.cfg];\
+                           source [find cpld/jtagspi.cfg];\
+                           proc jtagspi_read {{fname offset len}} {{\
+                             global _FLASHNAME;\
+                             flash read_bank $_FLASHNAME $fname $offset $len;\
+                           }};\
+                           init;\
+                           jtagspi_init 0 {bitfile};".format(
                     bitfile=os.path.join(  # Need path to bscan_spi_xc7a100t.bit
                         os.path.dirname(os.path.realpath(__file__)),
                         "..",

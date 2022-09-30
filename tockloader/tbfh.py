@@ -1264,14 +1264,12 @@ class TBFFooterTLVCredentials(TBFTLV):
     TLVID = 0x80
 
     CREDENTIALS_TYPE_RESERVED = 0x00
-    CREDENTIALS_TYPE_CLEARTEXTID = 0x01
-    CREDENTIALS_TYPE_RSA3072KEY = 0x02
-    CREDENTIALS_TYPE_RSA4096KEY = 0x03
-    CREDENTIALS_TYPE_RSA3072KEYID = 0x04
-    CREDENTIALS_TYPE_RSA4096KEYID = 0x05
-    CREDENTIALS_TYPE_SHA256 = 0x06
-    CREDENTIALS_TYPE_SHA384 = 0x07
-    CREDENTIALS_TYPE_SHA512 = 0x08
+    CREDENTIALS_TYPE_RSA3072KEY = 0x01
+    CREDENTIALS_TYPE_RSA4096KEY = 0x02
+    CREDENTIALS_TYPE_SHA256 = 0x03
+    CREDENTIALS_TYPE_SHA384 = 0x04
+    CREDENTIALS_TYPE_SHA512 = 0x05
+    CREDENTIALS_TYPE_CLEARTEXTID = 0xF1
 
     def __init__(self, buffer, integrity_blob):
 
@@ -1342,11 +1340,8 @@ class TBFFooterTLVCredentials(TBFTLV):
     def _credentials_type_to_str(self):
         names = [
             "Reserved",
-            "CleartextID",
             "RSA3072KEY",
             "RSA4096KEY",
-            "RSA3072KEYID",
-            "RSA4096KEYID",
             "SHA256",
             "SHA384",
             "SHA512",
@@ -1365,8 +1360,6 @@ class TBFFooterTLVCredentials(TBFTLV):
             "cleartext_id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_CLEARTEXTID,
             "rsa3072": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA3072KEY,
             "rsa4096": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA4096KEY,
-            "rsa3072id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA3072KEYID,
-            "rsa4096id": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA4096KEYID,
             "sha256": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA256,
             "sha384": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA384,
             "sha512": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA512,

@@ -250,6 +250,20 @@ def command_flash(args):
     logging.status("Flashing binar{} to board...".format(plural))
     tock_loader.flash_binary(binary, args.address, pad=pad)
 
+def command_debug(args):
+    # Check if binary exists
+    if not os.path.exists(args.binary):
+        raise TockLoaderException("{} does not exist".format(args.binary))
+
+    # For now, we do not compile or flash binary on the board
+
+    # Debug the binary to the chip
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Debug binary {} to board...".format(args.binary))
+    tock_loader.debug_binary(args.binary)
+
 
 def command_read(args):
     """
@@ -1055,6 +1069,16 @@ def main():
         help="List the boards that Tockloader explicitly knows about",
     )
     list_known_boards.set_defaults(func=command_list_known_boards)
+
+    debug_binary = subparser.add_parser(
+        "debug-binary",
+        parents=[parent, parent_channel],
+        help="Debug the binary installed on the board",
+    )
+    debug_binary.set_defaults(func=command_debug)
+    debug_binary.add_argument(
+        "--binary", help="The binary file or files to flash to the chip"
+    )
 
     argcomplete.autocomplete(parser)
     args, unknown_args = parser.parse_known_args()

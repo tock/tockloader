@@ -594,3 +594,9 @@ class BoardInterface:
             binary = binary + after_binary
 
         return (address, binary)
+
+    def debug_binary(self, binary):
+        """
+        Debug the binary on the board.
+        """
+        return

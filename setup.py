@@ -27,7 +27,7 @@ setup(
     url="https://github.com/tock/tockloader",
     packages=["tockloader"],
     entry_points={"console_scripts": ["tockloader = tockloader.main:main"]},
-    data_files=[("bitfiles", ["static/bscan_spi_xc7a100t.bit"])],
+    package_data={"tockloader": ["static/bscan_spi_xc7a100t.bit"]},
     install_requires=[
         "argcomplete >= 1.8.2",
         "colorama >= 0.3.7",

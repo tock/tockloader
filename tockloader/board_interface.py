@@ -120,9 +120,7 @@ class BoardInterface:
                            init;\
                            jtagspi_init 0 {bitfile};".format(
                     bitfile=os.path.join(  # Need path to bscan_spi_xc7a100t.bit
-                        os.path.dirname(os.path.realpath(__file__)),
-                        "..",
-                        "bitfiles",
+                        "static",
                         "bscan_spi_xc7a100t.bit",
                     )
                 ),

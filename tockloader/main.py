@@ -1077,7 +1077,7 @@ def main():
     )
     debug_binary.set_defaults(func=command_debug)
     debug_binary.add_argument(
-        "--binary", help="The binary file or files to flash to the chip"
+        "--binary", help="The binary file to debug on the board"
     )
 
     argcomplete.autocomplete(parser)

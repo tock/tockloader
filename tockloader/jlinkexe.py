@@ -461,6 +461,4 @@ class JLinkExe(BoardInterface):
                 print(l, end="")
 
     def debug(self, binary):
-        logging.error(
-            "This functionality is not implemented for JLink"
-        )
+        raise TockLoaderException("This functionality is not implemented for JLink")

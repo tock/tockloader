@@ -17,6 +17,7 @@ import tempfile
 import time
 import os
 import signal
+import shutil
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
@@ -486,8 +487,22 @@ You may need to update OpenOCD to the version in latest git master."
 
         return ocd_p
 
+    def _find_gdb_binary(self):
+        gdb_multi_arch = shutil.wihch('gdb-multiarch')
+
+        if gdb_multi_arch is not None:
+            return gdb_multi_arch
+        elif self.arch.startswith('cortex'):
+            return shutil.wich('arm-none-eabi-gdb')
+
+        return None
+
     def _run_gdb_client(self, binary):
-        gdb_command = f'arm-none-eabi-gdb --exec {binary} --symbols {binary} -eval-command="target remote localhost:3333"'
+        gdb_binary = self._find_gdb_binary()
+        if gdb_binary is None:
+            raise TockLoaderException("No binary found to debug target")
+
+        gdb_command = f'{gdb_binary} --exec {binary} --symbols {binary} -eval-command="target remote localhost:3333"'
 
         logging.debug('Running "{}".'.format(gdb_command))
 
@@ -535,7 +550,7 @@ You may need to update OpenOCD to the version in latest git master."
             cleanup.append(gdb_p.wait)
             cleanup.append(gdb_p.kill)
         except:
-            logging.error("Can't start debugg session")
+            logging.error("Can't start debug session")
         finally:
             logging.status("Stopping debug session")
             for f in reversed(cleanup):

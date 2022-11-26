@@ -713,6 +713,14 @@ class TockLoader:
         """
         BoardInterface(self.args).print_known_boards()
 
+    def debug_binary(self, binary):
+        """
+        Debug binary on board.
+        """
+        # Enter bootloader mode to get things started
+        with self._start_communication_with_board():
+            self.channel.debug(binary)
+
     ############################################################################
     ## Internal Helper Functions for Communicating with Boards
     ############################################################################
@@ -1440,10 +1448,3 @@ class TockLoader:
         else:
             # In quiet mode just show the names.
             print(" ".join([app.get_name() for app in apps]))
-
-    def debug_binary(self, binary):
-        """
-        """
-        # Enter bootloader mode to get things started
-        with self._start_communication_with_board():
-            self.channel.debug(binary)

@@ -15,6 +15,7 @@ import socket
 import subprocess
 import tempfile
 import time
+import re
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
@@ -232,14 +233,38 @@ You may need to update OpenOCD to the version in latest git master."
             )
         )
 
+        # If a STLINK is attached to the USB, add some ST targets to the list (with the VID:PID found in lsusb)
+        try:
+            p = subprocess.run("lsusb", stdout=subprocess.PIPE, stderr=None)
+            m = re.search("ID ([^:]*):([^:]*) STMicroelectronics (.*)", p.stdout.decode("utf-8"))
+            if m:
+                base_cmd = "adapter driver hla; hla_layout stlink; hla_device_desc '{device_desc}'; hla_vid_pid 0x{vid} 0x{pid}".format(
+                    device_desc=m.group(3),
+                    vid=m.group(1),
+                    pid=m.group(2),
+                )
+                for target in {"stm32f3x", "stm32f4x"}:
+                    openocd_commands.append(
+                        '{openocd_cmd} -c "{base_cmd}; source [find target/{target}.cfg]; init; exit"'.format(
+                            openocd_cmd=self.openocd_cmd,
+                            base_cmd=base_cmd,
+                            target=target
+                        )
+                    )
+        except:
+            # Could not find a ST link. Maybe the lsusb command is not available?
+            pass
+
         # These are the magic strings in the output of openocd we are looking
         # for. If there is a better way to do this then we should change. But,
         # this is the best I got for now. Magic string is what we want to see in
-        # openocd output, board is the name in the known boards struct.
+        # openocd output, board is the name in the known boards struct (see board_interface.py).
         magic_strings_boards = [
             ("J-Link OB-SAM3U128-V2-NordicSemi", "nrf52dk"),
             ("(mfg: 0x049 (Xilinx), part: 0x3631, ver: 0x1)", "arty"),
             ("SWD DPIDR 0x2ba01477", "microbit_v2"),
+            ("stm32f3x.cpu", "stm32f3discovery"),
+            ("stm32f4x.cpu", "stm32f4discovery"),
         ]
 
         emulators = []
@@ -369,15 +394,14 @@ You may need to update OpenOCD to the version in latest git master."
         self._configure_from_known_boards()
 
         # Check that we learned what we needed to learn.
-        if (
-            self.board == None
-            or self.arch == None
-            or self.openocd_board == "cortex-m0"
-            or self.page_size == 0
-        ):
-            raise TockLoaderException(
-                "Could not determine the current board or arch or openocd board name"
-            )
+        if  self.board == None:
+            raise TockLoaderException("Could not determine the current board")
+        if self.arch == None:
+            raise TockLoaderException("Could not determine the current arch")
+        if self.openocd_board == "cortex-m0":
+            raise TockLoaderException("Could not determine the current openocd board name")
+        if self.page_size == 0:
+            raise TockLoaderException("Could not determine the page size")
 
     def run_terminal(self):
         self.open_link_to_board()

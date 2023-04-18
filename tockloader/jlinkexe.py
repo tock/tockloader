@@ -64,6 +64,10 @@ class JLinkExe(BoardInterface):
                 # nRF52840dk (PCA10056). From a jlink perspective, they are
                 # the same, which is nice.
                 return "nrf52dk"
+            if emulator["ProductName"] == "J-Link OB-nRF5340-NordicSemi":
+                # This matches the new (3.0.0+) version of the nRF52840dk
+                # (PCA10056).
+                return "nrf52dk"
             if emulator["ProductName"] == "J-Link" and emulator[
                 "Serial number"
             ].startswith("97900"):

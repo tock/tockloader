@@ -442,7 +442,9 @@ def command_tbf_add_credential(args):
     )
 
     # Get CleartextID, if provided
-    cleartext_id = args.cleartext_id[0]
+    cleartext_id = None
+    if args.cleartext_id:
+        cleartext_id = args.cleartext_id[0]
 
     # Get keys
     pub_key = None

@@ -1021,7 +1021,7 @@ def main():
     tbfaddcredential.add_argument(
         "credential_type",
         help="Credential type to add",
-        choices=["cleartext_id", "sha256", "sha384", "sha512", "rsa4096"],
+        choices=["cleartext_id", "sha256", "sha384", "sha512", "rsa4096", "rsa2048"],
     )
     tbfaddcredential.add_argument(
         "--public-key",

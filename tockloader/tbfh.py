@@ -1269,6 +1269,7 @@ class TBFFooterTLVCredentials(TBFTLV):
     CREDENTIALS_TYPE_SHA256 = 0x03
     CREDENTIALS_TYPE_SHA384 = 0x04
     CREDENTIALS_TYPE_SHA512 = 0x05
+    CREDENTIALS_TYPE_RSA2048 = 0x0A
     CREDENTIALS_TYPE_CLEARTEXTID = 0xF1
 
     def __init__(self, buffer, integrity_blob):
@@ -1330,7 +1331,15 @@ class TBFFooterTLVCredentials(TBFTLV):
                 self.buffer = buffer[4:]
 
                 if len(self.buffer) == 1024:
-                    # RSA4904 public key is 512 bytes, signature is 512 bytes.
+                    # RSA4096 public key is 512 bytes, signature is 512 bytes.
+                    self.valid = True
+
+            elif credentials_type == self.CREDENTIALS_TYPE_RSA2048:
+                self.credentials_type = self.CREDENTIALS_TYPE_RSA2048
+                self.buffer = buffer[4:]
+
+                if len(self.buffer) == 256:
+                    # RSA2048 signature is 256 bytes.
                     self.valid = True
 
             else:
@@ -1345,6 +1354,11 @@ class TBFFooterTLVCredentials(TBFTLV):
             "SHA256",
             "SHA384",
             "SHA512",
+            "Unknown",
+            "Unknown",
+            "Unknown",
+            "Unknown",
+            "RSA2048",
         ]
 
         name = (
@@ -1363,6 +1377,7 @@ class TBFFooterTLVCredentials(TBFTLV):
             "sha256": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA256,
             "sha384": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA384,
             "sha512": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA512,
+            "rsa2048": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA2048,
         }
         return ids.get(credential_type)
 
@@ -1429,6 +1444,45 @@ class TBFFooterTLVCredentials(TBFTLV):
 
                     # Only try one matching key.
                     break
+
+        elif self.credentials_type == self.CREDENTIALS_TYPE_RSA2048:
+            logging.debug("Verifying the RSA2048 credential.")
+
+            # Unpack the credential buffer.
+            signature = self.buffer[0:256]
+
+            # Compute the hash of the main app for signature checking.
+            hash = Crypto.Hash.SHA256.new(integrity_blob)
+            logging.debug(
+                "  RSA2048 credential: sha256 hash: {}".format(hash.hexdigest())
+            )
+
+            # First see if there is a key that matches. If no keys match then we
+            # can't verify this credential one way or another.
+            for i, key in enumerate(keys):
+                try:
+                    Crypto.Signature.pkcs1_15.new(key).verify(hash, signature)
+                    # Signature verified!
+                    self.verified = "yes"
+
+                    logging.debug(
+                        "  RSA2048 credential: key #{}: signature successfully verified".format(
+                            i
+                        )
+                    )
+
+                    # Exit
+                    break
+                except:
+                    # We were able to verify that the signature does not
+                    # match.
+                    self.verified = "no"
+
+                    logging.debug(
+                        "  RSA2048 credential: key #{}: signature not verified".format(
+                            i
+                        )
+                    )
 
     def shrink(self, num_bytes):
         """
@@ -1498,6 +1552,8 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
             self.buffer = bytearray(128)
         elif self.credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
             self.buffer = bytearray(1024)
+        elif self.credentials_type == self.CREDENTIALS_TYPE_RSA2048:
+            self.buffer = bytearray(256)
         else:
             self.buffer = bytearray()
 
@@ -1530,6 +1586,15 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
             signature = Crypto.Signature.pkcs1_15.new(pri_key).sign(hash)
             # Store the pub key n value and the signature.
             self.buffer = pub_key.n.to_bytes(512, "big") + signature
+        elif self.credentials_type == self.CREDENTIALS_TYPE_RSA2048:
+            # Load keys to Crypto objects.
+            pub_key = Crypto.PublicKey.RSA.importKey(public_key)
+            pri_key = Crypto.PublicKey.RSA.importKey(private_key)
+            # Compute hash and signature.
+            hash = Crypto.Hash.SHA256.new(integrity_blob)
+            signature = Crypto.Signature.pkcs1_15.new(pri_key).sign(hash)
+            # Store the signature.
+            self.buffer = signature
         else:
             pass
 

@@ -27,6 +27,7 @@ import crcmod
 from . import helpers
 from .exceptions import TockLoaderException
 from .tab import TAB
+from .tickv import TicKV
 from .tockloader import TockLoader
 from ._version import __version__
 
@@ -507,6 +508,20 @@ def command_dump_flash_page(args):
 def command_list_known_boards(args):
     tock_loader = TockLoader(args)
     tock_loader.print_known_boards()
+
+
+def command_tickv_dump(args):
+    database = b""
+    with open(args.tickv_file, "rb") as f:
+        database = f.read()
+
+    region_size = args.region_size
+    number_regions = args.number_regions
+
+    database = database[0 : region_size * number_regions]
+
+    tickv_db = TicKV(database, region_size)
+    print(tickv_db)
 
 
 ################################################################################
@@ -1057,6 +1072,25 @@ def main():
         help="List the boards that Tockloader explicitly knows about",
     )
     list_known_boards.set_defaults(func=command_list_known_boards)
+
+    tickv_dump = subparser.add_parser(
+        "tickv-dump",
+        help="Display a tickv database",
+    )
+    tickv_dump.set_defaults(func=command_tickv_dump)
+    tickv_dump.add_argument(
+        "tickv_file", help="The binary file containing the TicKV database"
+    )
+    tickv_dump.add_argument(
+        "region_size",
+        help="Size in bytes of each TicKV region",
+        type=lambda x: int(x, 0),
+    )
+    tickv_dump.add_argument(
+        "number_regions",
+        help="Number of regions in the TicKV database",
+        type=lambda x: int(x, 0),
+    )
 
     argcomplete.autocomplete(parser)
     args, unknown_args = parser.parse_known_args()

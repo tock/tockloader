@@ -280,7 +280,7 @@ You may need to update OpenOCD to the version in latest git master."
 
         return emulators
 
-    def flash_binary(self, address, binary):
+    def flash_binary(self, address, binary, pad=False):
         """
         Write using openocd `program` command.
         """

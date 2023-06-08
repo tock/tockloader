@@ -56,9 +56,14 @@ class BoardInterface:
             "no_attribute_table": True,
             "jlink": {
                 "device": "nrf52",
+                "address_maximum": 0x11FFFFFF,
             },
             "openocd": {
                 "cfg": "nordic_nrf52_dk.cfg",
+            },
+            "nrfjprog": {
+                "device_family": "NRF52",
+                "qspi_size": 1024 * 1024 * 64,
             },
         },
         "nano33ble": {

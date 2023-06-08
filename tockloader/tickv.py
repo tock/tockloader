@@ -6,8 +6,6 @@ import binascii
 import logging
 import struct
 
-import zlib
-
 import crcmod
 import siphash24
 
@@ -277,7 +275,7 @@ class TockTicKV(TicKV):
             return None
 
     def get(self, key):
-        logging.debug('Finding key "{}" in Tock-style TicKV database.'.format(key))
+        logging.info('Finding key "{}" in Tock-style TicKV database.'.format(key))
 
         hashed_key = self._hash_key_int(key)
 
@@ -288,12 +286,6 @@ class TockTicKV(TicKV):
         return self._parse_tock_object(kv_object)
 
     def get_all(self, region_index):
-        logging.debug(
-            "Finding all objects in region {} of a Tock-style TicKV database.".format(
-                region_index
-            )
-        )
-
         kv_objects = super().get_all(region_index)
 
         tock_kv_objects = []

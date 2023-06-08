@@ -24,12 +24,14 @@ from .app_padding import InstalledPaddingApp
 from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
-from .exceptions import TockLoaderException
+from .exceptions import TockLoaderException, ChannelAddressErrorException
 from .tbfh import TBFHeader
 from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
+from .nrfjprog import nrfjprog
 from .openocd import OpenOCD, collect_temp_files
 from .flash_file import FlashFile
+from .tickv import TockTicKV
 
 
 class TockLoader:
@@ -105,6 +107,13 @@ class TockLoader:
             "hifive1b": {"start_address": 0x20040000},
             "litex_arty": {"start_address": 0x41000000},
             "litex_sim": {"start_address": 0x00080000},
+            "nrf52dk": {
+                "tickv": {
+                    "region_size": 4096,
+                    "number_regions": 32,
+                    "start_address": 0x12000000,
+                }
+            },
             "nucleof4": {"start_address": 0x08040000},
             "microbit_v2": {"start_address": 0x00040000},
             "qemu_rv32_virt": {"start_address": 0x80100000},
@@ -649,7 +658,14 @@ class TockLoader:
             address = page_size * page_num
             print("Page number: {} ({:#08x})".format(page_num, address))
 
-            flash = self.channel.read_range(address, page_size)
+            try:
+                flash = self.channel.read_range(address, page_size)
+            except ChannelAddressErrorException:
+                self.args.board = self.channel.get_board_name()
+                backup_channel = nrfjprog(self.args)
+                backup_channel.open_link_to_board()
+                flash = backup_channel.read_range(address, page_size)
+
             print(helpers.print_flash(address, flash))
 
     def read_flash(self, address, length):
@@ -657,7 +673,14 @@ class TockLoader:
         Print some flash contents.
         """
         with self._start_communication_with_board():
-            flash = self.channel.read_range(address, length)
+            try:
+                flash = self.channel.read_range(address, length)
+            except ChannelAddressErrorException:
+                self.args.board = self.channel.get_board_name()
+                backup_channel = nrfjprog(self.args)
+                backup_channel.open_link_to_board()
+                flash = backup_channel.read_range(address, length)
+
             print(helpers.print_flash(address, flash))
 
     def write_flash(self, address, length, value):
@@ -666,7 +689,65 @@ class TockLoader:
         """
         with self._start_communication_with_board():
             to_write = bytes([value] * length)
-            self.channel.flash_binary(address, to_write, pad=False)
+
+            try:
+                self.channel.flash_binary(address, to_write, pad=False)
+            except ChannelAddressErrorException:
+                self.args.board = self.channel.get_board_name()
+                backup_channel = nrfjprog(self.args)
+                backup_channel.open_link_to_board()
+                backup_channel.flash_binary(address, to_write, pad=False)
+
+    def tickv_get(self, key):
+        """
+        Read a key, value pair from a TicKV database on a board.
+        """
+
+        with self._start_communication_with_board():
+            if not "tickv" in self.app_settings:
+                raise TockLoaderException("TicKV settings not specified")
+
+            ticvk_address = self.app_settings["tickv"]["start_address"]
+            region_size = self.app_settings["tickv"]["region_size"]
+            number_regions = self.app_settings["tickv"]["number_regions"]
+            tickv_size = region_size * number_regions
+
+            try:
+                tickv_db = self.channel.read_range(ticvk_address, tickv_size)
+            except ChannelAddressErrorException:
+                self.args.board = self.channel.get_board_name()
+                backup_channel = nrfjprog(self.args)
+                backup_channel.open_link_to_board()
+                tickv_db = backup_channel.read_range(ticvk_address, tickv_size)
+
+            tickv_db = TockTicKV(tickv_db, region_size)
+            kv_object = tickv_db.get(key)
+            print(kv_object)
+
+    def tickv_dump(self):
+        """
+        Read a key, value pair from a TicKV database on a board.
+        """
+
+        with self._start_communication_with_board():
+            if not "tickv" in self.app_settings:
+                raise TockLoaderException("TicKV settings not specified")
+
+            ticvk_address = self.app_settings["tickv"]["start_address"]
+            region_size = self.app_settings["tickv"]["region_size"]
+            number_regions = self.app_settings["tickv"]["number_regions"]
+            tickv_size = region_size * number_regions
+
+            try:
+                tickv_db = self.channel.read_range(ticvk_address, tickv_size)
+            except ChannelAddressErrorException:
+                self.args.board = self.channel.get_board_name()
+                backup_channel = nrfjprog(self.args)
+                backup_channel.open_link_to_board()
+                tickv_db = backup_channel.read_range(ticvk_address, tickv_size)
+
+            tickv_db = TockTicKV(tickv_db, region_size)
+            print(tickv_db.dump())
 
     def run_terminal(self):
         """

@@ -4,3 +4,7 @@ class TockLoaderException(Exception):
     """
 
     pass
+
+
+class ChannelAddressErrorException(Exception):
+    pass

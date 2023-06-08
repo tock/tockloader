@@ -511,34 +511,46 @@ def command_list_known_boards(args):
 
 
 def command_tickv_dump(args):
-    database = b""
-    with open(args.tickv_file, "rb") as f:
-        database = f.read()
+    # database = b""
+    # with open(args.tickv_file, "rb") as f:
+    #     database = f.read()
 
-    region_size = args.region_size
-    number_regions = args.number_regions
+    # region_size = args.region_size
+    # number_regions = args.number_regions
 
-    database = database[0 : region_size * number_regions]
+    # database = database[0 : region_size * number_regions]
 
-    tickv_db = TockTicKV(database, region_size)
-    print(tickv_db.dump())
+    # tickv_db = TockTicKV(database, region_size)
+    # print(tickv_db.dump())
+
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Dumping entire TicKV database...")
+    tock_loader.tickv_dump()
 
 
 def command_tickv_get(args):
-    database = b""
-    with open(args.tickv_file, "rb") as f:
-        database = f.read()
+    # database = b""
+    # with open(args.tickv_file, "rb") as f:
+    #     database = f.read()
 
-    region_size = args.region_size
-    number_regions = args.number_regions
+    # region_size = args.region_size
+    # number_regions = args.number_regions
 
-    database = database[0 : region_size * number_regions]
+    # database = database[0 : region_size * number_regions]
 
-    tickv_db = TockTicKV(database, region_size)
+    # tickv_db = TockTicKV(database, region_size)
 
-    tickv_db.invalidate(args.key)
-    kv_object = tickv_db.get(args.key)
-    print(kv_object)
+    # tickv_db.invalidate(args.key)
+    # kv_object = tickv_db.get(args.key)
+    # print(kv_object)
+
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Fetching TicKV key...")
+    tock_loader.tickv_get(args.key)
 
 
 ################################################################################
@@ -1090,47 +1102,51 @@ def main():
     )
     list_known_boards.set_defaults(func=command_list_known_boards)
 
-    tickv_dump = subparser.add_parser(
-        "tickv-dump",
-        help="Display a tickv database",
+    ###########
+    ## TICKV ##
+    ###########
+
+    parent_tickv = argparse.ArgumentParser(add_help=False)
+    parent_tickv.add_argument(
+        "--tickv-file", help="The binary file containing the TicKV database"
     )
-    tickv_dump.set_defaults(func=command_tickv_dump)
-    tickv_dump.add_argument(
-        "tickv_file", help="The binary file containing the TicKV database"
-    )
-    tickv_dump.add_argument(
-        "region_size",
+    parent_tickv.add_argument(
+        "--region-size",
         help="Size in bytes of each TicKV region",
         type=lambda x: int(x, 0),
     )
-    tickv_dump.add_argument(
-        "number_regions",
+    parent_tickv.add_argument(
+        "--number-regions",
         help="Number of regions in the TicKV database",
         type=lambda x: int(x, 0),
     )
 
-    tickv_get = subparser.add_parser(
-        "tickv-get",
+    tickv = subparser.add_parser(
+        "tickv",
+        help="Commands for interacting with a TicKV database",
+    )
+
+    tickv_subparser = tickv.add_subparsers(
+        title="tickv-cmd", help="The subcommand for interacting with the TicKV database"
+    )
+
+    tickv_get = tickv_subparser.add_parser(
+        "get",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
         help="Get a key, value pair from a tickv database",
     )
     tickv_get.set_defaults(func=command_tickv_get)
     tickv_get.add_argument(
-        "tickv_file", help="The binary file containing the TicKV database"
-    )
-    tickv_get.add_argument(
-        "region_size",
-        help="Size in bytes of each TicKV region",
-        type=lambda x: int(x, 0),
-    )
-    tickv_get.add_argument(
-        "number_regions",
-        help="Number of regions in the TicKV database",
-        type=lambda x: int(x, 0),
-    )
-    tickv_get.add_argument(
         "key",
         help="Key to fetch from the TicKV database",
     )
+
+    tickv_dump = tickv_subparser.add_parser(
+        "dump",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Display the contents of a tickv database",
+    )
+    tickv_dump.set_defaults(func=command_tickv_dump)
 
     argcomplete.autocomplete(parser)
     args, unknown_args = parser.parse_known_args()

@@ -27,7 +27,7 @@ import crcmod
 from . import helpers
 from .exceptions import TockLoaderException
 from .tab import TAB
-from .tickv import TicKV
+from .tickv import TicKV, TockTicKV
 from .tockloader import TockLoader
 from ._version import __version__
 
@@ -520,8 +520,25 @@ def command_tickv_dump(args):
 
     database = database[0 : region_size * number_regions]
 
-    tickv_db = TicKV(database, region_size)
-    print(tickv_db)
+    tickv_db = TockTicKV(database, region_size)
+    print(tickv_db.dump())
+
+
+def command_tickv_get(args):
+    database = b""
+    with open(args.tickv_file, "rb") as f:
+        database = f.read()
+
+    region_size = args.region_size
+    number_regions = args.number_regions
+
+    database = database[0 : region_size * number_regions]
+
+    tickv_db = TockTicKV(database, region_size)
+
+    tickv_db.invalidate(args.key)
+    kv_object = tickv_db.get(args.key)
+    print(kv_object)
 
 
 ################################################################################
@@ -1090,6 +1107,29 @@ def main():
         "number_regions",
         help="Number of regions in the TicKV database",
         type=lambda x: int(x, 0),
+    )
+
+    tickv_get = subparser.add_parser(
+        "tickv-get",
+        help="Get a key, value pair from a tickv database",
+    )
+    tickv_get.set_defaults(func=command_tickv_get)
+    tickv_get.add_argument(
+        "tickv_file", help="The binary file containing the TicKV database"
+    )
+    tickv_get.add_argument(
+        "region_size",
+        help="Size in bytes of each TicKV region",
+        type=lambda x: int(x, 0),
+    )
+    tickv_get.add_argument(
+        "number_regions",
+        help="Number of regions in the TicKV database",
+        type=lambda x: int(x, 0),
+    )
+    tickv_get.add_argument(
+        "key",
+        help="Key to fetch from the TicKV database",
     )
 
     argcomplete.autocomplete(parser)

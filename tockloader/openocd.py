@@ -15,6 +15,9 @@ import socket
 import subprocess
 import tempfile
 import time
+import os
+import signal
+import shutil
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
@@ -450,3 +453,107 @@ You may need to update OpenOCD to the version in latest git master."
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+
+    def _run_gdb_server(self):
+        self.open_link_to_board()
+        logging.status("Starting OpenOCD debug server.")
+        openocd_command, _ = self._gather_openocd_cmdline(
+            [],
+            None,
+            exit=False,
+        )
+
+        logging.debug('Running "{}".'.format(openocd_command.replace("$", "\$")))
+
+        cflags = 0
+        preexec = None
+        system = platform.system()
+
+        # Create new process preventing to catch Ctrl+C
+        if system == 'Windows':
+            cflags |= subprocess.CREATE_NEW_PROCESS_GROUP
+        elif system in {'Linux', 'Darwin'}:
+            preexec = os.setsid
+
+        # This won't print messages from OpenOCD,
+        # to avoid interfering with the console.
+        ocd_p = subprocess.Popen(
+            shlex.split(openocd_command),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            preexec_fn=preexec,
+            creationflags=cflags,
+        )
+
+        return ocd_p
+
+    def _find_gdb_binary(self):
+        gdb_multi_arch = shutil.wihch('gdb-multiarch')
+
+        if gdb_multi_arch is not None:
+            return gdb_multi_arch
+        elif self.arch.startswith('cortex'):
+            return shutil.wich('arm-none-eabi-gdb')
+
+        return None
+
+    def _run_gdb_client(self, binary):
+        gdb_binary = self._find_gdb_binary()
+        if gdb_binary is None:
+            raise TockLoaderException("No binary found to debug target")
+
+        gdb_command = f'{gdb_binary} --exec {binary} --symbols {binary} -eval-command="target remote localhost:3333"'
+
+        logging.debug('Running "{}".'.format(gdb_command))
+
+        # Ignore SIGINT. gdb must be exited properly by user
+        previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+        gdb_p = subprocess.Popen(
+            shlex.split(gdb_command),
+        )
+
+        gdb_p.wait()
+
+        signal.signal(signal.SIGINT, previous)
+
+        return gdb_p
+
+    def _reset_board(self):
+        openocd_command, _ = self._gather_openocd_cmdline(
+            [
+                "reset halt",
+            ],
+            None,
+        )
+        subprocess.run(
+            shlex.split(openocd_command),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def debug(self, binary):
+        cleanup = []
+        try:
+            ocd_p = self._run_gdb_server()
+
+            cleanup.append(ocd_p.wait)
+            cleanup.append(ocd_p.kill)
+
+            time.sleep(1)
+            if ocd_p.poll():
+                logging.error('Openocd server not running')
+                raise
+
+            gdb_p = self._run_gdb_client(binary)
+
+            cleanup.append(gdb_p.wait)
+            cleanup.append(gdb_p.kill)
+        except:
+            logging.error("Can't start debug session")
+        finally:
+            logging.status("Stopping debug session")
+            for f in reversed(cleanup):
+                f()
+
+            self._reset_board()

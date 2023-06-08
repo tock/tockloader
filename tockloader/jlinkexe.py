@@ -463,3 +463,6 @@ class JLinkExe(BoardInterface):
             l = stdout_line.decode("utf-8")
             if not l.startswith("###RTT Client: *"):
                 print(l, end="")
+
+    def debug(self, binary):
+        raise TockLoaderException("This functionality is not implemented for JLink")

@@ -324,12 +324,12 @@ class TabApp:
                 credential_type, public_key, private_key, integrity_blob, cleartext_id
             )
 
-    def delete_credential(self, credential_id):
+    def delete_credential(self, credential_type):
         """
         Remove a credential by ID from the TBF footer.
         """
         for tbf in self.tbfs:
-            tbf.tbff.delete_credential(credential_id)
+            tbf.tbff.delete_credential(credential_type)
 
     def verify_credentials(self, public_keys):
         """

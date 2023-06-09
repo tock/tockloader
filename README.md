@@ -125,17 +125,13 @@ Print which boards tockloader has default settings for built-in.
 
 Set the jump address the bootloader uses for the location of the kernel.
 
-#### `tockloader tbf-delete-tlv [TLVID]`
+#### `tockloader tbf tlv delete|modify [TLVID]`
 
-Remove a TLV (by ID) from the TBF.
+Interact with TLV structures within a TBF.
 
-#### `tockloader tbf-modify-tlv [TLVID] [field] [value]`
+#### `tockloader tbf credential add|delete [credential type]`
 
-Set a specific field (by name) to the given value in a specific TLV (by ID).
-
-#### `tockloader tbf-delete-credential [credential ID]`
-
-Remove a specific credential (by credential ID) from the TBF footer.
+Add and remove credentials in the TBF footer.
 
 #### `tockloader tickv get|append|invalidate|dump|cleanup|reset [key] [value]`
 
@@ -254,6 +250,18 @@ credential using:
     $ tockloader inspect-tab --verify-credentials [list of key files]
     example:
     $ tockloader inspect-tab --verify-credentials tockkey.public.der
+
+Tockloader can also add credentials. To add a hash:
+
+    $ tockloader tbf credential add sha256
+
+To add an RSA signature:
+
+    $ tockloader tbf credential add rsa2048 --private-key tockkey2048.private.der --public-key tockkey2048.public.der
+
+To remove credentials:
+
+    $ tockloader tbf credential delete sha256
 
 
 Features

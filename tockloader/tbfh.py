@@ -210,7 +210,7 @@ class TBFTLVWriteableFlashRegions(TBFTLV):
     def object(self):
         out = {
             "type": "writeable_flash_regions",
-            "id": self.HEADER_TYPE_WRITEABLE_FLASH_REGIONS,
+            "id": TBFTLV.HEADER_TYPE_WRITEABLE_FLASH_REGIONS,
             "wfrs": [],
         }
 
@@ -948,8 +948,8 @@ class TBFHeader:
         self.fields["header_size"] -= size
 
         # Support both Main and Program.
-        tlv_main = self._get_tlv(self.HEADER_TYPE_MAIN)
-        tlv_program = self._get_tlv(self.HEADER_TYPE_PROGRAM)
+        tlv_main = self._get_tlv(TBFTLV.HEADER_TYPE_MAIN)
+        tlv_program = self._get_tlv(TBFTLV.HEADER_TYPE_PROGRAM)
 
         # Increase the protected size so that the actual application
         # binary hasn't moved.
@@ -1747,10 +1747,17 @@ class TBFFooter:
                     "Unable to add credential. No reserved space."
                 )
 
-    def delete_credential(self, credential_id):
+    def delete_credential(self, credential_type):
         """
-        Remove credential by credential id.
+        Remove credential by credential type.
         """
+
+        credential_id = TBFFooterTLVCredentials._credentials_name_to_id(credential_type)
+        if credential_id == None:
+            raise TockLoaderException(
+                'Unknown credential type "{}"'.format(credential_type)
+            )
+
         indices = []
         for i, tlv in enumerate(self.tlvs):
             if tlv.get_tlvid() == self.FOOTER_TYPE_CREDENTIALS:

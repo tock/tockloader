@@ -1041,16 +1041,27 @@ class TockLoader:
         external flash, we might need to use a backup mechanism to read the
         flash.
         """
-        if not "tickv" in self.app_settings:
-            raise TockLoaderException("TicKV settings not specified")
+        # Get parameters from command line.
+        tickv_address = getattr(self.args, "start_address", -1)
+        region_size = getattr(self.args, "region_size", 0)
+        number_regions = getattr(self.args, "number_regions", 0)
 
-        ticvk_address = self.app_settings["tickv"]["start_address"]
-        region_size = self.app_settings["tickv"]["region_size"]
-        number_regions = self.app_settings["tickv"]["number_regions"]
+        # If needed, fill in settings from known values.
+        if tickv_address == -1 or region_size == 0 or number_regions == 0:
+            if not "tickv" in self.app_settings:
+                raise TockLoaderException("TicKV settings not specified")
+
+            if tickv_address == -1:
+                tickv_address = self.app_settings["tickv"]["start_address"]
+            if region_size == 0:
+                region_size = self.app_settings["tickv"]["region_size"]
+            if number_regions == 0:
+                number_regions = self.app_settings["tickv"]["number_regions"]
+
         tickv_size = region_size * number_regions
 
         try:
-            tickv_db = self.channel.read_range(ticvk_address, tickv_size)
+            tickv_db = self.channel.read_range(tickv_address, tickv_size)
         except ChannelAddressErrorException:
             try:
                 from .nrfjprog import nrfjprog
@@ -1062,7 +1073,7 @@ class TockLoader:
             self.args.board = self.channel.get_board_name()
             backup_channel = nrfjprog(self.args)
             backup_channel.open_link_to_board()
-            tickv_db = backup_channel.read_range(ticvk_address, tickv_size)
+            tickv_db = backup_channel.read_range(tickv_address, tickv_size)
 
         return TockTicKV(tickv_db, region_size)
 
@@ -1070,13 +1081,18 @@ class TockLoader:
         """
         Write a TicKV database back to flash, overwriting the existing database.
         """
-        if not "tickv" in self.app_settings:
-            raise TockLoaderException("TicKV settings not specified")
+        # Get parameters from command line.
+        tickv_address = getattr(self.args, "start_address", -1)
 
-        ticvk_address = self.app_settings["tickv"]["start_address"]
+        # If needed, fill in settings from known values.
+        if tickv_address == -1:
+            if not "tickv" in self.app_settings:
+                raise TockLoaderException("TicKV settings not specified")
+
+            tickv_address = self.app_settings["tickv"]["start_address"]
 
         try:
-            tickv_db = self.channel.flash_binary(ticvk_address, tickv_db.get_binary())
+            tickv_db = self.channel.flash_binary(tickv_address, tickv_db.get_binary())
         except ChannelAddressErrorException:
             try:
                 from .nrfjprog import nrfjprog
@@ -1088,7 +1104,7 @@ class TockLoader:
             self.args.board = self.channel.get_board_name()
             backup_channel = nrfjprog(self.args)
             backup_channel.open_link_to_board()
-            tickv_db = backup_channel.flash_binary(ticvk_address, tickv_db.get_binary())
+            tickv_db = backup_channel.flash_binary(tickv_address, tickv_db.get_binary())
 
     ############################################################################
     ## Helper Functions for Manipulating Binaries and TBF

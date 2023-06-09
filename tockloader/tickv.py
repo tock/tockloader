@@ -1,5 +1,7 @@
 """
 Manage and use a TicKV formatted database.
+
+TicKV: https://github.com/tock/tock/tree/master/libraries/tickv
 """
 
 import binascii

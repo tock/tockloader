@@ -1116,14 +1116,22 @@ def main():
         "--tickv-file", help="The binary file containing the TicKV database"
     )
     parent_tickv.add_argument(
+        "--start-address",
+        help="Location in flash of the start of the TicKV database",
+        type=lambda x: int(x, 0),
+        default=-1,
+    )
+    parent_tickv.add_argument(
         "--region-size",
         help="Size in bytes of each TicKV region",
         type=lambda x: int(x, 0),
+        default=0,
     )
     parent_tickv.add_argument(
         "--number-regions",
         help="Number of regions in the TicKV database",
         type=lambda x: int(x, 0),
+        default=0,
     )
 
     tickv = subparser.add_parser(

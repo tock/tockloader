@@ -13,6 +13,10 @@ from .exceptions import TockLoaderException
 
 
 class TicKVObjectHeader:
+    """
+    The base header for an item in a TicKV database.
+    """
+
     def __init__(self, hashed_key, version=1, flags=0x8):
         self.version = version
         self.flags = flags
@@ -35,6 +39,11 @@ class TicKVObjectHeader:
 
 
 class TicKVObjectHeaderFlash(TicKVObjectHeader):
+    """
+    An item header read from an existing database. This handles parsing the
+    structure from a byte array.
+    """
+
     def __init__(self, binary):
         object_header_fields = struct.unpack(">BHQ", binary[0:11])
 
@@ -55,6 +64,10 @@ class TicKVObjectHeaderFlash(TicKVObjectHeader):
 
 
 class TicKVObjectBase:
+    """
+    Shared class representing an item in a TicKV database.
+    """
+
     def __init__(self, header, checksum=None):
         self.header = header
         self.checksum = checksum
@@ -78,9 +91,6 @@ class TicKVObjectBase:
     def invalidate(self):
         self.header.invalidate()
 
-    def get_header(self):
-        return self.header
-
     def get_hashed_key(self):
         return self.header.hashed_key
 
@@ -91,15 +101,6 @@ class TicKVObjectBase:
             object_bytes = self._get_object_bytes()
             return self._calculate_checksum(object_bytes)
 
-    def _calculate_checksum(self, object_bytes):
-        return self.crc_fn(object_bytes)
-
-    def _get_object_bytes(self):
-        main_bytes = self.get_value_bytes()
-        header_bytes = self.header.get_binary(len(main_bytes))
-        object_bytes = header_bytes + main_bytes
-        return object_bytes
-
     def get_binary(self):
         object_bytes = self._get_object_bytes()
 
@@ -108,15 +109,14 @@ class TicKVObjectBase:
 
         return object_bytes + checksum_bytes
 
-    def __str__(self):
-        out = ""
-        out += "TicKV Object version={} flags={} length={} checksum={:#x}\n".format(
-            self.header.version, self.header.flags, self.length(), self.checksum
-        )
-        v = binascii.hexlify(self.get_value_bytes()).decode("utf-8")
-        out += "  Value: {}\n".format(v)
+    def _calculate_checksum(self, object_bytes):
+        return self.crc_fn(object_bytes)
 
-        return out
+    def _get_object_bytes(self):
+        main_bytes = self.get_value_bytes()
+        header_bytes = self.header.get_binary(len(main_bytes))
+        object_bytes = header_bytes + main_bytes
+        return object_bytes
 
     def __str__(self):
         out = ""
@@ -257,6 +257,10 @@ class TicKVObjectTockFlash(TicKVObjectTock):
 
 
 class TicKV:
+    """
+    Interface to a generic TicKV database.
+    """
+
     def __init__(self, storage_binary, region_size):
         """
         Create a new TicKV object with a given binary buffer representing
@@ -343,9 +347,8 @@ class TicKV:
 
                     length = ex_obj.length()
                     ex_obj.invalidate()
-                    updated_object_binary = ex_obj.get_binary()
-                    for i in range(0, length):
-                        region_binary[offset + i] = updated_object_binary[i]
+                    object_binary = ex_obj.get_binary()
+                    region_binary[offset : offset + len(object_binary)] = object_binary
                     modified = True
 
                 offset += ex_obj.length()
@@ -385,8 +388,7 @@ class TicKV:
                     )
                 )
 
-                for i in range(0, len(object_binary)):
-                    region_binary[offset + i] = object_binary[i]
+                region_binary[offset : offset + len(object_binary)] = object_binary
 
                 # Update our memory copy of the entire DB.
                 self._update_region_binary(region_index, region_binary)
@@ -423,6 +425,10 @@ class TicKV:
         return (hashed_key & 0xFFFF) % self._get_number_regions()
 
     def _region_range(self, starting_region):
+        """
+        Provide an iterator for iterating all pages in the database starting
+        with a specific page.
+        """
         stop = starting_region + self._get_number_regions()
         modulo = self._get_number_regions()
         for i in range(starting_region, stop):

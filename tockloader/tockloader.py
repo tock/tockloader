@@ -28,7 +28,6 @@ from .exceptions import TockLoaderException, ChannelAddressErrorException
 from .tbfh import TBFHeader
 from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
-from .nrfjprog import nrfjprog
 from .openocd import OpenOCD, collect_temp_files
 from .flash_file import FlashFile
 from .tickv import TockTicKV
@@ -668,6 +667,13 @@ class TockLoader:
             try:
                 flash = self.channel.read_range(address, page_size)
             except ChannelAddressErrorException:
+                try:
+                    from .nrfjprog import nrfjprog
+                except:
+                    logging.error("Unable to use backup nrfjprog channel")
+                    logging.error("You may need to `pip install pynrfjprog`")
+                    raise TockLoaderException("Unable to use nrfjprog backup channel")
+
                 self.args.board = self.channel.get_board_name()
                 backup_channel = nrfjprog(self.args)
                 backup_channel.open_link_to_board()
@@ -683,6 +689,13 @@ class TockLoader:
             try:
                 flash = self.channel.read_range(address, length)
             except ChannelAddressErrorException:
+                try:
+                    from .nrfjprog import nrfjprog
+                except:
+                    logging.error("Unable to use backup nrfjprog channel")
+                    logging.error("You may need to `pip install pynrfjprog`")
+                    raise TockLoaderException("Unable to use nrfjprog backup channel")
+
                 self.args.board = self.channel.get_board_name()
                 backup_channel = nrfjprog(self.args)
                 backup_channel.open_link_to_board()

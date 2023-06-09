@@ -5,11 +5,20 @@ pages:
 - API Documentation:
   - Main: main.md
   - Tockloader: tockloader.md
-  - Board Interface: board_interface.md
-  - Bootloader Serial: bootloader_serial.md
-  - JLinkExe: jlinkexe.md
-  - App: app.md
+  - Interface Channels:
+    - Board Interface: board_interface.md
+    - Bootloader Serial: bootloader_serial.md
+    - JLinkExe: jlinkexe.md
+    - OpenOCD: openocd.md
+    - nrfjprog: nrfjprog.md
+    - Flash File: flash_file.md
+  - App:
+      - Installed Apps: app_installed.md
+      - Apps from TABs: app_tab.md
+      - Padding Apps: app_padding.md
   - TAB: tab.md
   - TBF Header: tbfh.md
+  - TicKV: tickv.md
+  - Display: display.md
   - Exceptions: exceptions.md
   - Helpers: helpers.md

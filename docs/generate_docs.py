@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import inspect
 import pydoc
 import os, sys
 
@@ -64,7 +65,7 @@ def getfunctions(item):
         out.append(
             "def {}{}\n".format(
                 func[0],
-                pydoc.inspect.formatargspec(*pydoc.inspect.getfullargspec(func[1])),
+                str(inspect.signature(func[1])),
             )
         )
         out.append("```\n")

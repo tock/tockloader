@@ -551,6 +551,41 @@ def command_tickv_append(args):
     tock_loader.tickv_append(args.key, append_bytes)
 
 
+def command_tickv_append_rsa_key(args):
+    """
+    Helper operation to store an RSA public key in a TicKV database. This adds
+    two key-value pairs:
+
+    1. `rsa<bits>-key-n`
+    2. `rsa<bits>-key-e`
+
+    where `<bits>` is the size of the key. So, for 2048 bit RSA keys the two
+    TicKV keys will be `rsa2048-key-n` and `rsa2048-key-e`.
+
+    The actual values for n and e are stored as byte arrays.
+    """
+
+    key_file = b""
+    with open(args.rsa_key_file, "rb") as f:
+        key_file = f.read()
+
+    import Crypto
+    from Crypto.PublicKey import RSA
+
+    key = RSA.importKey(key_file)
+
+    pairs = [
+        ("rsa{}-key-n".format(key.size_in_bits()), key._n.to_bytes()),
+        ("rsa{}-key-e".format(key.size_in_bits()), key._e.to_bytes()),
+    ]
+
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Appending RSA keys in TicKV...")
+    tock_loader.tickv_append(pairs)
+
+
 def command_tickv_cleanup(args):
     tock_loader = TockLoader(args)
     tock_loader.open()
@@ -1202,6 +1237,17 @@ def main():
     tickv_append.add_argument(
         "--value-file",
         help="Filepath of contents to append from the TicKV database",
+    )
+
+    tickv_append_rsa_key = tickv_subparser.add_parser(
+        "append-rsa-key",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Add a public RSA key to a tickv database",
+    )
+    tickv_append_rsa_key.set_defaults(func=command_tickv_append_rsa_key)
+    tickv_append_rsa_key.add_argument(
+        "rsa_key_file",
+        help="Filepath of the RSA key",
     )
 
     tickv_cleanup = tickv_subparser.add_parser(

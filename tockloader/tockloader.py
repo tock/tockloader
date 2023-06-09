@@ -120,6 +120,13 @@ class TockLoader:
             "stm32f3discovery": {"start_address": 0x08020000},
             "stm32f4discovery": {"start_address": 0x08040000},
             "raspberry_pi_pico": {"start_address": 0x10020000},
+            "tickv": {
+                "tickv": {
+                    "region_size": 4096,
+                    "number_regions": 3,
+                    "start_address": 0,
+                }
+            },
         },
     }
 
@@ -704,23 +711,7 @@ class TockLoader:
         """
 
         with self._start_communication_with_board():
-            if not "tickv" in self.app_settings:
-                raise TockLoaderException("TicKV settings not specified")
-
-            ticvk_address = self.app_settings["tickv"]["start_address"]
-            region_size = self.app_settings["tickv"]["region_size"]
-            number_regions = self.app_settings["tickv"]["number_regions"]
-            tickv_size = region_size * number_regions
-
-            try:
-                tickv_db = self.channel.read_range(ticvk_address, tickv_size)
-            except ChannelAddressErrorException:
-                self.args.board = self.channel.get_board_name()
-                backup_channel = nrfjprog(self.args)
-                backup_channel.open_link_to_board()
-                tickv_db = backup_channel.read_range(ticvk_address, tickv_size)
-
-            tickv_db = TockTicKV(tickv_db, region_size)
+            tickv_db = self._tickv_get_database()
             kv_object = tickv_db.get(key)
             print(kv_object)
 
@@ -730,24 +721,18 @@ class TockLoader:
         """
 
         with self._start_communication_with_board():
-            if not "tickv" in self.app_settings:
-                raise TockLoaderException("TicKV settings not specified")
-
-            ticvk_address = self.app_settings["tickv"]["start_address"]
-            region_size = self.app_settings["tickv"]["region_size"]
-            number_regions = self.app_settings["tickv"]["number_regions"]
-            tickv_size = region_size * number_regions
-
-            try:
-                tickv_db = self.channel.read_range(ticvk_address, tickv_size)
-            except ChannelAddressErrorException:
-                self.args.board = self.channel.get_board_name()
-                backup_channel = nrfjprog(self.args)
-                backup_channel.open_link_to_board()
-                tickv_db = backup_channel.read_range(ticvk_address, tickv_size)
-
-            tickv_db = TockTicKV(tickv_db, region_size)
+            tickv_db = self._tickv_get_database()
             print(tickv_db.dump())
+
+    def tickv_invalidate(self, key):
+        """
+        Read a key, value pair from a TicKV database on a board.
+        """
+
+        with self._start_communication_with_board():
+            tickv_db = self._tickv_get_database()
+            tickv_db.invalidate(key)
+            self._tickv_write_database(tickv_db)
 
     def run_terminal(self):
         """
@@ -1003,6 +988,47 @@ class TockLoader:
                     "Key not found. Writing new attribute to slot {}".format(open_index)
                 )
                 self.channel.set_attribute(open_index, out)
+
+    def _tickv_get_database(self):
+        """
+        Read the flash for a TicKV database. Since this might be stored on
+        external flash, we might need to use a backup mechanism to read the
+        flash.
+        """
+        if not "tickv" in self.app_settings:
+            raise TockLoaderException("TicKV settings not specified")
+
+        ticvk_address = self.app_settings["tickv"]["start_address"]
+        region_size = self.app_settings["tickv"]["region_size"]
+        number_regions = self.app_settings["tickv"]["number_regions"]
+        tickv_size = region_size * number_regions
+
+        try:
+            tickv_db = self.channel.read_range(ticvk_address, tickv_size)
+        except ChannelAddressErrorException:
+            self.args.board = self.channel.get_board_name()
+            backup_channel = nrfjprog(self.args)
+            backup_channel.open_link_to_board()
+            tickv_db = backup_channel.read_range(ticvk_address, tickv_size)
+
+        return TockTicKV(tickv_db, region_size)
+
+    def _tickv_write_database(self, tickv_db):
+        """
+        Write a TicKV database back to flash, overwriting the existing database.
+        """
+        if not "tickv" in self.app_settings:
+            raise TockLoaderException("TicKV settings not specified")
+
+        ticvk_address = self.app_settings["tickv"]["start_address"]
+
+        try:
+            tickv_db = self.channel.flash_binary(ticvk_address, tickv_db.get_binary())
+        except ChannelAddressErrorException:
+            self.args.board = self.channel.get_board_name()
+            backup_channel = nrfjprog(self.args)
+            backup_channel.open_link_to_board()
+            tickv_db = backup_channel.flash_binary(ticvk_address, tickv_db.get_binary())
 
     ############################################################################
     ## Helper Functions for Manipulating Binaries and TBF

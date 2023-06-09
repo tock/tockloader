@@ -505,24 +505,15 @@ def command_dump_flash_page(args):
     tock_loader.dump_flash_page(args.page)
 
 
-def command_list_known_boards(args):
+def command_tickv_get(args):
     tock_loader = TockLoader(args)
-    tock_loader.print_known_boards()
+    tock_loader.open()
+
+    logging.status("Fetching TicKV key...")
+    tock_loader.tickv_get(args.key)
 
 
 def command_tickv_dump(args):
-    # database = b""
-    # with open(args.tickv_file, "rb") as f:
-    #     database = f.read()
-
-    # region_size = args.region_size
-    # number_regions = args.number_regions
-
-    # database = database[0 : region_size * number_regions]
-
-    # tickv_db = TockTicKV(database, region_size)
-    # print(tickv_db.dump())
-
     tock_loader = TockLoader(args)
     tock_loader.open()
 
@@ -530,27 +521,17 @@ def command_tickv_dump(args):
     tock_loader.tickv_dump()
 
 
-def command_tickv_get(args):
-    # database = b""
-    # with open(args.tickv_file, "rb") as f:
-    #     database = f.read()
-
-    # region_size = args.region_size
-    # number_regions = args.number_regions
-
-    # database = database[0 : region_size * number_regions]
-
-    # tickv_db = TockTicKV(database, region_size)
-
-    # tickv_db.invalidate(args.key)
-    # kv_object = tickv_db.get(args.key)
-    # print(kv_object)
-
+def command_tickv_invalidate(args):
     tock_loader = TockLoader(args)
     tock_loader.open()
 
-    logging.status("Fetching TicKV key...")
-    tock_loader.tickv_get(args.key)
+    logging.status("Invalidating TicKV key...")
+    tock_loader.tickv_invalidate(args.key)
+
+
+def command_list_known_boards(args):
+    tock_loader = TockLoader(args)
+    tock_loader.print_known_boards()
 
 
 ################################################################################
@@ -1147,6 +1128,17 @@ def main():
         help="Display the contents of a tickv database",
     )
     tickv_dump.set_defaults(func=command_tickv_dump)
+
+    tickv_invalidate = tickv_subparser.add_parser(
+        "invalidate",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Invalidate an item in a tickv database",
+    )
+    tickv_invalidate.set_defaults(func=command_tickv_invalidate)
+    tickv_invalidate.add_argument(
+        "key",
+        help="Key to invalidate from the TicKV database",
+    )
 
     argcomplete.autocomplete(parser)
     args, unknown_args = parser.parse_known_args()

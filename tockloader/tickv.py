@@ -28,22 +28,49 @@ class TicKVObjectHeader:
         return (self.flags >> 3) & 0x1 == 0x1
 
     def get_binary(self, length):
-        flags_length = (self.flags << 12) | length
+        total_length = length + self.length() + 4
+
+        flags_length = (self.flags << 12) | total_length
         return struct.pack(">BHQ", self.version, flags_length, self.hashed_key)
 
 
-class TicKVObject:
-    def __init__(self, header, value_buffer, checksum):
+class TicKVObjectHeaderFlash(TicKVObjectHeader):
+    def __init__(self, binary):
+        object_header_fields = struct.unpack(">BHQ", binary[0:11])
+
+        version = object_header_fields[0]
+        flags = object_header_fields[1] >> 12
+        length = object_header_fields[1] & 0xFFF
+        hashed_key = object_header_fields[2]
+
+        if version != 1:
+            raise TockLoaderException("Invalid object")
+
+        super().__init__(version, flags, hashed_key)
+
+        self.total_length = length
+
+    def get_value_length(self):
+        return self.total_length - self.length() - 4
+
+
+class TicKVObjectBase:
+    def __init__(self, header, checksum=None):
         self.header = header
-        self.value_buffer = value_buffer
         self.checksum = checksum
+
+        # These arguments don't exactly match (init should be 0), but the actual
+        # CRC values seem to work.
+        self.crc_fn = crcmod.mkCrcFun(
+            poly=0x104C11DB7, rev=False, initCrc=0xFFFFFFFF, xorOut=0xFFFFFFFF
+        )
 
     def length(self):
         """
         Return the total length of this object in the database in bytes.
         """
         # Size is header length + value length + checksum length (4)
-        return self.header.length() + len(self.value_buffer) + 4
+        return self.header.length() + len(self.get_value_bytes()) + 4
 
     def invalidate(self):
         self.header.invalidate()
@@ -57,15 +84,18 @@ class TicKVObject:
     def get_checksum(self):
         return self.checksum
 
-    def get_value_bytes(self):
-        return self.value_buffer
+    def _calculate_checksum(self, object_bytes):
+        return self.crc_fn(object_bytes)
 
     def get_binary(self):
-        return bytearray(
-            self.header.get_binary(self.length())
-            + self.value_buffer
-            + struct.pack("<I", self.checksum)
-        )
+        main_bytes = self.get_value_bytes()
+        header_bytes = self.header.get_binary(len(main_bytes))
+        object_bytes = header_bytes + main_bytes
+
+        checksum = self._calculate_checksum(object_bytes)
+        checksum_bytes = struct.pack("<I", checksum)
+
+        return object_bytes + checksum_bytes
 
     def __str__(self):
         out = ""
@@ -78,13 +108,67 @@ class TicKVObject:
         return out
 
 
-class TockTicKVObject:
-    def __init__(self, header, checksum, version, write_id, value_buffer):
-        self.header = header
+class TicKVObjectFlash(TicKVObjectBase):
+    """
+    A TicKV object that is read off of the flash.
+    """
+
+    def __init__(self, binary):
+        header = TicKVObjectHeaderFlash(binary)
+        value_length = header.get_value_length()
+        checksum_bytes = binary[
+            header.length() + value_length : header.length() + value_length + 4
+        ]
+        checksum = struct.unpack("<I", checksum_bytes)[0]
+
+        super().__init__(header, checksum)
+        self.value_bytes = binary[header.length() : header.length() + value_length]
+
+    def get_value_bytes(self):
+        return self.value_bytes
+
+
+class TockStorageObject:
+    """
+    This is the item stored in a TicKV value that Tock processes/kernel can
+    access.
+    """
+
+    def __init__(self, version, write_id, value_buffer):
         self.value_buffer = value_buffer
-        self.checksum = checksum
         self.version = version
         self.write_id = write_id
+
+    def length(self):
+        return 9 + len(self.value_buffer)
+
+    def get_binary(self):
+        return struct.pack("<BII", self.version, len(self.value_buffer), self.write_id)
+
+
+class TockStorageObjectFlash(TockStorageObject):
+    def __init__(self, binary):
+        kv_tock_header_fields = struct.unpack("<BII", binary[0:9])
+        version = kv_tock_header_fields[0]
+        length = kv_tock_header_fields[1]
+        write_id = kv_tock_header_fields[2]
+
+        value_bytes = binary[9 : 9 + length]
+
+        super().__init__(version, write_id, value_bytes)
+
+
+class TicKVObjectTock(TicKVObjectBase):
+    def __init__(self, header, storage_object, padding, checksum=None):
+        super().__init__(header, checksum)
+
+        self.storage_object = storage_object
+        self.padding = padding
+
+    def get_value_bytes(self):
+        object_bytes = self.storage_object.get_binary()
+        padding_bytes = b"\0" * self.padding
+        return object_bytes + padding_bytes
 
     def __str__(self):
         out = ""
@@ -92,15 +176,29 @@ class TockTicKVObject:
             self.header.version,
             self.header.flags,
             self.header.is_valid(),
-            self.checksum,
+            self.get_checksum(),
         )
         out += "  TockTicKV Object version={} write_id={} length={}\n".format(
-            self.version, self.write_id, len(self.value_buffer)
+            self.storage_object.version,
+            self.storage_object.write_id,
+            len(self.storage_object.value_buffer),
         )
-        v = binascii.hexlify(self.value_buffer).decode("utf-8")
+        v = binascii.hexlify(self.storage_object.value_buffer).decode("utf-8")
         out += "    Value: {}\n".format(v)
 
         return out
+
+
+class TicKVObjectTockFlash(TicKVObjectTock):
+    def __init__(self, tickv_object):
+
+        value_bytes = tickv_object.get_value_bytes()
+        storage_object = TockStorageObjectFlash(value_bytes)
+        padding = len(value_bytes) - storage_object.length()
+
+        super().__init__(
+            tickv_object.header, storage_object, padding, tickv_object.checksum
+        )
 
 
 class TicKV:
@@ -110,11 +208,6 @@ class TicKV:
         the storage.
         """
 
-        # These arguments don't exactly match (init should be 0), but the actual
-        # CRC values seem to work.
-        self.crc_fn = crcmod.mkCrcFun(
-            poly=0x104C11DB7, rev=False, initCrc=0xFFFFFFFF, xorOut=0xFFFFFFFF
-        )
         self.storage_binary = bytearray(storage_binary)
         self.region_size = region_size
 
@@ -137,36 +230,15 @@ class TicKV:
             region_index * self.region_size : (region_index + 1) * self.region_size
         ] = region_binary
 
-    def _parse_object(self, buffer):
-        object_header_bytes = buffer[0:11]
-        object_header_fields = struct.unpack(">BHQ", object_header_bytes)
-
-        version = object_header_fields[0]
-        flags = object_header_fields[1] >> 12
-        length = object_header_fields[1] & 0xFFF
-        hashed_key = object_header_fields[2]
-
-        if version != 1:
-            return None
-
-        header = TicKVObjectHeader(version, flags, hashed_key)
-
-        value_length = length - 11 - 4
-        object_value_bytes = buffer[11 : 11 + value_length]
-        object_checksum_bytes = buffer[length - 4 : length]
-        object_checksum = struct.unpack("<I", object_checksum_bytes)[0]
-
-        return TicKVObject(header, object_value_bytes, object_checksum)
-
     def get(self, hashed_key):
         region_index = (hashed_key & 0xFFFF) % self._get_number_regions()
         region_binary = self._get_region_binary(region_index)
 
         offset = 0
         while True:
-            kv_object = self._parse_object(region_binary[offset:])
-
-            if kv_object == None:
+            try:
+                kv_object = TicKVObjectFlash(region_binary[offset:])
+            except:
                 break
 
             if kv_object.get_hashed_key() != hashed_key:
@@ -182,12 +254,13 @@ class TicKV:
 
         offset = 0
         while True:
-            kv_object = self._parse_object(region_binary[offset:])
-            if kv_object != None:
-                kv_objects.append(kv_object)
-                offset += kv_object.length()
-            else:
+            try:
+                kv_object = TicKVObjectFlash(region_binary[offset:])
+            except:
                 break
+
+            kv_objects.append(kv_object)
+            offset += kv_object.length()
 
         return kv_objects
 
@@ -197,9 +270,9 @@ class TicKV:
 
         offset = 0
         while True:
-            kv_object = self._parse_object(region_binary[offset:])
-
-            if kv_object == None:
+            try:
+                kv_object = TicKVObjectFlash(region_binary[offset:])
+            except:
                 break
 
             if kv_object.get_hashed_key() == hashed_key:
@@ -212,17 +285,8 @@ class TicKV:
 
         self._update_region_binary(region_index, region_binary)
 
-    def __str__(self):
-        out = "\n"
-        k = binascii.hexlify(self.trial()).decode("utf-8")
-        out += "{}\n".format(k)
-
-        k = binascii.hexlify(self._hash_key("mythirdkey")).decode("utf-8")
-        out += "{}\n".format(k)
-
-        for i in range(0, self._get_number_regions()):
-            self.parse_region(i)
-        return out
+    def get_binary(self):
+        return self.storage_binary
 
 
 class TockTicKV(TicKV):
@@ -283,14 +347,24 @@ class TockTicKV(TicKV):
         if kv_object == None:
             return None
 
-        return self._parse_tock_object(kv_object)
+        try:
+            tock_kv_object = TicKVObjectTockFlash(kv_object)
+        except:
+            tock_kv_object = None
+
+        return tock_kv_object
 
     def get_all(self, region_index):
         kv_objects = super().get_all(region_index)
+        logging.debug("Found {} TicKV objects".format(len(kv_objects)))
 
         tock_kv_objects = []
         for kv_object in kv_objects:
-            tock_kv_object = self._parse_tock_object(kv_object)
+            try:
+                tock_kv_object = TicKVObjectTockFlash(kv_object)
+            except:
+                tock_kv_object = None
+
             if tock_kv_object != None:
                 tock_kv_objects.append(tock_kv_object)
 

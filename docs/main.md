@@ -190,19 +190,112 @@ def command_sticky_app(args)
 
 
 
-### command\_tbf\_delete\_tlv
+### command\_tbf\_credential\_add
 ```py
 
-def command_tbf_delete_tlv(args)
+def command_tbf_credential_add(args)
 
 ```
 
 
 
-### command\_tbf\_modify\_tlv
+### command\_tbf\_credential\_delete
 ```py
 
-def command_tbf_modify_tlv(args)
+def command_tbf_credential_delete(args)
+
+```
+
+
+
+### command\_tbf\_tlv\_delete
+```py
+
+def command_tbf_tlv_delete(args)
+
+```
+
+
+
+### command\_tbf\_tlv\_modify
+```py
+
+def command_tbf_tlv_modify(args)
+
+```
+
+
+
+### command\_tickv\_append
+```py
+
+def command_tickv_append(args)
+
+```
+
+
+
+### command\_tickv\_append\_rsa\_key
+```py
+
+def command_tickv_append_rsa_key(args)
+
+```
+
+
+
+Helper operation to store an RSA public key in a TicKV database. This adds
+two key-value pairs:
+
+1. `rsa<bits>-key-n`
+2. `rsa<bits>-key-e`
+
+where `<bits>` is the size of the key. So, for 2048 bit RSA keys the two
+TicKV keys will be `rsa2048-key-n` and `rsa2048-key-e`.
+
+The actual values for n and e are stored as byte arrays.
+
+
+### command\_tickv\_cleanup
+```py
+
+def command_tickv_cleanup(args)
+
+```
+
+
+
+### command\_tickv\_dump
+```py
+
+def command_tickv_dump(args)
+
+```
+
+
+
+### command\_tickv\_get
+```py
+
+def command_tickv_get(args)
+
+```
+
+
+
+### command\_tickv\_invalidate
+```py
+
+def command_tickv_invalidate(args)
+
+```
+
+
+
+### command\_tickv\_reset
+```py
+
+def command_tickv_reset(args)
 
 ```
 

@@ -1,18 +1,9 @@
-# Package tockloader.jlinkexe Documentation
+# Package tockloader.nrfjprog Documentation
 
 
-Interface for boards using Segger's JLinkExe program.
+Interface for boards using nrfjprog.
 
-All communication with the board is done using JLinkExe commands and scripts.
-
-Different MCUs require different command line arguments so that the JLinkExe
-tool knows which JTAG interface it is talking to. Since we don't want to burden
-the user with specifying the board each time, we default to using a generic
-cortex-m0 target, and use that to read the bootloader attributes to get the
-correct version. Once we know more about the board we are talking to we use the
-correct command line argument for future communication.
-
-## Class JLinkExe
+## Class nrfjprog
 Base class for interacting with hardware boards. All of the class functions
 should be overridden to support a new method of interacting with a board.
 ### \_\_init\_\_
@@ -122,7 +113,7 @@ def flash_binary(self, address, binary, pad=False)
 
 
 
-Write using JTAG
+Write using nrfjprog.
 
 
 ### get\_all\_attributes
@@ -244,9 +235,7 @@ def read_range(self, address, length)
 
 
 
-Read a specific range of flash.
-
-If this fails for some reason this should return an empty binary array.
+Read using nrfjprog.
 
 
 ### run\_terminal
@@ -256,9 +245,6 @@ def run_terminal(self)
 
 ```
 
-
-
-Use JLinkRTTClient to listen for RTT messages.
 
 
 ### set\_attribute
@@ -344,54 +330,6 @@ def _decode_attribute(self, raw)
 
 ```
 
-
-
-### \_get\_tockloader\_board\_from\_emulators
-```py
-
-def _get_tockloader_board_from_emulators(self, emulators)
-
-```
-
-
-
-Returns None or a board name if we can parse the emulators list
-and find a valid board.
-
-To add to this list, connect your board, then:
-
-$ JLinkExe
-> ShowEmuList
-
-and hope there is something unique we can match on.
-
-
-### \_list\_emulators
-```py
-
-def _list_emulators(self)
-
-```
-
-
-
-Retrieve a list of JLink compatible devices.
-
-
-### \_run\_jtag\_commands
-```py
-
-def _run_jtag_commands(self, commands, binary, write=True)
-
-```
-
-
-
-- `commands`: List of JLinkExe commands. Use {binary} for where the name
-  of the binary file should be substituted.
-- `binary`: A bytes() object that will be used to write to the board.
-- `write`: Set to true if the command writes binaries to the board. Set
-  to false if the command will read bits from the board.
 
 
 

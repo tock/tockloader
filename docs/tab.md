@@ -151,6 +151,15 @@ def __str__(self)
 Return str(self).
 
 
+### \_extract\_tbf\_from\_filebuffer
+```py
+
+def _extract_tbf_from_filebuffer(self, tbf_filename, binary)
+
+```
+
+
+
 ### \_get\_metadata\_key
 ```py
 

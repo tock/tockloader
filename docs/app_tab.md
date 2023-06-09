@@ -25,16 +25,52 @@ def __init__(self, tbfs)
 Create a `TabApp` from a list of TabTbfs.
 
 
-### delete\_tbfh\_tlv
+### add\_credential
 ```py
 
-def delete_tbfh_tlv(self, tlvid)
+def add_credential(self, credential_type, public_key, private_key, cleartext_id)
 
 ```
 
 
 
-Delete a particular TLV from each TBF header.
+Add a credential by type to the TBF footer.
+
+
+### corrupt\_tbf
+```py
+
+def corrupt_tbf(self, field_name, value)
+
+```
+
+
+
+Modify the TBF root header just before installing the application.
+
+
+### delete\_credential
+```py
+
+def delete_credential(self, credential_type)
+
+```
+
+
+
+Remove a credential by ID from the TBF footer.
+
+
+### delete\_tlv
+```py
+
+def delete_tlv(self, tlvid)
+
+```
+
+
+
+Delete a particular TLV from each TBF header and footer.
 
 
 ### fix\_at\_next\_loadable\_address
@@ -63,6 +99,20 @@ binary_ must be located. Therefore, the start of the app where the TBF
 header goes must be before that. This can be at any address (as long as
 the header will fit), but we want to make this simpler, so we just
 assume the TBF header should start on a 1024 byte alignment.
+
+
+### get\_app\_version
+```py
+
+def get_app_version(self)
+
+```
+
+
+
+Return the version number stored in a program header.
+
+This is only valid if there is only one TBF.
 
 
 ### get\_binary
@@ -109,6 +159,18 @@ Return a list of tuples of all addresses in flash this app is compiled
 for and the size of the app at that address.
 
 [(address, size), (address, size), ...]
+
+
+### get\_footers
+```py
+
+def get_footers(self)
+
+```
+
+
+
+Return the footers if there are any.
 
 
 ### get\_header
@@ -296,6 +358,19 @@ Mark this app as "sticky" in the app's header. This makes it harder to
 accidentally remove this app if it is a core service or debug app.
 
 
+### verify\_credentials
+```py
+
+def verify_credentials(self, public_keys)
+
+```
+
+
+
+Using an optional array of public_key binaries, try to check any
+contained credentials to verify they are valid.
+
+
 ### \_\_str\_\_
 ```py
 
@@ -331,7 +406,7 @@ This correlates to a specific .tbf file storing a .tab file.
 ### \_\_init\_\_
 ```py
 
-def __init__(self, filename, tbfh, binary)
+def __init__(self, filename, tbfh, binary, tbff)
 
 ```
 

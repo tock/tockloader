@@ -96,13 +96,20 @@ Add or update TABs on the board.
 ### list\_apps
 ```py
 
-def list_apps(self, verbose, quiet)
+def list_apps(self, verbose, quiet, verify_credentials_public_keys)
 
 ```
 
 
 
 Query the chip's flash to determine which apps are installed.
+
+- `verbose` - bool: Show details about TBF.
+- `quiet` - bool: Just show the app name.
+- `verify_credentials_public_keys`: Either `None`, meaning do not verify
+  any credentials, or a list of public keys binaries to use to help
+  verify credentials. The list can be empty and all credentials that can
+  be checked without keys will be verified.
 
 
 ### list\_attributes
@@ -223,6 +230,80 @@ def set_start_address(self, address)
 Set the address that the bootloader jumps to to run kernel code.
 
 
+### tickv\_append
+```py
+
+def tickv_append(self, key, value=None)
+
+```
+
+
+
+Add a key,value pair to the database. The first argument can a list of
+key, value pairs.
+
+
+### tickv\_cleanup
+```py
+
+def tickv_cleanup(self)
+
+```
+
+
+
+Clean the database by remove invalid objects and re-storing valid
+objects.
+
+
+### tickv\_dump
+```py
+
+def tickv_dump(self)
+
+```
+
+
+
+Display all of the contents of a TicKV database.
+
+
+### tickv\_get
+```py
+
+def tickv_get(self, key)
+
+```
+
+
+
+Read a key, value pair from a TicKV database on a board.
+
+
+### tickv\_invalidate
+```py
+
+def tickv_invalidate(self, key)
+
+```
+
+
+
+Invalidate a particular key in the database.
+
+
+### tickv\_reset
+```py
+
+def tickv_reset(self)
+
+```
+
+
+
+Reset the database by erasing it and re-initializing.
+
+
 ### uninstall\_app
 ```py
 
@@ -276,7 +357,7 @@ string "TOCKBOOTLOADER" being at address 0x400.
 ### \_extract\_all\_app\_headers
 ```py
 
-def _extract_all_app_headers(self, verbose=False)
+def _extract_all_app_headers(self, verbose=False, extract_app_binary=False)
 
 ```
 
@@ -284,6 +365,11 @@ def _extract_all_app_headers(self, verbose=False)
 
 Iterate through the flash on the board for the header information about
 each app.
+
+Options:
+- `verbose`: Show ALL apps, including padding apps.
+- `extract_app_binary`: Get the actual app binary in addition to the
+  headers.
 
 
 ### \_extract\_apps\_from\_tabs
@@ -322,18 +408,6 @@ def _print_apps(self, apps, verbose, quiet)
 
 
 Print information about a list of apps
-
-
-### \_print\_flash
-```py
-
-def _print_flash(self, address, flash)
-
-```
-
-
-
-Print binary data in a nice hexdump format.
 
 
 ### \_replace\_with\_padding
@@ -385,7 +459,7 @@ Returns None if successful and an error string if not.
 ### \_start\_communication\_with\_board
 ```py
 
-def _start_communication_with_board(*args, **kwds)
+def _start_communication_with_board(self)
 
 ```
 
@@ -397,6 +471,32 @@ to the board. It also times the operation.
 
 For the bootloader, the board needs to be reset and told to enter the
 bootloader mode. For JTAG, this is unnecessary.
+
+
+### \_tickv\_get\_database
+```py
+
+def _tickv_get_database(self)
+
+```
+
+
+
+Read the flash for a TicKV database. Since this might be stored on
+external flash, we might need to use a backup mechanism to read the
+flash.
+
+
+### \_tickv\_write\_database
+```py
+
+def _tickv_write_database(self, tickv_db)
+
+```
+
+
+
+Write a TicKV database back to flash, overwriting the existing database.
 
 
 ### \_update\_board\_specific\_options

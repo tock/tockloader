@@ -125,27 +125,73 @@ Print which boards tockloader has default settings for built-in.
 
 Set the jump address the bootloader uses for the location of the kernel.
 
+#### `tockloader tbf tlv delete|modify [TLVID]`
+
+Interact with TLV structures within a TBF.
+
+#### `tockloader tbf credential add|delete [credential type]`
+
+Add and remove credentials in the TBF footer.
+
+#### `tockloader tickv get|append|invalidate|dump|cleanup|reset [key] [value]`
+
+Interact with a TicKV key-value database.
+
 
 Specifying the Board
 --------------------
 
-For tockloader to know how to interface with a particular hardware board, it
-typically reads attributes from the bootloader to identify properties of the
-board. Tockloader also attempts to automatically discover boards using JLink and
-OpenOCD as well. If those are unavailable, they can be specified as command line
-arguments.
+For tockloader to know how to interface with a particular hardware board,
+it tries several options:
 
-    tockloader [command] --arch [arch] --board [board]
+1. Read the parameters from the bootloader. Tockloader assumes it can open a
+   serial connection to a
+   [tock-bootloader](https://github.com/tock/tock-bootloader/) on the board.
 
-- `arch`: The architecture of the board. Likely `cortex-m0` or `cortex-m4`.
+2. Use `JLinkExe` and `OpenOCD` to discover known boards.
+
+3. Use the `--board` command line flag and a list of known boards.
+
+4. Use individual command line flags that specify how to interact with the
+   board.
+
+If command line flags are passed they take priority over any automatically
+discovered options.
+
+Tockloader has hardcoded parameters for a variety of boards. You can list these
+with:
+
+    tockloader list-known-boards
+
+To use a known board, if it is not automatically discovered, you can:
+
+    tockloader [command] --board [board]
+
+If your board is not a known board, you can specify the required parameters
+via command line options. Note, you also need to provide a name for the board.
+
+    tockloader [command] --board [board] --arch [arch] --page-size [page_size]
+
 - `board`: The name of the board. This helps prevent incompatible applications
   from being flashed on the wrong board.
+- `arch`: The architecture of the board. Likely `cortex-m0` or `cortex-m4`.
+- `page_size`: The size in bytes of the smallest erasable unit in flash.
 
-Tockloader also supports a JTAG interface using JLinkExe. JLinkExe requires
+Specifying the Communication Channel
+------------------------------------
+
+Tockloader defaults to using a serial connection to an on-chip bootloader to
+program and interact with a board. If you need to use a different communication
+mechanism, you can specify what Tockloader should use with command line
+arguments. Note, Tockloader's board autodiscovery process also selects different
+communication channels based on which board it finds.
+
+To use a JTAG interface using JLinkExe, specify `--jlink`. JLinkExe requires
 knowing the device type of the MCU on the board.
 
-    tockloader [command] --jlink --arch [arch] --board [board] \
-    --jlink-cmd [jlink_cmd] --jlink-device [device] --jlink-speed [speed] --jlink-if [if]
+    tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
+                         --jlink --jlink-cmd [jlink_cmd] --jlink-device [device] \
+                         --jlink-speed [speed] --jlink-if [if]
 
 - `jlink_cmd`: The JLink executable to invoke. Defaults to `JLinkExe` on
   Mac/Linux, and `JLink` on Windows.
@@ -156,9 +202,11 @@ knowing the device type of the MCU on the board.
 Tockloader can also do JTAG using OpenOCD. OpenOCD needs to know which config
 file to use.
 
-    tockloader [command] --openocd --arch [arch] --board [board] --openocd-board [openocd_board] \
-    --openocd-cmd [openocd_cmd] --openocd-options [openocd_options] \
-    --openocd-commands [openocd_commands]
+    tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
+                         --openocd --openocd-board [openocd_board] \
+                         --openocd-cmd [openocd_cmd] \
+                         --openocd-options [openocd_options] \
+                         --openocd-commands [openocd_commands]
 
 - `openocd_board`: The `.cfg` file in the board folder in OpenOCD to use.
 - `openocd_cmd`: The OpenOCD executable to invoke. Defaults to `openocd`.
@@ -167,13 +215,13 @@ file to use.
   quirks. Options include:
     - `noreset`: Removes the command `reset init;` from OpenOCD commands.
     - `nocmdprefix`: Removes the commands `init; reset init; halt;` from OpenOCD
-    commands.
+      commands.
     - `workareazero`: Adds the command `set WORKAREASIZE 0;` to OpenOCD commands.
     - `resume`: Adds the commands `soft_reset_halt; resume;` to OpenOCD commands.
 - `openocd_commands`: This sets a custom OpenOCD command string to allow
   Tockloader to program arbitrary chips with OpenOCD before support for the
-  board is officially include in Tockloader. The following main operations
-  can be customized:
+  board is officially include in Tockloader. The following main operations can
+  be customized:
     - `program`: Operation used to write a binary to the chip.
     - `read`: Operation used to read arbitrary flash memory on the chip.
     - `erase`: Operation that erases arbitrary ranges of flash memory on the chip.
@@ -193,6 +241,7 @@ of a board. The file can then be loaded separately onto a board.
 
 - `filepath`: The file to use as the flash contents. Will be created if it
   doesn't exist.
+
 
 Example Usage
 -------------
@@ -226,6 +275,31 @@ operation based on the requirements of a particular hardware platform.
   bundle using only a single flash command. This will require that anytime any
   app changes in any way (e.g. its header changes or the app is updated or a new
   app is installed) all apps are re-written.
+
+Credentials and Integrity Support
+---------------------------------
+
+Tockloader supports working with credentials stored in the TBF footer.
+Tockloader will attempt to verify that stored credentials are valid for the
+given TBF. For credentials that require keys to verify, Tockloader can check the
+credential using:
+
+    $ tockloader inspect-tab --verify-credentials [list of key files]
+    example:
+    $ tockloader inspect-tab --verify-credentials tockkey.public.der
+
+Tockloader can also add credentials. To add a hash:
+
+    $ tockloader tbf credential add sha256
+
+To add an RSA signature:
+
+    $ tockloader tbf credential add rsa2048 --private-key tockkey2048.private.der --public-key tockkey2048.public.der
+
+To remove credentials:
+
+    $ tockloader tbf credential delete sha256
+
 
 Features
 --------

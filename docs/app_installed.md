@@ -10,7 +10,7 @@ necessary if the app needs to be moved.
 ### \_\_init\_\_
 ```py
 
-def __init__(self, tbfh, address, app_binary=None)
+def __init__(self, tbfh, tbff, address, app_binary=None)
 
 ```
 
@@ -66,6 +66,18 @@ def get_app_binary(self)
 
 Return just the compiled application code binary. Does not include
 the TBF header.
+
+
+### get\_app\_version
+```py
+
+def get_app_version(self)
+
+```
+
+
+
+Return the version number stored in a program header.
 
 
 ### get\_binary
@@ -293,6 +305,19 @@ def set_sticky(self)
 
 Mark this app as "sticky" in the app's header. This makes it harder to
 accidentally remove this app if it is a core service or debug app.
+
+
+### verify\_credentials
+```py
+
+def verify_credentials(self, public_keys)
+
+```
+
+
+
+Using an optional array of public_key binaries, try to check any
+contained credentials to verify they are valid.
 
 
 ### \_\_str\_\_

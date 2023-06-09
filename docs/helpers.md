@@ -140,6 +140,18 @@ a plural word.
 is 1, then '' will be returned. Otherwise 's'.
 
 
+### print\_flash
+```py
+
+def print_flash(address, flash)
+
+```
+
+
+
+Return binary data in a nice hexdump format.
+
+
 ### set\_terminal\_title
 ```py
 

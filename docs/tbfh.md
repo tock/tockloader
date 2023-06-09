@@ -1,5 +1,332 @@
 # Package tockloader.tbfh Documentation
 
+## Class TBFFooter
+Represent an optional footer after the application binary in the TBF.
+### \_\_init\_\_
+```py
+
+def __init__(self, tbfh, app_binary, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### add\_credential
+```py
+
+def add_credential(self, credential_type, public_key, private_key, integrity_blob, cleartext_id)
+
+```
+
+
+
+Add credential by credential type name.
+
+
+### delete\_credential
+```py
+
+def delete_credential(self, credential_type)
+
+```
+
+
+
+Remove credential by credential type.
+
+
+### delete\_tlv
+```py
+
+def delete_tlv(self, tlvid)
+
+```
+
+
+
+Delete a particular TLV by ID if it exists.
+
+
+### get\_binary
+```py
+
+def get_binary(self)
+
+```
+
+
+
+Get the TBF footer in a bytes array.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
+
+```
+
+
+
+### verify\_credentials
+```py
+
+def verify_credentials(self, public_keys, integrity_blob)
+
+```
+
+
+
+Check credential TLVs with an optional array of public keys (stored as
+binary arrays).
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
+## Class TBFFooterTLVCredentials
+Represent a Credentials TLV in the footer of a TBF.
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer, integrity_blob)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### shrink
+```py
+
+def shrink(self, num_bytes)
+
+```
+
+
+
+Shrink a reserved credential by the number of bytes specified. Do
+nothing if this is not a reserved credential.
+
+
+### verify
+```py
+
+def verify(self, keys, integrity_blob)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+### \_credentials\_name\_to\_id
+```py
+
+def _credentials_name_to_id(credential_type)
+
+```
+
+
+
+### \_credentials\_type\_to\_str
+```py
+
+def _credentials_type_to_str(self)
+
+```
+
+
+
+
+
+## Class TBFFooterTLVCredentialsConstructor
+Represent a Credentials TLV in the footer of a TBF.
+### \_\_init\_\_
+```py
+
+def __init__(self, credential_id)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### compute
+```py
+
+def compute(self, public_key, private_key, integrity_blob, cleartext_id)
+
+```
+
+
+
+Actually generate the credential.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### shrink
+```py
+
+def shrink(self, num_bytes)
+
+```
+
+
+
+Shrink a reserved credential by the number of bytes specified. Do
+nothing if this is not a reserved credential.
+
+
+### verify
+```py
+
+def verify(self, keys, integrity_blob)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+### \_credentials\_name\_to\_id
+```py
+
+def _credentials_name_to_id(credential_type)
+
+```
+
+
+
+### \_credentials\_type\_to\_str
+```py
+
+def _credentials_type_to_str(self)
+
+```
+
+
+
+
+
 ## Class TBFHeader
 Tock Binary Format header class. This can parse TBF encoded headers and
 return various properties of the application.
@@ -26,6 +353,18 @@ def adjust_starting_address(self, address)
 
 Alter this TBF header so the fixed address in flash will be correct
 if the entire TBF binary is loaded at address `address`.
+
+
+### corrupt\_tbf
+```py
+
+def corrupt_tbf(self, field_name, value)
+
+```
+
+
+
+Give a field name and value to set when creating the binary.
 
 
 ### delete\_tlv
@@ -65,6 +404,18 @@ def get_app_size(self)
 Get the total size the app takes in bytes in the flash of the chip.
 
 
+### get\_app\_version
+```py
+
+def get_app_version(self)
+
+```
+
+
+
+Return the version number of the application, if there is one.
+
+
 ### get\_binary
 ```py
 
@@ -75,6 +426,19 @@ def get_binary(self)
 
 
 Get the TBF header in a bytes array.
+
+
+### get\_binary\_end\_offset
+```py
+
+def get_binary_end_offset(self)
+
+```
+
+
+
+Return at what offset the application binary ends. Remaining space
+is taken up by footers.
 
 
 ### get\_fixed\_addresses
@@ -88,6 +452,19 @@ def get_fixed_addresses(self)
 
 Return (fixed_address_ram, fixed_address_flash) if there are fixed
 addresses, or None.
+
+
+### get\_footer\_size
+```py
+
+def get_footer_size(self)
+
+```
+
+
+
+Return the size in bytes of the footer. If no footer is included this
+will return 0.
 
 
 ### get\_header\_size
@@ -138,6 +515,18 @@ def has_fixed_addresses(self)
 
 
 Return true if this TBF header includes the fixed addresses TLV.
+
+
+### has\_footer
+```py
+
+def has_footer(self)
+
+```
+
+
+
+Return true if this TBF has a footer.
 
 
 ### has\_kernel\_version
@@ -287,6 +676,18 @@ def _checksum(self, buffer)
 
 
 Calculate the TBF header checksum.
+
+
+### \_get\_binary\_tlv
+```py
+
+def _get_binary_tlv(self)
+
+```
+
+
+
+Get the TLV for the binary header, whether it's a program or main.
 
 
 ### \_get\_tlv
@@ -333,6 +734,18 @@ Alter this TBF header so the fixed address in flash will be correct
 if the entire TBF binary is loaded at address `address`.
 
 
+### corrupt\_tbf
+```py
+
+def corrupt_tbf(self, field_name, value)
+
+```
+
+
+
+Give a field name and value to set when creating the binary.
+
+
 ### delete\_tlv
 ```py
 
@@ -370,6 +783,18 @@ def get_app_size(self)
 Get the total size the app takes in bytes in the flash of the chip.
 
 
+### get\_app\_version
+```py
+
+def get_app_version(self)
+
+```
+
+
+
+Return the version number of the application, if there is one.
+
+
 ### get\_binary
 ```py
 
@@ -380,6 +805,19 @@ def get_binary(self)
 
 
 Get the TBF header in a bytes array.
+
+
+### get\_binary\_end\_offset
+```py
+
+def get_binary_end_offset(self)
+
+```
+
+
+
+Return at what offset the application binary ends. Remaining space
+is taken up by footers.
 
 
 ### get\_fixed\_addresses
@@ -393,6 +831,19 @@ def get_fixed_addresses(self)
 
 Return (fixed_address_ram, fixed_address_flash) if there are fixed
 addresses, or None.
+
+
+### get\_footer\_size
+```py
+
+def get_footer_size(self)
+
+```
+
+
+
+Return the size in bytes of the footer. If no footer is included this
+will return 0.
 
 
 ### get\_header\_size
@@ -443,6 +894,18 @@ def has_fixed_addresses(self)
 
 
 Return true if this TBF header includes the fixed addresses TLV.
+
+
+### has\_footer
+```py
+
+def has_footer(self)
+
+```
+
+
+
+Return true if this TBF has a footer.
 
 
 ### has\_kernel\_version
@@ -592,6 +1055,18 @@ def _checksum(self, buffer)
 
 
 Calculate the TBF header checksum.
+
+
+### \_get\_binary\_tlv
+```py
+
+def _get_binary_tlv(self)
+
+```
+
+
+
+Get the TLV for the binary header, whether it's a program or main.
 
 
 ### \_get\_tlv
@@ -886,6 +1361,152 @@ Return str(self).
 
 
 
+## Class TBFTLVPermissions
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_allowed\_commands
+```py
+
+def get_allowed_commands(self)
+
+```
+
+
+
+Returns a dict of the format:
+
+```
+{
+    driver_number: [allowed command ID list]
+}
+```
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
+## Class TBFTLVPersistentACL
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer)
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
 ## Class TBFTLVPicOption1
 None
 ### \_\_init\_\_
@@ -898,6 +1519,71 @@ def __init__(self, buffer)
 
 
 Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
+## Class TBFTLVProgram
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer, total_size=0)
+
+```
+
+
+
+Create a Program TLV. To create an empty program TLV, pass `None` in as
+the buffer and the total size of the app in `total_size`.
 
 
 ### get\_size
@@ -989,6 +1675,18 @@ def pack(self)
 
 ```
 
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
 
 
 

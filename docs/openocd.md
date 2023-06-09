@@ -113,7 +113,7 @@ Get out of bootloader mode and go back to running main code.
 ### flash\_binary
 ```py
 
-def flash_binary(self, address, binary)
+def flash_binary(self, address, binary, pad=False)
 
 ```
 

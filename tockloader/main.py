@@ -542,7 +542,7 @@ def command_tickv_append(args):
         with open(args.value_file, "rb") as f:
             append_bytes = f.read()
     else:
-        append_bytes = args.value[0].encode("utf-8")
+        append_bytes = args.value.encode("utf-8")
 
     tock_loader = TockLoader(args)
     tock_loader.open()

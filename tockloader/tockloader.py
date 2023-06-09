@@ -1092,6 +1092,7 @@ class TockLoader:
             tickv_address = self.app_settings["tickv"]["start_address"]
 
         try:
+            logging.info("Writing TicKV database back to flash")
             tickv_db = self.channel.flash_binary(tickv_address, tickv_db.get_binary())
         except ChannelAddressErrorException:
             try:

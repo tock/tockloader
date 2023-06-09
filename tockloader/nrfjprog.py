@@ -29,14 +29,21 @@ class nrfjprog(BoardInterface):
                 if "qspi_size" in board["nrfjprog"]:
                     qspi_size = board["nrfjprog"]["qspi_size"]
 
-        # pynrfjprog does a lot of logging, only turn that on in debug mode.
+        # pynrfjprog does a lot of logging, at this point too much, so we don't
+        # enable it.
         nrfjprog_logging = False
-        if self.args.debug:
-            nrfjprog_logging = True
+        # if self.args.debug:
+        #     nrfjprog_logging = True
 
         # First create the base API, this is how pynrfjprog works.
         api = pynrfjprog.HighLevel.API()
-        api.open()
+        if not api.is_open():
+            api.open()
+        # try:
+        #     api.open()
+        # except:
+        #     # If this is called twice it throws an exception that we can ignore.
+        #     pass
 
         # Need to provide the serial number of the board to connect to,
         # easy enough to get. In the future maybe this would be specified.
@@ -59,25 +66,53 @@ class nrfjprog(BoardInterface):
         """
 
         # We need to erase first, so make sure we are page aligned.
+        original_address = address
+        original_length = len(binary)
         address, binary = self._align_and_stretch_to_page(address, binary)
+        if address != original_address or len(binary) != original_length:
+            logging.debug(
+                "Stretched write to {:#x}:{:#x} (length: {} bytes)".format(
+                    address, address + len(binary), len(binary)
+                )
+            )
 
-        # Erase before we can write.
-        self.nrfjprog.erase(
-            erase_action=pynrfjprog.Parameters.EraseAction.ERASE_SECTOR,
-            start_address=address,
-            end_address=address + len(binary),
-        )
+        # Since pynrfjprog is hopelessly broken:
+        #
+        # - https://github.com/NordicSemiconductor/pynrfjprog/issues/31
+        # - https://devzone.nordicsemi.com/f/nordic-q-a/100613/pynrfjprog-using-pynrfjprog-to-write-qspi-with-buffer-writes-wrong-data
+        #
+        # this is SUPER slow. So, it's worth not writing pages that are already
+        # correct in flash. Therefore, we do this page by page rather than
+        # erasing all flash at the start and then writing all values.
+        for index in range(0, len(binary), 4096):
+            sector_start = index + address
 
-        # Write word by word because there seems to be an issue with writing
-        # buffers: https://devzone.nordicsemi.com/f/nordic-q-a/100613/pynrfjprog-using-pynrfjprog-to-write-qspi-with-buffer-writes-wrong-data
-        for i in range(0, len(binary), 4):
-            word = struct.unpack("<I", binary[i : i + 4])[0]
+            # Get current values of this page.
+            current = self.read_range(sector_start, 4096)
+            # Get desired values of the page.
+            desired = binary[index : index + 4096]
 
-            # Skip writing all 0xff since the flash is already erased.
-            if word == 0xFFFFFFFF:
-                continue
+            if current != desired:
+                # Erase first
+                logging.debug("Erasing sector @{:#x}".format(sector_start))
+                self.nrfjprog.erase(
+                    erase_action=pynrfjprog.Parameters.EraseAction.ERASE_SECTOR,
+                    start_address=sector_start,
+                    end_address=sector_start + 4096,
+                )
 
-            self.nrfjprog.write(address=address + i, data=word)
+                # Then write word-by-word values which aren't all 0xFF.
+                for i in range(0, len(desired), 4):
+                    word = struct.unpack("<I", desired[i : i + 4])[0]
+
+                    # Skip writing all 0xff since the flash is already erased.
+                    if word == 0xFFFFFFFF:
+                        continue
+
+                    logging.debug(
+                        "Writing word {:#010x} @{:#x}".format(word, sector_start + i)
+                    )
+                    self.nrfjprog.write(address=sector_start + i, data=word)
 
     def read_range(self, address, length):
         """

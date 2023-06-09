@@ -7,7 +7,7 @@ import traceback
 import Crypto
 from Crypto.Signature import pkcs1_15
 from Crypto.PublicKey import RSA
-from Crypto.Hash import SHA512
+from Crypto.Hash import SHA512, SHA256
 
 from .exceptions import TockLoaderException
 

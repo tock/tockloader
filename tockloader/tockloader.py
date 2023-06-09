@@ -24,12 +24,13 @@ from .app_padding import InstalledPaddingApp
 from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
-from .exceptions import TockLoaderException
+from .exceptions import TockLoaderException, ChannelAddressErrorException
 from .tbfh import TBFHeader
 from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
 from .openocd import OpenOCD, collect_temp_files
 from .flash_file import FlashFile
+from .tickv import TockTicKV
 
 
 class TockLoader:
@@ -105,12 +106,26 @@ class TockLoader:
             "hifive1b": {"start_address": 0x20040000},
             "litex_arty": {"start_address": 0x41000000},
             "litex_sim": {"start_address": 0x00080000},
+            "nrf52dk": {
+                "tickv": {
+                    "region_size": 4096,
+                    "number_regions": 32,
+                    "start_address": 0x12000000,
+                }
+            },
             "nucleof4": {"start_address": 0x08040000},
             "microbit_v2": {"start_address": 0x00040000},
             "qemu_rv32_virt": {"start_address": 0x80100000},
             "stm32f3discovery": {"start_address": 0x08020000},
             "stm32f4discovery": {"start_address": 0x08040000},
             "raspberry_pi_pico": {"start_address": 0x10020000},
+            "tickv": {
+                "tickv": {
+                    "region_size": 4096,
+                    "number_regions": 3,
+                    "start_address": 0,
+                }
+            },
         },
     }
 
@@ -649,7 +664,21 @@ class TockLoader:
             address = page_size * page_num
             print("Page number: {} ({:#08x})".format(page_num, address))
 
-            flash = self.channel.read_range(address, page_size)
+            try:
+                flash = self.channel.read_range(address, page_size)
+            except ChannelAddressErrorException:
+                try:
+                    from .nrfjprog import nrfjprog
+                except:
+                    logging.error("Unable to use backup nrfjprog channel")
+                    logging.error("You may need to `pip install pynrfjprog`")
+                    raise TockLoaderException("Unable to use nrfjprog backup channel")
+
+                self.args.board = self.channel.get_board_name()
+                backup_channel = nrfjprog(self.args)
+                backup_channel.open_link_to_board()
+                flash = backup_channel.read_range(address, page_size)
+
             print(helpers.print_flash(address, flash))
 
     def read_flash(self, address, length):
@@ -657,7 +686,21 @@ class TockLoader:
         Print some flash contents.
         """
         with self._start_communication_with_board():
-            flash = self.channel.read_range(address, length)
+            try:
+                flash = self.channel.read_range(address, length)
+            except ChannelAddressErrorException:
+                try:
+                    from .nrfjprog import nrfjprog
+                except:
+                    logging.error("Unable to use backup nrfjprog channel")
+                    logging.error("You may need to `pip install pynrfjprog`")
+                    raise TockLoaderException("Unable to use nrfjprog backup channel")
+
+                self.args.board = self.channel.get_board_name()
+                backup_channel = nrfjprog(self.args)
+                backup_channel.open_link_to_board()
+                flash = backup_channel.read_range(address, length)
+
             print(helpers.print_flash(address, flash))
 
     def write_flash(self, address, length, value):
@@ -666,7 +709,84 @@ class TockLoader:
         """
         with self._start_communication_with_board():
             to_write = bytes([value] * length)
-            self.channel.flash_binary(address, to_write, pad=False)
+
+            try:
+                self.channel.flash_binary(address, to_write, pad=False)
+            except ChannelAddressErrorException:
+                try:
+                    from .nrfjprog import nrfjprog
+                except:
+                    logging.error("Unable to use backup nrfjprog channel")
+                    logging.error("You may need to `pip install pynrfjprog`")
+                    raise TockLoaderException("Unable to use nrfjprog backup channel")
+
+                self.args.board = self.channel.get_board_name()
+                backup_channel = nrfjprog(self.args)
+                backup_channel.open_link_to_board()
+                backup_channel.flash_binary(address, to_write, pad=False)
+
+    def tickv_get(self, key):
+        """
+        Read a key, value pair from a TicKV database on a board.
+        """
+
+        with self._start_communication_with_board():
+            tickv_db = self._tickv_get_database()
+            kv_object = tickv_db.get(key)
+            print(kv_object)
+
+    def tickv_dump(self):
+        """
+        Display all of the contents of a TicKV database.
+        """
+        with self._start_communication_with_board():
+            tickv_db = self._tickv_get_database()
+            print(tickv_db.dump())
+
+    def tickv_invalidate(self, key):
+        """
+        Invalidate a particular key in the database.
+        """
+        with self._start_communication_with_board():
+            tickv_db = self._tickv_get_database()
+            tickv_db.invalidate(key)
+            self._tickv_write_database(tickv_db)
+
+    def tickv_append(self, key, value=None):
+        """
+        Add a key,value pair to the database. The first argument can a list of
+        key, value pairs.
+        """
+        with self._start_communication_with_board():
+            tickv_db = self._tickv_get_database()
+
+            # Check if we got a list of key-value pairs or just one.
+            if isinstance(key, list):
+                for k, v in key:
+                    tickv_db.append(k, v)
+            else:
+                tickv_db.append(key, value)
+
+            self._tickv_write_database(tickv_db)
+
+    def tickv_cleanup(self):
+        """
+        Clean the database by remove invalid objects and re-storing valid
+        objects.
+        """
+        with self._start_communication_with_board():
+            tickv_db = self._tickv_get_database()
+            tickv_db.cleanup()
+            self._tickv_write_database(tickv_db)
+
+    def tickv_reset(self):
+        """
+        Reset the database by erasing it and re-initializing.
+        """
+        with self._start_communication_with_board():
+            tickv_db = self._tickv_get_database()
+            tickv_db.reset()
+            self._tickv_write_database(tickv_db)
 
     def run_terminal(self):
         """
@@ -922,6 +1042,78 @@ class TockLoader:
                     "Key not found. Writing new attribute to slot {}".format(open_index)
                 )
                 self.channel.set_attribute(open_index, out)
+
+    def _tickv_get_database(self):
+        """
+        Read the flash for a TicKV database. Since this might be stored on
+        external flash, we might need to use a backup mechanism to read the
+        flash.
+        """
+        # Get parameters from command line.
+        tickv_address = getattr(self.args, "start_address", -1)
+        region_size = getattr(self.args, "region_size", 0)
+        number_regions = getattr(self.args, "number_regions", 0)
+
+        # If needed, fill in settings from known values.
+        if tickv_address == -1 or region_size == 0 or number_regions == 0:
+            if not "tickv" in self.app_settings:
+                raise TockLoaderException("TicKV settings not specified")
+
+            if tickv_address == -1:
+                tickv_address = self.app_settings["tickv"]["start_address"]
+            if region_size == 0:
+                region_size = self.app_settings["tickv"]["region_size"]
+            if number_regions == 0:
+                number_regions = self.app_settings["tickv"]["number_regions"]
+
+        tickv_size = region_size * number_regions
+
+        try:
+            tickv_db = self.channel.read_range(tickv_address, tickv_size)
+        except ChannelAddressErrorException:
+            try:
+                from .nrfjprog import nrfjprog
+            except:
+                logging.error("Unable to use backup nrfjprog channel")
+                logging.error("You may need to `pip install pynrfjprog`")
+                raise TockLoaderException("Unable to use nrfjprog backup channel")
+
+            self.args.board = self.channel.get_board_name()
+            backup_channel = nrfjprog(self.args)
+            backup_channel.open_link_to_board()
+            tickv_db = backup_channel.read_range(tickv_address, tickv_size)
+
+        return TockTicKV(tickv_db, region_size)
+
+    def _tickv_write_database(self, tickv_db):
+        """
+        Write a TicKV database back to flash, overwriting the existing database.
+        """
+        # Get parameters from command line.
+        tickv_address = getattr(self.args, "start_address", -1)
+
+        # If needed, fill in settings from known values.
+        if tickv_address == -1:
+            if not "tickv" in self.app_settings:
+                raise TockLoaderException("TicKV settings not specified")
+
+            tickv_address = self.app_settings["tickv"]["start_address"]
+
+        try:
+            logging.info("Writing TicKV database back to flash")
+            tickv_db = self.channel.flash_binary(tickv_address, tickv_db.get_binary())
+        except ChannelAddressErrorException:
+            try:
+                from .nrfjprog import nrfjprog
+            except:
+                logging.error("Unable to use backup nrfjprog channel")
+                logging.error("You may need to `pip install pynrfjprog`")
+                raise TockLoaderException("Unable to use nrfjprog backup channel")
+
+            self.args.board = self.channel.get_board_name()
+            backup_channel = nrfjprog(self.args)
+            backup_channel.open_link_to_board()
+            tickv_db = backup_channel.flash_binary(tickv_address, tickv_db.get_binary())
 
     ############################################################################
     ## Helper Functions for Manipulating Binaries and TBF

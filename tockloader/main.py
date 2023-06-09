@@ -27,6 +27,7 @@ import crcmod
 from . import helpers
 from .exceptions import TockLoaderException
 from .tab import TAB
+from .tickv import TicKV, TockTicKV
 from .tockloader import TockLoader
 from ._version import __version__
 
@@ -502,6 +503,103 @@ def command_dump_flash_page(args):
 
     logging.status("Getting page of flash...")
     tock_loader.dump_flash_page(args.page)
+
+
+def command_tickv_get(args):
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Fetching TicKV key...")
+    tock_loader.tickv_get(args.key)
+
+
+def command_tickv_dump(args):
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Dumping entire TicKV database...")
+    tock_loader.tickv_dump()
+
+
+def command_tickv_invalidate(args):
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Invalidating TicKV key...")
+    tock_loader.tickv_invalidate(args.key)
+
+
+def command_tickv_append(args):
+    # We support appending a string from the command line or reading in a file
+    # and using its contents.
+    if args.value_file != None and args.value != None:
+        raise TockLoaderException(
+            "Cannot append both a string value and value from file"
+        )
+
+    append_bytes = b""
+    if args.value_file != None:
+        with open(args.value_file, "rb") as f:
+            append_bytes = f.read()
+    else:
+        append_bytes = args.value.encode("utf-8")
+
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Appending TicKV key...")
+    tock_loader.tickv_append(args.key, append_bytes)
+
+
+def command_tickv_append_rsa_key(args):
+    """
+    Helper operation to store an RSA public key in a TicKV database. This adds
+    two key-value pairs:
+
+    1. `rsa<bits>-key-n`
+    2. `rsa<bits>-key-e`
+
+    where `<bits>` is the size of the key. So, for 2048 bit RSA keys the two
+    TicKV keys will be `rsa2048-key-n` and `rsa2048-key-e`.
+
+    The actual values for n and e are stored as byte arrays.
+    """
+
+    key_file = b""
+    with open(args.rsa_key_file, "rb") as f:
+        key_file = f.read()
+
+    import Crypto
+    from Crypto.PublicKey import RSA
+
+    key = RSA.importKey(key_file)
+
+    pairs = [
+        ("rsa{}-key-n".format(key.size_in_bits()), key._n.to_bytes()),
+        ("rsa{}-key-e".format(key.size_in_bits()), key._e.to_bytes()),
+    ]
+
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Appending RSA keys in TicKV...")
+    tock_loader.tickv_append(pairs)
+
+
+def command_tickv_cleanup(args):
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Cleaning TicKV database...")
+    tock_loader.tickv_cleanup()
+
+
+def command_tickv_reset(args):
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Resetting TicKV database...")
+    tock_loader.tickv_reset()
 
 
 def command_list_known_boards(args):
@@ -1057,6 +1155,114 @@ def main():
         help="List the boards that Tockloader explicitly knows about",
     )
     list_known_boards.set_defaults(func=command_list_known_boards)
+
+    ###########
+    ## TICKV ##
+    ###########
+
+    parent_tickv = argparse.ArgumentParser(add_help=False)
+    parent_tickv.add_argument(
+        "--tickv-file", help="The binary file containing the TicKV database"
+    )
+    parent_tickv.add_argument(
+        "--start-address",
+        help="Location in flash of the start of the TicKV database",
+        type=lambda x: int(x, 0),
+        default=-1,
+    )
+    parent_tickv.add_argument(
+        "--region-size",
+        help="Size in bytes of each TicKV region",
+        type=lambda x: int(x, 0),
+        default=0,
+    )
+    parent_tickv.add_argument(
+        "--number-regions",
+        help="Number of regions in the TicKV database",
+        type=lambda x: int(x, 0),
+        default=0,
+    )
+
+    tickv = subparser.add_parser(
+        "tickv",
+        help="Commands for interacting with a TicKV database",
+    )
+
+    tickv_subparser = tickv.add_subparsers(
+        title="tickv-cmd", help="The subcommand for interacting with the TicKV database"
+    )
+
+    tickv_get = tickv_subparser.add_parser(
+        "get",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Get a key, value pair from a tickv database",
+    )
+    tickv_get.set_defaults(func=command_tickv_get)
+    tickv_get.add_argument(
+        "key",
+        help="Key to fetch from the TicKV database",
+    )
+
+    tickv_dump = tickv_subparser.add_parser(
+        "dump",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Display the contents of a tickv database",
+    )
+    tickv_dump.set_defaults(func=command_tickv_dump)
+
+    tickv_invalidate = tickv_subparser.add_parser(
+        "invalidate",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Invalidate an item in a tickv database",
+    )
+    tickv_invalidate.set_defaults(func=command_tickv_invalidate)
+    tickv_invalidate.add_argument(
+        "key",
+        help="Key to invalidate from the TicKV database",
+    )
+
+    tickv_append = tickv_subparser.add_parser(
+        "append",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Add a key,value pair to a tickv database",
+    )
+    tickv_append.set_defaults(func=command_tickv_append)
+    tickv_append.add_argument(
+        "key",
+        help="Key to append to the TicKV database",
+    )
+    tickv_append.add_argument(
+        "value", help="Value to append to the TicKV database", nargs="?"
+    )
+    tickv_append.add_argument(
+        "--value-file",
+        help="Filepath of contents to append from the TicKV database",
+    )
+
+    tickv_append_rsa_key = tickv_subparser.add_parser(
+        "append-rsa-key",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Add a public RSA key to a tickv database",
+    )
+    tickv_append_rsa_key.set_defaults(func=command_tickv_append_rsa_key)
+    tickv_append_rsa_key.add_argument(
+        "rsa_key_file",
+        help="Filepath of the RSA key",
+    )
+
+    tickv_cleanup = tickv_subparser.add_parser(
+        "cleanup",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Cleanup a tickv database by removing invalid objects",
+    )
+    tickv_cleanup.set_defaults(func=command_tickv_cleanup)
+
+    tickv_reset = tickv_subparser.add_parser(
+        "reset",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Reset/erase a tickv database",
+    )
+    tickv_reset.set_defaults(func=command_tickv_reset)
 
     argcomplete.autocomplete(parser)
     args, unknown_args = parser.parse_known_args()

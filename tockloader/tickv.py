@@ -535,7 +535,9 @@ class TockTicKV(TicKV):
         logging.info("Appending TockTicKV object {}={}".format(key, value))
         hashed_key = self._hash_key_int(key)
         header = TicKVObjectHeader(hashed_key)
-        storage_object = TockStorageObject(value.encode("utf-8"))
+        if isinstance(value, str):
+            value = value.encode("utf-8")
+        storage_object = TockStorageObject(value)
         tock_kv_object = TicKVObjectTock(header, storage_object)
 
         super()._append_object(tock_kv_object)

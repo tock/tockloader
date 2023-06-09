@@ -530,11 +530,25 @@ def command_tickv_invalidate(args):
 
 
 def command_tickv_append(args):
+    # We support appending a string from the command line or reading in a file
+    # and using its contents.
+    if args.value_file != None and args.value != None:
+        raise TockLoaderException(
+            "Cannot append both a string value and value from file"
+        )
+
+    append_bytes = b""
+    if args.value_file != None:
+        with open(args.value_file, "rb") as f:
+            append_bytes = f.read()
+    else:
+        append_bytes = args.value[0].encode("utf-8")
+
     tock_loader = TockLoader(args)
     tock_loader.open()
 
     logging.status("Appending TicKV key...")
-    tock_loader.tickv_append(args.key, args.value)
+    tock_loader.tickv_append(args.key, append_bytes)
 
 
 def command_tickv_cleanup(args):
@@ -1180,11 +1194,14 @@ def main():
     tickv_append.set_defaults(func=command_tickv_append)
     tickv_append.add_argument(
         "key",
-        help="Key to append from the TicKV database",
+        help="Key to append to the TicKV database",
     )
     tickv_append.add_argument(
-        "value",
-        help="Value to append from the TicKV database",
+        "value", help="Value to append to the TicKV database", nargs="?"
+    )
+    tickv_append.add_argument(
+        "--value-file",
+        help="Filepath of contents to append from the TicKV database",
     )
 
     tickv_cleanup = tickv_subparser.add_parser(

@@ -164,7 +164,6 @@ class TicKVObject(TicKVObjectBase):
                 "Cannot create TicKV object (length {} > 4096)".format(len(value_bytes))
             )
 
-        header = TicKVObjectHeaderFlash(binary)
         super().__init__(header)
         self.value_bytes = value_bytes
 
@@ -315,6 +314,21 @@ class TicKV:
     def append(self, hashed_key, value):
         header = TicKVObjectHeader(hashed_key)
         kv_object = TicKVObject(header, value)
+        self._append_object(kv_object)
+
+    def reset(self):
+        """
+        Reset the database back to an initialized state.
+        """
+        logging.info("Resetting TicKV database")
+
+        db_len = len(self.storage_binary)
+        self.storage_binary = bytearray(b"\xFF" * db_len)
+
+        # Add the known initialize key, value. I don't know what this key
+        # is from, but it is the standard.
+        header = TicKVObjectHeader(0x7BC9F7FF4F76F244)
+        kv_object = TicKVObject(header, b"")
         self._append_object(kv_object)
 
     def get_binary(self):
@@ -501,6 +515,12 @@ class TockTicKV(TicKV):
             out += "\n"
 
         return out
+
+    def reset(self):
+        """
+        Reset the database back to an initialized state.
+        """
+        super().reset()
 
     def _hash_key(self, key):
         """

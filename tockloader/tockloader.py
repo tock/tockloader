@@ -761,6 +761,15 @@ class TockLoader:
             tickv_db.append(key, value)
             self._tickv_write_database(tickv_db)
 
+    def tickv_reset(self):
+        """
+        Reset the database by erasing it and re-initializing.
+        """
+        with self._start_communication_with_board():
+            tickv_db = self._tickv_get_database()
+            tickv_db.reset()
+            self._tickv_write_database(tickv_db)
+
     def run_terminal(self):
         """
         Create an interactive terminal session with the board.

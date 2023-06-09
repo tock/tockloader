@@ -537,6 +537,14 @@ def command_tickv_append(args):
     tock_loader.tickv_append(args.key, args.value)
 
 
+def command_tickv_reset(args):
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Resetting TicKV database...")
+    tock_loader.tickv_reset()
+
+
 def command_list_known_boards(args):
     tock_loader = TockLoader(args)
     tock_loader.print_known_boards()
@@ -1162,6 +1170,13 @@ def main():
         "value",
         help="Value to append from the TicKV database",
     )
+
+    tickv_reset = tickv_subparser.add_parser(
+        "reset",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Reset/erase a tickv database",
+    )
+    tickv_reset.set_defaults(func=command_tickv_reset)
 
     argcomplete.autocomplete(parser)
     args, unknown_args = parser.parse_known_args()

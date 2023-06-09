@@ -717,21 +717,28 @@ class TockLoader:
 
     def tickv_dump(self):
         """
-        Read a key, value pair from a TicKV database on a board.
+        Display all of the contents of a TicKV database.
         """
-
         with self._start_communication_with_board():
             tickv_db = self._tickv_get_database()
             print(tickv_db.dump())
 
     def tickv_invalidate(self, key):
         """
-        Read a key, value pair from a TicKV database on a board.
+        Invalidate a particular key in the database.
         """
-
         with self._start_communication_with_board():
             tickv_db = self._tickv_get_database()
             tickv_db.invalidate(key)
+            self._tickv_write_database(tickv_db)
+
+    def tickv_append(self, key, value):
+        """
+        Add a key,value pair to the database.
+        """
+        with self._start_communication_with_board():
+            tickv_db = self._tickv_get_database()
+            tickv_db.append(key, value)
             self._tickv_write_database(tickv_db)
 
     def run_terminal(self):

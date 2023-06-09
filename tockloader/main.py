@@ -529,6 +529,14 @@ def command_tickv_invalidate(args):
     tock_loader.tickv_invalidate(args.key)
 
 
+def command_tickv_append(args):
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Appending TicKV key...")
+    tock_loader.tickv_append(args.key, args.value)
+
+
 def command_list_known_boards(args):
     tock_loader = TockLoader(args)
     tock_loader.print_known_boards()
@@ -1138,6 +1146,21 @@ def main():
     tickv_invalidate.add_argument(
         "key",
         help="Key to invalidate from the TicKV database",
+    )
+
+    tickv_append = tickv_subparser.add_parser(
+        "append",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Add a key,value pair to a tickv database",
+    )
+    tickv_append.set_defaults(func=command_tickv_append)
+    tickv_append.add_argument(
+        "key",
+        help="Key to append from the TicKV database",
+    )
+    tickv_append.add_argument(
+        "value",
+        help="Value to append from the TicKV database",
     )
 
     argcomplete.autocomplete(parser)

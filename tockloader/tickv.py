@@ -13,7 +13,7 @@ from .exceptions import TockLoaderException
 
 
 class TicKVObjectHeader:
-    def __init__(self, version, flags, hashed_key):
+    def __init__(self, hashed_key, version=1, flags=0x8):
         self.version = version
         self.flags = flags
         self.hashed_key = hashed_key
@@ -46,7 +46,7 @@ class TicKVObjectHeaderFlash(TicKVObjectHeader):
         if version != 1:
             raise TockLoaderException("Invalid object")
 
-        super().__init__(version, flags, hashed_key)
+        super().__init__(hashed_key, version, flags)
 
         self.total_length = length
 
@@ -82,15 +82,23 @@ class TicKVObjectBase:
         return self.header.hashed_key
 
     def get_checksum(self):
-        return self.checksum
+        if self.checksum != None:
+            return self.checksum
+        else:
+            object_bytes = self._get_object_bytes()
+            return self._calculate_checksum(object_bytes)
 
     def _calculate_checksum(self, object_bytes):
         return self.crc_fn(object_bytes)
 
-    def get_binary(self):
+    def _get_object_bytes(self):
         main_bytes = self.get_value_bytes()
         header_bytes = self.header.get_binary(len(main_bytes))
         object_bytes = header_bytes + main_bytes
+        return object_bytes
+
+    def get_binary(self):
+        object_bytes = self._get_object_bytes()
 
         checksum = self._calculate_checksum(object_bytes)
         checksum_bytes = struct.pack("<I", checksum)
@@ -103,6 +111,20 @@ class TicKVObjectBase:
             self.header.version, self.header.flags, self.length(), self.checksum
         )
         v = binascii.hexlify(self.value_buffer).decode("utf-8")
+        out += "  Value: {}\n".format(v)
+
+        return out
+
+    def __str__(self):
+        out = ""
+        out += "TicKV Object hash={:#x} version={} flags={} valid={} checksum={:#x}\n".format(
+            self.header.hashed_key,
+            self.header.version,
+            self.header.flags,
+            self.header.is_valid(),
+            self.get_checksum(),
+        )
+        v = binascii.hexlify(self.get_value_bytes()).decode("utf-8")
         out += "  Value: {}\n".format(v)
 
         return out
@@ -134,7 +156,7 @@ class TockStorageObject:
     access.
     """
 
-    def __init__(self, version, write_id, value_buffer):
+    def __init__(self, value_buffer, version=0, write_id=0):
         self.value_buffer = value_buffer
         self.version = version
         self.write_id = write_id
@@ -143,7 +165,10 @@ class TockStorageObject:
         return 9 + len(self.value_buffer)
 
     def get_binary(self):
-        return struct.pack("<BII", self.version, len(self.value_buffer), self.write_id)
+        return (
+            struct.pack("<BII", self.version, len(self.value_buffer), self.write_id)
+            + self.value_buffer
+        )
 
 
 class TockStorageObjectFlash(TockStorageObject):
@@ -155,11 +180,11 @@ class TockStorageObjectFlash(TockStorageObject):
 
         value_bytes = binary[9 : 9 + length]
 
-        super().__init__(version, write_id, value_bytes)
+        super().__init__(value_bytes, version, write_id)
 
 
 class TicKVObjectTock(TicKVObjectBase):
-    def __init__(self, header, storage_object, padding, checksum=None):
+    def __init__(self, header, storage_object, padding=0, checksum=None):
         super().__init__(header, checksum)
 
         self.storage_object = storage_object
@@ -172,7 +197,8 @@ class TicKVObjectTock(TicKVObjectBase):
 
     def __str__(self):
         out = ""
-        out += "TicKV Object version={} flags={} valid={} checksum={:#x}\n".format(
+        out += "TicKV Object hash={:#x} version={} flags={} valid={} checksum={:#x}\n".format(
+            self.header.hashed_key,
             self.header.version,
             self.header.flags,
             self.header.is_valid(),
@@ -282,6 +308,27 @@ class TicKV:
                 for i in range(0, length):
                     region_binary[offset + i] = updated_object_binary[i]
                 break
+            offset += kv_object.length()
+
+        self._update_region_binary(region_index, region_binary)
+
+    def append_object(self, kv_object):
+        hashed_key = kv_object.get_hashed_key()
+        region_index = (hashed_key & 0xFFFF) % self._get_number_regions()
+        region_binary = self._get_region_binary(region_index)
+
+        offset = 0
+        while True:
+            try:
+                existing_object = TicKVObjectFlash(region_binary[offset:])
+            except:
+                break
+
+            offset += existing_object.length()
+
+        object_binary = kv_object.get_binary()
+        for i in range(0, len(object_binary)):
+            region_binary[offset + i] = object_binary[i]
 
         self._update_region_binary(region_index, region_binary)
 
@@ -315,29 +362,6 @@ class TockTicKV(TicKV):
         hashed_key_buf = self._hash_key(key)
         return struct.unpack(">Q", hashed_key_buf)[0]
 
-    def _parse_tock_object(self, kv_object):
-        if len(kv_object.get_value_bytes()) >= 9:
-            kv_tock_header_fields = struct.unpack(
-                "<BII", kv_object.get_value_bytes()[0:9]
-            )
-            version = kv_tock_header_fields[0]
-            length = kv_tock_header_fields[1]
-            write_id = kv_tock_header_fields[2]
-
-            value_bytes = kv_object.get_value_bytes()[9 : 9 + length]
-
-            tock_kv_object = TockTicKVObject(
-                kv_object.get_header(),
-                kv_object.get_checksum(),
-                version,
-                write_id,
-                value_bytes,
-            )
-
-            return tock_kv_object
-        else:
-            return None
-
     def get(self, key):
         logging.info('Finding key "{}" in Tock-style TicKV database.'.format(key))
 
@@ -367,12 +391,22 @@ class TockTicKV(TicKV):
 
             if tock_kv_object != None:
                 tock_kv_objects.append(tock_kv_object)
+            else:
+                tock_kv_objects.append(kv_object)
 
         return tock_kv_objects
 
     def invalidate(self, key):
         hashed_key = self._hash_key_int(key)
         super().invalidate(hashed_key)
+
+    def append(self, key, value):
+        hashed_key = self._hash_key_int(key)
+        header = TicKVObjectHeader(hashed_key)
+        storage_object = TockStorageObject(value.encode("utf-8"))
+        tock_kv_object = TicKVObjectTock(header, storage_object)
+
+        super().append_object(tock_kv_object)
 
     def dump(self):
         logging.info("Dumping entire contents of Tock-style TicKV database.")

@@ -11,6 +11,10 @@ import siphash24
 
 from .exceptions import TockLoaderException
 
+# This hashed key is used as a sentinel that the DB is initialized. We don't
+# know what string created it.
+MAGIC_INIT_HASHED_KEY = 0x7BC9F7FF4F76F244
+
 
 class TicKVObjectHeader:
     """
@@ -292,21 +296,7 @@ class TicKV:
                 offset += ex_obj.length()
 
     def get_all(self, region_index):
-        region_binary = self._get_region_binary(region_index)
-
-        kv_objects = []
-
-        offset = 0
-        while True:
-            try:
-                ex_obj = TicKVObjectFlash(region_binary[offset:])
-            except:
-                break
-
-            kv_objects.append(ex_obj)
-            offset += ex_obj.length()
-
-        return kv_objects
+        return self._get_all(region_index, False)
 
     def invalidate(self, hashed_key):
         self._invalidate_hashed_key(hashed_key)
@@ -321,18 +311,65 @@ class TicKV:
         Reset the database back to an initialized state.
         """
         logging.info("Resetting TicKV database")
+        self._reset()
 
+    def _reset(self):
         db_len = len(self.storage_binary)
         self.storage_binary = bytearray(b"\xFF" * db_len)
 
         # Add the known initialize key, value. I don't know what this key
         # is from, but it is the standard.
-        header = TicKVObjectHeader(0x7BC9F7FF4F76F244)
+        header = TicKVObjectHeader(MAGIC_INIT_HASHED_KEY)
         kv_object = TicKVObject(header, b"")
         self._append_object(kv_object)
 
+    def cleanup(self):
+        """
+        Remove all invalid keys and re-write existing valid objects.
+        """
+        logging.info("Cleaning TicKV database")
+
+        # First collect all existing valid objects.
+        all_objects = []
+        for region_index in self._region_range(0):
+            region_objects = self._get_all(region_index, True)
+
+            # Do not add the special init object, that will be written by reset.
+            for region_object in region_objects:
+                if region_object.get_hashed_key() != MAGIC_INIT_HASHED_KEY:
+                    all_objects.append(region_object)
+
+        logging.debug(
+            "Found {} valid objects to re-store in database".format(len(all_objects))
+        )
+
+        # Then reset the db.
+        self._reset()
+
+        # Now re-write all valid objects.
+        for obj in all_objects:
+            self._append_object(obj)
+
     def get_binary(self):
         return self.storage_binary
+
+    def _get_all(self, region_index, valid_only):
+        region_binary = self._get_region_binary(region_index)
+
+        kv_objects = []
+
+        offset = 0
+        while True:
+            try:
+                ex_obj = TicKVObjectFlash(region_binary[offset:])
+            except:
+                break
+
+            if not valid_only or ex_obj.is_valid():
+                kv_objects.append(ex_obj)
+            offset += ex_obj.length()
+
+        return kv_objects
 
     def _invalidate_hashed_key(self, hashed_key):
         # Iterate all pages starting with the indented page given the key.
@@ -521,6 +558,12 @@ class TockTicKV(TicKV):
         Reset the database back to an initialized state.
         """
         super().reset()
+
+    def cleanup(self):
+        """
+        Remove all invalid keys and re-store valid key-value pairs.
+        """
+        super().cleanup()
 
     def _hash_key(self, key):
         """

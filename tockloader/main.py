@@ -537,6 +537,14 @@ def command_tickv_append(args):
     tock_loader.tickv_append(args.key, args.value)
 
 
+def command_tickv_cleanup(args):
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Cleaning TicKV database...")
+    tock_loader.tickv_cleanup()
+
+
 def command_tickv_reset(args):
     tock_loader = TockLoader(args)
     tock_loader.open()
@@ -1170,6 +1178,13 @@ def main():
         "value",
         help="Value to append from the TicKV database",
     )
+
+    tickv_cleanup = tickv_subparser.add_parser(
+        "cleanup",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Cleanup a tickv database by removing invalid objects",
+    )
+    tickv_cleanup.set_defaults(func=command_tickv_cleanup)
 
     tickv_reset = tickv_subparser.add_parser(
         "reset",

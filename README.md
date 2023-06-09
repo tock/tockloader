@@ -137,7 +137,7 @@ Set a specific field (by name) to the given value in a specific TLV (by ID).
 
 Remove a specific credential (by credential ID) from the TBF footer.
 
-#### `tockloader tickv get|append|invalidate|dump [key] [value]`
+#### `tockloader tickv get|append|invalidate|dump|cleanup|reset [key] [value]`
 
 Interact with a TicKV key-value database.
 

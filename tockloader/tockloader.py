@@ -176,7 +176,6 @@ class TockLoader:
 
             # Loop so we can `break`. This will never execute more than once.
             while True:
-
                 # One issue is that JTAG connections often expose both a JTAG
                 # and a serial port. So, if we try to use the serial port first
                 # we will incorrectly detect that serial port. So, we start with
@@ -221,7 +220,6 @@ class TockLoader:
         """
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             # Check if we should add padding, which is just pad[0] copies of the
             # same byte (pad[1]).
             if pad:
@@ -253,7 +251,6 @@ class TockLoader:
         """
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             # Only get the entire app to verify credentials if requested.
             extract_app_binary = False
             if not verify_credentials_public_keys == None:
@@ -289,7 +286,6 @@ class TockLoader:
 
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             # This is the architecture we need for the board.
             arch = self.channel.get_board_arch()
             if arch == None:
@@ -371,7 +367,6 @@ class TockLoader:
         """
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             # Get a list of installed apps
             apps = self._extract_all_app_headers()
 
@@ -465,7 +460,6 @@ class TockLoader:
         """
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             # On force we can just eliminate all apps
             if self.args.force:
                 # Erase the first page where apps go. This will cause the first
@@ -502,7 +496,6 @@ class TockLoader:
         """
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             # Get a list of installed apps
             apps = self._extract_all_app_headers()
 
@@ -547,7 +540,6 @@ class TockLoader:
         """
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             if not self._bootloader_is_present():
                 raise TockLoaderException(
                     "No bootloader found! That means there is nowhere for attributes to go."
@@ -570,7 +562,6 @@ class TockLoader:
 
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             # Use helper function to do all of the work.
             ret = self._set_attribute(key, value)
 
@@ -588,7 +579,6 @@ class TockLoader:
 
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             if not self._bootloader_is_present():
                 raise TockLoaderException(
                     "No bootloader found! That means there is nowhere for attributes to go."
@@ -615,7 +605,6 @@ class TockLoader:
 
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             if not self._bootloader_is_present():
                 raise TockLoaderException(
                     "No bootloader found! That means there is nowhere for attributes to go."
@@ -629,7 +618,6 @@ class TockLoader:
         """
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
-
             if self.args.output_format == "json":
                 displayer = display.JSONDisplay()
             else:

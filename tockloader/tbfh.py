@@ -1072,7 +1072,6 @@ class TBFHeader:
             buf += struct.pack("<I", checksum)
 
         elif self.version == 2:
-
             base = copy.deepcopy(self.fields)
             base["version"] = self.version
 
@@ -1273,7 +1272,6 @@ class TBFFooterTLVCredentials(TBFTLV):
     CREDENTIALS_TYPE_CLEARTEXTID = 0xF1
 
     def __init__(self, buffer, integrity_blob):
-
         # Valid means the TLV parsed correctly.
         self.valid = False
         # Verified means tockloader was able to double check the credential and
@@ -1425,7 +1423,6 @@ class TBFFooterTLVCredentials(TBFTLV):
             # First see if there is a key that matches. If no keys match then we
             # can't verify this credential one way or another.
             for key in keys:
-
                 # Compare the n value in the credential to the n included in the
                 # public key passed to tockloader.
                 if pub_key_n == key.n:

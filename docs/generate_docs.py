@@ -27,7 +27,6 @@ def getmarkdown(module):
 def getclasses(item, depth=0):
     output = []
     for cl in pydoc.inspect.getmembers(item, pydoc.inspect.isclass):
-
         # Make sure we are only getting classes in this file
         if depth == 0:
             if item.__name__ != cl[1].__module__:

@@ -333,7 +333,6 @@ class BootloaderSerial(BoardInterface):
 
             r = ""
             while True:
-
                 while "\n" not in r:
                     r += self.client_sock.recv(100).decode("utf-8")
 

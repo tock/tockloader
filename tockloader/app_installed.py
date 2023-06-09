@@ -249,7 +249,6 @@ class InstalledApp:
             or self.app_binary_modified
             or address != self.address
         ):
-
             # Get the actual full app binary.
             binary = self.tbfh.get_binary() + self.app_binary
 

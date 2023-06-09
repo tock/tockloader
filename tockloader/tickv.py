@@ -72,6 +72,9 @@ class TicKVObjectBase:
         # Size is header length + value length + checksum length (4)
         return self.header.length() + len(self.get_value_bytes()) + 4
 
+    def is_valid(self):
+        return self.header.is_valid()
+
     def invalidate(self):
         self.header.invalidate()
 
@@ -110,7 +113,7 @@ class TicKVObjectBase:
         out += "TicKV Object version={} flags={} length={} checksum={:#x}\n".format(
             self.header.version, self.header.flags, self.length(), self.checksum
         )
-        v = binascii.hexlify(self.value_buffer).decode("utf-8")
+        v = binascii.hexlify(self.get_value_bytes()).decode("utf-8")
         out += "  Value: {}\n".format(v)
 
         return out
@@ -150,24 +153,50 @@ class TicKVObjectFlash(TicKVObjectBase):
         return self.value_bytes
 
 
+class TicKVObject(TicKVObjectBase):
+    """
+    A TicKV object that is created in tockloader.
+    """
+
+    def __init__(self, header, value_bytes):
+        if len(value_bytes) > 4096:
+            raise TockLoaderException(
+                "Cannot create TicKV object (length {} > 4096)".format(len(value_bytes))
+            )
+
+        header = TicKVObjectHeaderFlash(binary)
+        super().__init__(header)
+        self.value_bytes = value_bytes
+
+    def get_value_bytes(self):
+        return self.value_bytes
+
+
 class TockStorageObject:
     """
     This is the item stored in a TicKV value that Tock processes/kernel can
     access.
     """
 
-    def __init__(self, value_buffer, version=0, write_id=0):
-        self.value_buffer = value_buffer
+    def __init__(self, value_bytes, version=0, write_id=0):
+        if len(value_bytes) + 9 > 4096:
+            raise TockLoaderException(
+                "Cannot create TockStorageObject object (length {} > 4087)".format(
+                    len(value_bytes)
+                )
+            )
+
+        self.value_bytes = value_bytes
         self.version = version
         self.write_id = write_id
 
     def length(self):
-        return 9 + len(self.value_buffer)
+        return 9 + len(self.value_bytes)
 
     def get_binary(self):
         return (
-            struct.pack("<BII", self.version, len(self.value_buffer), self.write_id)
-            + self.value_buffer
+            struct.pack("<BII", self.version, len(self.value_bytes), self.write_id)
+            + self.value_bytes
         )
 
 
@@ -207,9 +236,9 @@ class TicKVObjectTock(TicKVObjectBase):
         out += "  TockTicKV Object version={} write_id={} length={}\n".format(
             self.storage_object.version,
             self.storage_object.write_id,
-            len(self.storage_object.value_buffer),
+            len(self.storage_object.value_bytes),
         )
-        v = binascii.hexlify(self.storage_object.value_buffer).decode("utf-8")
+        v = binascii.hexlify(self.storage_object.value_bytes).decode("utf-8")
         out += "    Value: {}\n".format(v)
 
         return out
@@ -243,6 +272,136 @@ class TicKV:
                 "ERROR: TicKV storage not a multiple of region size."
             )
 
+    def get(self, hashed_key):
+        # Iterate all pages starting with the indented page given the key.
+        for region_index in self._region_range(self._get_starting_region(hashed_key)):
+            region_binary = self._get_region_binary(region_index)
+
+            offset = 0
+            while True:
+                try:
+                    ex_obj = TicKVObjectFlash(region_binary[offset:])
+                except:
+                    break
+
+                if ex_obj.is_valid() and ex_obj.get_hashed_key() == hashed_key:
+                    return ex_obj
+
+                offset += ex_obj.length()
+
+    def get_all(self, region_index):
+        region_binary = self._get_region_binary(region_index)
+
+        kv_objects = []
+
+        offset = 0
+        while True:
+            try:
+                ex_obj = TicKVObjectFlash(region_binary[offset:])
+            except:
+                break
+
+            kv_objects.append(ex_obj)
+            offset += ex_obj.length()
+
+        return kv_objects
+
+    def invalidate(self, hashed_key):
+        self._invalidate_hashed_key(hashed_key)
+
+    def append(self, hashed_key, value):
+        header = TicKVObjectHeader(hashed_key)
+        kv_object = TicKVObject(header, value)
+        self._append_object(kv_object)
+
+    def get_binary(self):
+        return self.storage_binary
+
+    def _invalidate_hashed_key(self, hashed_key):
+        # Iterate all pages starting with the indented page given the key.
+        for region_index in self._region_range(self._get_starting_region(hashed_key)):
+            region_binary = self._get_region_binary(region_index)
+
+            # Track if we need to write this page back to the storage.
+            modified = False
+
+            # Find the first open spot in this page.
+            offset = 0
+            while True:
+                try:
+                    ex_obj = TicKVObjectFlash(region_binary[offset:])
+                except:
+                    break
+
+                if ex_obj.is_valid() and ex_obj.get_hashed_key() == hashed_key:
+                    # We found a matching key that is valid.
+                    logging.info(
+                        "Invaliding object with hkey={:#x} at page {} index {}".format(
+                            hashed_key, region_index, offset
+                        )
+                    )
+
+                    length = ex_obj.length()
+                    ex_obj.invalidate()
+                    updated_object_binary = ex_obj.get_binary()
+                    for i in range(0, length):
+                        region_binary[offset + i] = updated_object_binary[i]
+                    modified = True
+
+                offset += ex_obj.length()
+
+            if modified:
+                self._update_region_binary(region_index, region_binary)
+
+    def _append_object(self, kv_object):
+        hashed_key = kv_object.get_hashed_key()
+
+        # First we need to invalidate all matching keys.
+        self._invalidate_hashed_key(hashed_key)
+
+        # What we are trying to store.
+        object_binary = kv_object.get_binary()
+
+        # Iterate all pages starting with the indented page given the key.
+        for region_index in self._region_range(self._get_starting_region(hashed_key)):
+            region_binary = self._get_region_binary(region_index)
+
+            # Find the first open spot in this page.
+            offset = 0
+            while True:
+                try:
+                    existing_object = TicKVObjectFlash(region_binary[offset:])
+                except:
+                    break
+
+                offset += existing_object.length()
+
+            # Check if there is room here to write this object.
+            if len(region_binary) - offset >= len(object_binary):
+                # Found place to add this object, write it and we are finished.
+                logging.debug(
+                    "Writing object with hkey {:#x} to page {} index {}".format(
+                        hashed_key, region_index, offset
+                    )
+                )
+
+                for i in range(0, len(object_binary)):
+                    region_binary[offset + i] = object_binary[i]
+
+                # Update our memory copy of the entire DB.
+                self._update_region_binary(region_index, region_binary)
+
+                break
+
+        else:
+            # We were unable to write this key, no where to store it.
+            logging.error(
+                "Unable to append hkey={:#x} with length {}".format(
+                    hashed_key, len(object_binary)
+                )
+            )
+            raise TockLoaderException("No space to append TicKV object")
+
     def _get_number_regions(self):
         return len(self.storage_binary) // self.region_size
 
@@ -256,84 +415,18 @@ class TicKV:
             region_index * self.region_size : (region_index + 1) * self.region_size
         ] = region_binary
 
-    def get(self, hashed_key):
-        region_index = (hashed_key & 0xFFFF) % self._get_number_regions()
-        region_binary = self._get_region_binary(region_index)
+    def _get_starting_region(self, hashed_key):
+        """
+        We use the lowest two bytes to determine the page we should try to find
+        or store this key on.
+        """
+        return (hashed_key & 0xFFFF) % self._get_number_regions()
 
-        offset = 0
-        while True:
-            try:
-                kv_object = TicKVObjectFlash(region_binary[offset:])
-            except:
-                break
-
-            if kv_object.get_hashed_key() != hashed_key:
-                offset += kv_object.length()
-                continue
-
-            return kv_object
-
-    def get_all(self, region_index):
-        region_binary = self._get_region_binary(region_index)
-
-        kv_objects = []
-
-        offset = 0
-        while True:
-            try:
-                kv_object = TicKVObjectFlash(region_binary[offset:])
-            except:
-                break
-
-            kv_objects.append(kv_object)
-            offset += kv_object.length()
-
-        return kv_objects
-
-    def invalidate(self, hashed_key):
-        region_index = (hashed_key & 0xFFFF) % self._get_number_regions()
-        region_binary = self._get_region_binary(region_index)
-
-        offset = 0
-        while True:
-            try:
-                kv_object = TicKVObjectFlash(region_binary[offset:])
-            except:
-                break
-
-            if kv_object.get_hashed_key() == hashed_key:
-                length = kv_object.length()
-                kv_object.invalidate()
-                updated_object_binary = kv_object.get_binary()
-                for i in range(0, length):
-                    region_binary[offset + i] = updated_object_binary[i]
-                break
-            offset += kv_object.length()
-
-        self._update_region_binary(region_index, region_binary)
-
-    def append_object(self, kv_object):
-        hashed_key = kv_object.get_hashed_key()
-        region_index = (hashed_key & 0xFFFF) % self._get_number_regions()
-        region_binary = self._get_region_binary(region_index)
-
-        offset = 0
-        while True:
-            try:
-                existing_object = TicKVObjectFlash(region_binary[offset:])
-            except:
-                break
-
-            offset += existing_object.length()
-
-        object_binary = kv_object.get_binary()
-        for i in range(0, len(object_binary)):
-            region_binary[offset + i] = object_binary[i]
-
-        self._update_region_binary(region_index, region_binary)
-
-    def get_binary(self):
-        return self.storage_binary
+    def _region_range(self, starting_region):
+        stop = starting_region + self._get_number_regions()
+        modulo = self._get_number_regions()
+        for i in range(starting_region, stop):
+            yield i % modulo
 
 
 class TockTicKV(TicKV):
@@ -341,26 +434,6 @@ class TockTicKV(TicKV):
     Extension of a TicKV database that adds an additional header with a
     `write_id` to enable enforcing access control.
     """
-
-    def _hash_key(self, key):
-        """
-        Compute the SipHash24 for the given key. We always pad the key to
-        be 64 bytes by adding zeros.
-        """
-
-        key_buffer = key.encode("utf-8")
-        key_buffer += b"\0" * (64 - len(key_buffer))
-        h = siphash24.siphash24()
-        h.update(data=key_buffer)
-        return h.digest()
-
-    def _hash_key_int(self, key):
-        """
-        Compute the SipHash24 for the given key. Return as u64.
-        """
-
-        hashed_key_buf = self._hash_key(key)
-        return struct.unpack(">Q", hashed_key_buf)[0]
 
     def get(self, key):
         logging.info('Finding key "{}" in Tock-style TicKV database.'.format(key))
@@ -401,12 +474,13 @@ class TockTicKV(TicKV):
         super().invalidate(hashed_key)
 
     def append(self, key, value):
+        logging.info("Appending TockTicKV object {}={}".format(key, value))
         hashed_key = self._hash_key_int(key)
         header = TicKVObjectHeader(hashed_key)
         storage_object = TockStorageObject(value.encode("utf-8"))
         tock_kv_object = TicKVObjectTock(header, storage_object)
 
-        super().append_object(tock_kv_object)
+        super()._append_object(tock_kv_object)
 
     def dump(self):
         logging.info("Dumping entire contents of Tock-style TicKV database.")
@@ -422,3 +496,23 @@ class TockTicKV(TicKV):
             out += "\n"
 
         return out
+
+    def _hash_key(self, key):
+        """
+        Compute the SipHash24 for the given key. We always pad the key to
+        be 64 bytes by adding zeros.
+        """
+
+        key_buffer = key.encode("utf-8")
+        key_buffer += b"\0" * (64 - len(key_buffer))
+        h = siphash24.siphash24()
+        h.update(data=key_buffer)
+        return h.digest()
+
+    def _hash_key_int(self, key):
+        """
+        Compute the SipHash24 for the given key. Return as u64.
+        """
+
+        hashed_key_buf = self._hash_key(key)
+        return struct.unpack(">Q", hashed_key_buf)[0]

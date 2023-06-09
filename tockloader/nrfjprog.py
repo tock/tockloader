@@ -18,7 +18,6 @@ class nrfjprog(BoardInterface):
         super().__init__(args)
 
     def open_link_to_board(self):
-
         qspi_size = 0
 
         # Get board-specific properties we need.

@@ -246,7 +246,6 @@ class TicKVObjectTock(TicKVObjectBase):
 
 class TicKVObjectTockFlash(TicKVObjectTock):
     def __init__(self, tickv_object):
-
         value_bytes = tickv_object.get_value_bytes()
         storage_object = TockStorageObjectFlash(value_bytes)
         padding = len(value_bytes) - storage_object.length()

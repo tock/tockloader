@@ -436,15 +436,14 @@ class TBFTLVPermissions(TBFTLV):
 class TBFTLVPersistentACL(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_PERSISTENT_ACL
 
-    def __init__(self, buffer):
+    def __init__(self, buffer, parameters=[]):
         self.valid = False
+        self.read_ids = []
+        self.access_ids = []
 
         # Need at least `write_id` (4B), `num_read_ids` (2B) and
         # `num_access_ids` (2B).
         if len(buffer) > 8:
-            self.read_ids = []
-            self.access_ids = []
-
             self.write_id = struct.unpack("<I", buffer[0:4])[0]
             buffer = buffer[4:]
 
@@ -485,6 +484,27 @@ class TBFTLVPersistentACL(TBFTLV):
             # If we get all of the way here then this is a valid TLV
             self.valid = True
 
+        else:
+            # Build this from parameters, not by parsing a buffer. We expect the
+            # `parameters` list to be:
+            #
+            # ```
+            # [write_id, "readid,readid,readid,...", "accessid,accessid,accessid,..."]
+            # ```
+            try:
+                self.write_id = int(parameters[0], 0)
+                if len(parameters) > 1:
+                    self.read_ids = [int(x, 0) for x in parameters[1].split(",")]
+                if len(parameters) > 2:
+                    self.access_ids = [int(x, 0) for x in parameters[2].split(",")]
+                self.valid = True
+                logging.debug("Created new persistent ACL TLV")
+            except:
+                # Invalid arguments
+                logging.error(
+                    "Could not parse parameters for TLVID={}".format(self.TLVID)
+                )
+
     def pack(self):
         out = bytearray()
         length = 4 + 2 + (4 * len(self.read_ids)) + 2 + (4 * len(self.access_ids))
@@ -504,12 +524,16 @@ class TBFTLVPersistentACL(TBFTLV):
 
     def __str__(self):
         out = "TLV: Persistent ACL ({})\n".format(self.TLVID)
-        out += "  Write ID : {} ({:#x})\n".format(self.write_id, self.write_id)
-        out += "  Read IDs ({})  : {}\n".format(
-            len(self.read_ids), ", ".join(map(str, self.read_ids))
+        out += "  {:<20}:  {:>10} {:>#12x}\n".format(
+            "Write ID", self.write_id, self.write_id
         )
-        out += "  Access IDs ({}): {}\n".format(
-            len(self.access_ids), ", ".join(map(str, self.access_ids))
+        out += "  {:<20}: {}\n".format(
+            "Read IDs ({})".format(len(self.read_ids)),
+            ", ".join(map(str, self.read_ids)),
+        )
+        out += "  {:<20}: {}\n".format(
+            "Access IDs ({})".format(len(self.access_ids)),
+            ", ".join(map(str, self.access_ids)),
         )
         return out
 
@@ -989,6 +1013,39 @@ class TBFHeader:
                     setattr(tlv, field, value)
                     self.modified = True
 
+    def add_tlv(self, tlvid, parameters):
+        tlv_obj = self._tlvid_to_object(tlvid)
+        if tlv_obj == None:
+            raise TockLoaderException("TLVID {} does not exist".format(tlvid))
+        new_tlv = tlv_obj(b"", parameters)
+        size = len(new_tlv.pack())
+        self.tlvs.append(new_tlv)
+        self.modified = True
+
+        # Now update the base information since we have changed the length.
+        self.fields["header_size"] += size
+
+        # Support both Main and Program.
+        tlv_main = self._get_tlv(TBFTLV.HEADER_TYPE_MAIN)
+        tlv_program = self._get_tlv(TBFTLV.HEADER_TYPE_PROGRAM)
+
+        # Decrease the protected size if possible so that the actual application
+        # binary hasn't moved.
+        #####
+        ##### NOTE! Based on how things are implemented in the Tock
+        ##### universe, it seems we also need to increase the
+        ##### `init_fn_offset`, which is calculated from the end of
+        ##### the TBF header everywhere, and NOT the beginning of
+        ##### the actual application binary (like the documentation
+        ##### indicates it should be).
+        #####
+        if tlv_main and tlv_main.protected_size >= size:
+            tlv_main.protected_size -= size
+            tlv_main.init_fn_offset -= size
+        if tlv_program and tlv_program.protected_size >= size:
+            tlv_program.protected_size -= size
+            tlv_program.init_fn_offset -= size
+
     def corrupt_tbf(self, field_name, value):
         """
         Give a field name and value to set when creating the binary.
@@ -1088,7 +1145,8 @@ class TBFHeader:
             )
             if self.app:
                 for tlv in self.tlvs:
-                    buf += tlv.pack()
+                    if tlv.TLVID == TBFTLV.HEADER_TYPE_PERSISTENT_ACL:
+                        buf += tlv.pack()
 
             nbuf = bytearray(len(buf))
             nbuf[:] = buf
@@ -1144,6 +1202,26 @@ class TBFHeader:
             if tlv.get_tlvid() == tlvid:
                 return tlv
         return None
+
+    def _tlvid_to_object(self, tlvid):
+        if tlvid == TBFTLV.HEADER_TYPE_MAIN:
+            return TBFTLVMain
+        elif tlvid == TBFTLV.HEADER_TYPE_PROGRAM:
+            return TBFTLVProgram
+        elif tlvid == TBFTLV.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
+            return TBFTLVWriteableFlashRegions
+        elif tlvid == TBFTLV.HEADER_TYPE_PACKAGE_NAME:
+            return TBFTLVPackageName
+        elif tlvid == TBFTLV.HEADER_TYPE_PIC_OPTION_1:
+            return TBFTLVPicOption1
+        elif tlvid == TBFTLV.HEADER_TYPE_FIXED_ADDRESSES:
+            return TBFTLVFixedAddress
+        elif tlvid == TBFTLV.HEADER_TYPE_PERMISSIONS:
+            return TBFTLVPermissions
+        elif tlvid == TBFTLV.HEADER_TYPE_PERSISTENT_ACL:
+            return TBFTLVPersistentACL
+        elif tlvid == TBFTLV.HEADER_TYPE_KERNEL_VERSION:
+            return TBFTLVKernelVersion
 
     def __str__(self):
         out = ""
@@ -1824,6 +1902,20 @@ class TBFFooter:
 
         for tlv in self.tlvs:
             tlv.verify(keys, integrity_blob)
+
+    def shrink(self, number_bytes):
+        """
+        Try to shrink the footer `number_bytes`. Shrink as much as possible up
+        to the number by removing padding.
+        """
+        for tlv in self.tlvs:
+            if tlv.get_tlvid() == self.FOOTER_TYPE_CREDENTIALS:
+                if (
+                    tlv.credentials_type
+                    == TBFFooterTLVCredentials.CREDENTIALS_TYPE_RESERVED
+                ):
+                    tlv.shrink(number_bytes)
+                    break
 
     def get_binary(self):
         """

@@ -314,6 +314,13 @@ class TabApp:
         for tbf in self.tbfs:
             tbf.tbfh.modify_tlv(tlvid, field, value)
 
+    def add_tbfh_tlv(self, tlvid, parameters):
+        """
+        Add a particular TLV to each TBF's header.
+        """
+        for tbf in self.tbfs:
+            tbf.tbfh.add_tlv(tlvid, parameters)
+
     def add_credential(self, credential_type, public_key, private_key, cleartext_id):
         """
         Add a credential by type to the TBF footer.
@@ -369,14 +376,10 @@ class TabApp:
             app_binary = self.tbfs[0].binary
             tbff = self.tbfs[0].tbff
 
-            # If the TBF is not compiled for a fixed address, then we can just
-            # use it.
-            if tbfh.has_fixed_addresses() == False:
-                binary = tbfh.get_binary() + app_binary + tbff.get_binary()
-
-            else:
+            # If the TBF is compiled for a fixed address, then we make sure the
+            # addresses are lined up.
+            if tbfh.has_fixed_addresses() == True:
                 tbfh.adjust_starting_address(address)
-                binary = tbfh.get_binary() + app_binary + tbff.get_binary()
 
             # Check that the binary is not longer than it is supposed to be.
             # This might happen if the size was changed, but any code using this
@@ -384,7 +387,7 @@ class TabApp:
             # the actual binary blob (which should just be padding) to the
             # correct length. If it is too short it is ok, since the board
             # shouldn't care what is in the flash memory the app is not using.
-            binary = self._truncate_binary(binary)
+            binary = self._concatenate_and_truncate_binary(tbfh, app_binary, tbff)
 
             return binary
 
@@ -398,11 +401,48 @@ class TabApp:
         """
         out = []
         for tbf in self.tbfs:
-            binary = tbf.tbfh.get_binary() + tbf.binary + tbf.tbff.get_binary()
             # Truncate in case the header grew and elf2tab padded the binary.
-            binary = self._truncate_binary(binary)
+            binary = self._concatenate_and_truncate_binary(
+                tbf.tbfh, tbf.binary, tbf.tbff
+            )
             out.append((tbf.filename, binary))
         return out
+
+    def _concatenate_and_truncate_binary(self, header, program_binary, footer):
+        size = self.get_size()
+
+        header_binary = header.get_binary()
+        footer_binary = footer.get_binary()
+
+        binary = header_binary + program_binary + footer_binary
+
+        if len(binary) > size:
+            logging.info(
+                "Binary is larger header indicates. Actual:{}, expected:{}".format(
+                    len(binary), size
+                )
+            )
+
+            # First try to shrink the footer to recover the space.
+            extra = len(binary) - size
+            footer.shrink(extra)
+            footer_binary = footer.get_binary()
+            binary = header_binary + program_binary + footer_binary
+
+            # If that was not enough, then try to truncate the actual program
+            # binary, which was likely padded with zeros by elf2tab.
+            if len(binary) > size:
+                logging.info("Truncating binary to match.")
+
+                # Check on what we would be removing. If it is all zeros, we
+                # determine that it is OK to truncate.
+                to_remove = program_binary[size:]
+                if len(to_remove) != to_remove.count(0):
+                    raise TockLoaderException("Error truncating binary. Not zero.")
+
+                program_binary = program_binary[0:size]
+                binary = header_binary + program_binary + footer_binary
+        return binary
 
     def get_crt0_header_str(self):
         """

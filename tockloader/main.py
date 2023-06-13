@@ -1142,7 +1142,15 @@ def main():
     parent_tbf_credential.add_argument(
         "credential_type",
         help="Credential type to add",
-        choices=["cleartext_id", "sha256", "sha384", "sha512", "rsa4096", "rsa2048"],
+        choices=[
+            "cleartext_id",
+            "sha256",
+            "sha384",
+            "sha512",
+            "hmac_sha256",
+            "rsa4096",
+            "rsa2048",
+        ],
     )
 
     tbf_credential = tbf_subparser.add_parser(

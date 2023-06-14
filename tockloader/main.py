@@ -389,8 +389,8 @@ def command_tbf_tlv_delete(args):
     if len(tabs) == 0:
         raise TockLoaderException("No TABs found, no TBF to process")
 
-    tlvid = args.tlvid
-    logging.status("Removing TLV ID {} from TBF...".format(tlvid))
+    tlvname = args.tlvname
+    logging.status("Removing TLV ID {} from TBF...".format(tlvname))
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
@@ -403,7 +403,7 @@ def command_tbf_tlv_delete(args):
         for i, tbf_name in enumerate(tbf_names):
             if i == index or index == len(tbf_names):
                 app = tab.extract_tbf(tbf_name)
-                app.delete_tlv(tlvid)
+                app.delete_tlv(tlvname)
                 tab.update_tbf(app)
 
 
@@ -413,10 +413,10 @@ def command_tbf_tlv_modify(args):
     if len(tabs) == 0:
         raise TockLoaderException("No TABs found, no TBF headers to process")
 
-    tlvid = args.tlvid
+    tlvname = args.tlvname
     field = args.field
     value = args.value
-    logging.status("Modifying TLV ID {} to set {}={}...".format(tlvid, field, value))
+    logging.status("Modifying TLV ID {} to set {}={}...".format(tlvname, field, value))
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
@@ -429,7 +429,7 @@ def command_tbf_tlv_modify(args):
         for i, tbf_name in enumerate(tbf_names):
             if i == index or index == len(tbf_names):
                 app = tab.extract_tbf(tbf_name)
-                app.modify_tbfh_tlv(tlvid, field, value)
+                app.modify_tbfh_tlv(tlvname, field, value)
                 tab.update_tbf(app)
 
 
@@ -1141,25 +1141,7 @@ def main():
 
     tbf_tlv_subparser = tbf_tlv.add_subparsers(title="Commands", metavar="")
 
-    tbf_tlv_delete = tbf_tlv_subparser.add_parser(
-        "delete", parents=[parent], help="Delete a TLV from the TBF header"
-    )
-    tbf_tlv_delete.set_defaults(func=command_tbf_tlv_delete)
-    tbf_tlv_delete.add_argument("tlvid", help="TLV ID number", type=lambda x: int(x, 0))
-    tbf_tlv_delete.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
-
-    tbf_tlv_modify = tbf_tlv_subparser.add_parser(
-        "modify",
-        parents=[parent],
-        help="Modify a field in a TLV in the TBF header",
-    )
-    tbf_tlv_modify.set_defaults(func=command_tbf_tlv_modify)
-    tbf_tlv_modify.add_argument("tlvid", help="TLV ID number", type=lambda x: int(x, 0))
-    tbf_tlv_modify.add_argument("field", help="TLV field name")
-    tbf_tlv_modify.add_argument(
-        "value", help="TLV field new value", type=lambda x: int(x, 0)
-    )
-    tbf_tlv_modify.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
+    ## ADD
 
     tbf_tlv_add = tbf_tlv_subparser.add_parser(
         "add",
@@ -1171,11 +1153,6 @@ def main():
 
     # Add subcommands for adding each TLV so we can specify number of arguments.
     for tlvname, nargs in tbfh.get_addable_tlvs():
-        # def command_tbf_tlv_add_curried(args):
-        #     command_tbf_tlv_add(args, command_tbf_tlv_add_curried.tlvname)
-
-        # setattr(command_tbf_tlv_add_curried, "tlvname", tlvname)
-
         tbf_tlv_add_tlv = tbf_tlv_add_subparser.add_parser(
             tlvname,
             parents=[parent],
@@ -1186,6 +1163,38 @@ def main():
             "parameters", help="Relevant values for this TLV", nargs=nargs
         )
         tbf_tlv_add_tlv.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
+
+    ## MODIFY
+
+    tbf_tlv_modify = tbf_tlv_subparser.add_parser(
+        "modify",
+        parents=[parent],
+        help="Modify a field in a TLV in the TBF header",
+    )
+    tbf_tlv_modify.set_defaults(func=command_tbf_tlv_modify)
+    tbf_tlv_modify.add_argument(
+        "tlvname",
+        help="TLV name",
+        choices=["base"] + tbfh.get_tlv_names(),
+    )
+    tbf_tlv_modify.add_argument("field", help="TLV field name")
+    tbf_tlv_modify.add_argument(
+        "value", help="TLV field new value", type=lambda x: int(x, 0)
+    )
+    tbf_tlv_modify.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
+
+    ## DELETE
+
+    tbf_tlv_delete = tbf_tlv_subparser.add_parser(
+        "delete", parents=[parent], help="Delete a TLV from the TBF header"
+    )
+    tbf_tlv_delete.set_defaults(func=command_tbf_tlv_delete)
+    tbf_tlv_delete.add_argument(
+        "tlvname",
+        help="TLV name",
+        choices=tbfh.get_tlv_names(),
+    )
+    tbf_tlv_delete.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
 
     #####################
     ## TBF CREDENTIALS ##

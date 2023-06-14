@@ -660,7 +660,18 @@ TLV_MAPPINGS = {
 }
 
 
+def get_tlv_names():
+    """
+    Return a list of all TLV names.
+    """
+    return list(TLV_MAPPINGS.keys())
+
+
 def get_addable_tlvs():
+    """
+    Return a list of (tlv_name, #parameters) tuples for all TLV types that
+    tockloader can add.
+    """
     addable_tlvs = []
     for k, v in TLV_MAPPINGS.items():
         try:
@@ -668,6 +679,10 @@ def get_addable_tlvs():
         except:
             pass
     return addable_tlvs
+
+
+def get_tlvid_from_name(tlvname):
+    return TLV_MAPPINGS[tlvname].TLVID
 
 
 class TBFHeader:
@@ -1040,12 +1055,13 @@ class TBFHeader:
         footer_start = self.get_binary_end_offset()
         return self.fields["total_size"] - footer_start
 
-    def delete_tlv(self, tlvid):
+    def delete_tlv(self, tlvname):
         """
         Delete a particular TLV by ID if it exists.
         """
         indices = []
         size = 0
+        tlvid = get_tlvid_from_name(tlvname)
         for i, tlv in enumerate(self.tlvs):
             if tlv.get_tlvid() == tlvid:
                 # Reverse the list
@@ -1084,21 +1100,22 @@ class TBFHeader:
         if tlv_program:
             tlv_program.init_fn_offset += size
 
-    def modify_tlv(self, tlvid, field, value):
+    def modify_tlv(self, tlvname, field, value):
         """
         Modify a TLV by setting a particular field in the TLV object to value.
         """
-        # 0 is a special id for the root fields
-        if tlvid == 0:
+        # 'base' is the name for the root fields
+        if tlvname == "base":
             self.fields[field] = value
         else:
+            tlvid = get_tlvid_from_name(tlvname)
             for tlv in self.tlvs:
                 if tlv.get_tlvid() == tlvid:
                     try:
                         getattr(tlv, field)
                     except:
                         raise TockLoaderException(
-                            'Field "{}" is not in TLV {}'.format(field, tlvid)
+                            'Field "{}" is not in TLV {}'.format(field, tlvname)
                         )
                     setattr(tlv, field, value)
                     self.modified = True

@@ -29,6 +29,8 @@ from .exceptions import TockLoaderException
 from .tab import TAB
 from .tickv import TicKV, TockTicKV
 from .tockloader import TockLoader
+from . import tbfh
+from .tbfh import get_addable_tlvs
 from ._version import __version__
 
 
@@ -437,9 +439,9 @@ def command_tbf_tlv_add(args):
     if len(tabs) == 0:
         raise TockLoaderException("No TABs found, no TBF headers to process")
 
-    tlvid = args.tlvid
+    tlvname = args.subparser_name
     parameters = args.parameters
-    logging.status("Adding TLV ID {}...".format(tlvid))
+    logging.status("Adding TLV {}...".format(tlvname))
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
@@ -452,7 +454,7 @@ def command_tbf_tlv_add(args):
         for i, tbf_name in enumerate(tbf_names):
             if i == index or index == len(tbf_names):
                 app = tab.extract_tbf(tbf_name)
-                app.add_tbfh_tlv(tlvid, parameters)
+                app.add_tbfh_tlv(tlvname, parameters)
                 tab.update_tbf(app)
 
 
@@ -1161,13 +1163,29 @@ def main():
 
     tbf_tlv_add = tbf_tlv_subparser.add_parser(
         "add",
-        parents=[parent],
         help="Add a TLV to the TBF header",
     )
-    tbf_tlv_add.set_defaults(func=command_tbf_tlv_add)
-    tbf_tlv_add.add_argument("tlvid", help="TLV ID number", type=lambda x: int(x, 0))
-    tbf_tlv_add.add_argument("parameters", help="Relevant values for this TLV", nargs=3)
-    tbf_tlv_add.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
+    tbf_tlv_add_subparser = tbf_tlv_add.add_subparsers(
+        title="Commands", metavar="", dest="subparser_name"
+    )
+
+    # Add subcommands for adding each TLV so we can specify number of arguments.
+    for tlvname, nargs in tbfh.get_addable_tlvs():
+        # def command_tbf_tlv_add_curried(args):
+        #     command_tbf_tlv_add(args, command_tbf_tlv_add_curried.tlvname)
+
+        # setattr(command_tbf_tlv_add_curried, "tlvname", tlvname)
+
+        tbf_tlv_add_tlv = tbf_tlv_add_subparser.add_parser(
+            tlvname,
+            parents=[parent],
+            help="Add a {} TLV to the TBF header".format(tlvname),
+        )
+        tbf_tlv_add_tlv.set_defaults(func=command_tbf_tlv_add)
+        tbf_tlv_add_tlv.add_argument(
+            "parameters", help="Relevant values for this TLV", nargs=nargs
+        )
+        tbf_tlv_add_tlv.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
 
     #####################
     ## TBF CREDENTIALS ##

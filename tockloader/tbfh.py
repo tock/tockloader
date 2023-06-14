@@ -179,17 +179,38 @@ class TBFTLVProgram(TBFTLV):
 
 class TBFTLVWriteableFlashRegions(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_WRITEABLE_FLASH_REGIONS
+    NUMBER_PARAMETERS = 2
 
-    def __init__(self, buffer):
+    def __init__(self, buffer, parameters=[]):
         self.valid = False
+        self.writeable_flash_regions = []
 
         # Must be a multiple of 8 bytes
-        if len(buffer) % 8 == 0:
-            self.writeable_flash_regions = []
+        if len(buffer) > 0 and len(buffer) % 8 == 0:
             for i in range(0, int(len(buffer) / 8)):
                 base = struct.unpack("<II", buffer[i * 8 : (i + 1) * 8])
                 # Add offset,length.
                 self.writeable_flash_regions.append((base[0], base[1]))
+            self.valid = True
+
+        else:
+            try:
+                if len(parameters) == 2:
+                    offset = int(parameters[0], 0)
+                    length = int(parameters[1], 0)
+                    self.writeable_flash_regions.append((offset, length))
+                    self.valid = True
+            except:
+                logging.error("Failed parsing params for TLVID={}".format(self.TLVID))
+
+    def add(self, parameters):
+        try:
+            if len(parameters) == 2:
+                offset = int(parameters[0], 0)
+                length = int(parameters[1], 0)
+                self.writeable_flash_regions.append((offset, length))
+        except:
+            logging.error("Failed parsing params for TLVID={}".format(self.TLVID))
 
     def pack(self):
         out = struct.pack("<HH", self.TLVID, len(self.writeable_flash_regions) * 8)
@@ -221,10 +242,15 @@ class TBFTLVWriteableFlashRegions(TBFTLV):
 
 class TBFTLVPackageName(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_PACKAGE_NAME
+    NUMBER_PARAMETERS = 1
 
-    def __init__(self, buffer):
-        self.package_name = buffer.decode("utf-8")
+    def __init__(self, buffer, parameters=[]):
         self.valid = True
+
+        if len(buffer) > 0:
+            self.package_name = buffer.decode("utf-8")
+        else:
+            self.package_name = parameters[0]
 
     def pack(self):
         encoded_name = self.package_name.encode("utf-8")
@@ -311,8 +337,9 @@ class TBFTLVPicOption1(TBFTLV):
 
 class TBFTLVFixedAddress(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_FIXED_ADDRESSES
+    NUMBER_PARAMETERS = 2
 
-    def __init__(self, buffer):
+    def __init__(self, buffer, parameters=[]):
         self.valid = False
 
         if len(buffer) == 8:
@@ -320,6 +347,14 @@ class TBFTLVFixedAddress(TBFTLV):
             self.fixed_address_ram = base[0]
             self.fixed_address_flash = base[1]
             self.valid = True
+        else:
+            try:
+                if len(parameters) == 2:
+                    self.fixed_address_ram = int(parameters[0], 0)
+                    self.fixed_address_flash = int(parameters[1], 0)
+                    self.valid = True
+            except:
+                logging.error("Failed parsing params for TLVID={}".format(self.TLVID))
 
     def pack(self):
         return struct.pack(
@@ -347,9 +382,11 @@ class TBFTLVFixedAddress(TBFTLV):
 
 class TBFTLVPermissions(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_PERMISSIONS
+    NUMBER_PARAMETERS = 3
 
-    def __init__(self, buffer):
+    def __init__(self, buffer, parameters=[]):
         self.valid = False
+        self.permissions = []
 
         if len(buffer) >= 2:
             num_permissions = struct.unpack("<H", buffer[0:2])[0]
@@ -357,8 +394,6 @@ class TBFTLVPermissions(TBFTLV):
 
             # Each permission structure is 16 bytes
             if len(buffer) == num_permissions * 16:
-                self.permissions = []
-
                 while len(buffer) > 0:
                     perm = struct.unpack("<IIQ", buffer[0:16])
                     permission = {
@@ -369,6 +404,30 @@ class TBFTLVPermissions(TBFTLV):
                     self.permissions.append(permission)
                     buffer = buffer[16:]
                     self.valid = True
+        else:
+            try:
+                if len(parameters) == 3:
+                    permission = {
+                        "driver_number": int(parameters[0], 0),
+                        "offset": int(parameters[1], 0),
+                        "allowed_commands": int(parameters[2], 0),
+                    }
+                    self.permissions.append(permission)
+                    self.valid = True
+            except:
+                logging.error("Failed parsing params for TLVID={}".format(self.TLVID))
+
+    def add(self, parameters):
+        try:
+            if len(parameters) == 3:
+                permission = {
+                    "driver_number": int(parameters[0], 0),
+                    "offset": int(parameters[1], 0),
+                    "allowed_commands": int(parameters[2], 0),
+                }
+                self.permissions.append(permission)
+        except:
+            logging.error("Failed parsing params for TLVID={}".format(self.TLVID))
 
     def get_allowed_commands(self):
         """
@@ -435,6 +494,7 @@ class TBFTLVPermissions(TBFTLV):
 
 class TBFTLVPersistentACL(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_PERSISTENT_ACL
+    NUMBER_PARAMETERS = 3
 
     def __init__(self, buffer, parameters=[]):
         self.valid = False
@@ -501,9 +561,7 @@ class TBFTLVPersistentACL(TBFTLV):
                 logging.debug("Created new persistent ACL TLV")
             except:
                 # Invalid arguments
-                logging.error(
-                    "Could not parse parameters for TLVID={}".format(self.TLVID)
-                )
+                logging.error("Failed parsing params for TLVID={}".format(self.TLVID))
 
     def pack(self):
         out = bytearray()
@@ -549,8 +607,9 @@ class TBFTLVPersistentACL(TBFTLV):
 
 class TBFTLVKernelVersion(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_KERNEL_VERSION
+    NUMBER_PARAMETERS = 2
 
-    def __init__(self, buffer):
+    def __init__(self, buffer, parameters=[]):
         self.valid = False
 
         if len(buffer) == 4:
@@ -558,6 +617,14 @@ class TBFTLVKernelVersion(TBFTLV):
             self.kernel_major = base[0]
             self.kernel_minor = base[1]
             self.valid = True
+        else:
+            try:
+                if len(parameters) == 2:
+                    self.kernel_major = int(parameters[0], 0)
+                    self.kernel_minor = int(parameters[1], 0)
+                    self.valid = True
+            except:
+                logging.error("Failed parsing params for TLVID={}".format(self.TLVID))
 
     def pack(self):
         return struct.pack("<HHHH", self.TLVID, 4, self.kernel_major, self.kernel_minor)
@@ -578,6 +645,29 @@ class TBFTLVKernelVersion(TBFTLV):
             "kernel_major": self.kernel_major,
             "kernel_minor": self.kernel_minor,
         }
+
+
+TLV_MAPPINGS = {
+    "main": TBFTLVMain,
+    "program": TBFTLVProgram,
+    "writeable_flash_regions": TBFTLVWriteableFlashRegions,
+    "name": TBFTLVPackageName,
+    "pic_option_1": TBFTLVPicOption1,
+    "fixed_addresses": TBFTLVFixedAddress,
+    "permissions": TBFTLVPermissions,
+    "persistent_acl": TBFTLVPersistentACL,
+    "kernel_version": TBFTLVKernelVersion,
+}
+
+
+def get_addable_tlvs():
+    addable_tlvs = []
+    for k, v in TLV_MAPPINGS.items():
+        try:
+            addable_tlvs.append((k, v.NUMBER_PARAMETERS))
+        except:
+            pass
+    return addable_tlvs
 
 
 class TBFHeader:
@@ -1013,14 +1103,27 @@ class TBFHeader:
                     setattr(tlv, field, value)
                     self.modified = True
 
-    def add_tlv(self, tlvid, parameters):
-        tlv_obj = self._tlvid_to_object(tlvid)
-        if tlv_obj == None:
-            raise TockLoaderException("TLVID {} does not exist".format(tlvid))
-        new_tlv = tlv_obj(b"", parameters)
-        size = len(new_tlv.pack())
-        self.tlvs.append(new_tlv)
-        self.modified = True
+    def add_tlv(self, tlvname, parameters):
+        logging.info(
+            "Adding TLV {} with {} parameters".format(tlvname, len(parameters))
+        )
+        tlv_obj = TLV_MAPPINGS[tlvname]
+
+        # If we already have this TLV, and there is an add() function, then we
+        # use that rather than adding an additional TLV.
+        for tlv in self.tlvs:
+            if tlv.TLVID == tlv_obj.TLVID and hasattr(tlv_obj, "add"):
+                original_size = len(tlv.pack())
+                tlv.add(parameters)
+                size = len(tlv.pack()) - original_size
+                self.modified = True
+                break
+        else:
+            # Need to add an entirely new TLV.
+            new_tlv = tlv_obj(b"", parameters)
+            size = len(new_tlv.pack())
+            self.tlvs.append(new_tlv)
+            self.modified = True
 
         # Now update the base information since we have changed the length.
         self.fields["header_size"] += size
@@ -1145,8 +1248,7 @@ class TBFHeader:
             )
             if self.app:
                 for tlv in self.tlvs:
-                    if tlv.TLVID == TBFTLV.HEADER_TYPE_PERSISTENT_ACL:
-                        buf += tlv.pack()
+                    buf += tlv.pack()
 
             nbuf = bytearray(len(buf))
             nbuf[:] = buf
@@ -1202,26 +1304,6 @@ class TBFHeader:
             if tlv.get_tlvid() == tlvid:
                 return tlv
         return None
-
-    def _tlvid_to_object(self, tlvid):
-        if tlvid == TBFTLV.HEADER_TYPE_MAIN:
-            return TBFTLVMain
-        elif tlvid == TBFTLV.HEADER_TYPE_PROGRAM:
-            return TBFTLVProgram
-        elif tlvid == TBFTLV.HEADER_TYPE_WRITEABLE_FLASH_REGIONS:
-            return TBFTLVWriteableFlashRegions
-        elif tlvid == TBFTLV.HEADER_TYPE_PACKAGE_NAME:
-            return TBFTLVPackageName
-        elif tlvid == TBFTLV.HEADER_TYPE_PIC_OPTION_1:
-            return TBFTLVPicOption1
-        elif tlvid == TBFTLV.HEADER_TYPE_FIXED_ADDRESSES:
-            return TBFTLVFixedAddress
-        elif tlvid == TBFTLV.HEADER_TYPE_PERMISSIONS:
-            return TBFTLVPermissions
-        elif tlvid == TBFTLV.HEADER_TYPE_PERSISTENT_ACL:
-            return TBFTLVPersistentACL
-        elif tlvid == TBFTLV.HEADER_TYPE_KERNEL_VERSION:
-            return TBFTLVKernelVersion
 
     def __str__(self):
         out = ""

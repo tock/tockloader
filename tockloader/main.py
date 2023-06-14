@@ -394,7 +394,7 @@ def command_tbf_tlv_delete(args):
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
-        index = helpers.menu(
+        index = helpers.menu_new(
             tbf_names + ["All"],
             return_type="index",
             title="Which TBF to delete TLV from?",
@@ -420,7 +420,7 @@ def command_tbf_tlv_modify(args):
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
-        index = helpers.menu(
+        index = helpers.menu_new(
             tbf_names + ["All"],
             return_type="index",
             title="Which TBF to modify TLV?",
@@ -445,7 +445,7 @@ def command_tbf_tlv_add(args):
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
-        index = helpers.menu(
+        index = helpers.menu_new(
             tbf_names + ["All"],
             return_type="index",
             title="Which TBF to modify TLV?",
@@ -487,7 +487,7 @@ def command_tbf_credential_add(args):
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
-        index = helpers.menu(
+        index = helpers.menu_new(
             tbf_names + ["All"],
             return_type="index",
             title="Which TBF to modify TLV?",
@@ -513,7 +513,7 @@ def command_tbf_credential_delete(args):
     for tab in tabs:
         # Ask the user which TBF binaries to update.
         tbf_names = tab.get_tbf_names()
-        index = helpers.menu(
+        index = helpers.menu_new(
             tbf_names + ["All"],
             return_type="index",
             title="Which TBF to modify TLV?",

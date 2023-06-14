@@ -218,7 +218,7 @@ class TAB:
         for f in self.tab.getnames():
             if f[-4:] == ".tbf":
                 tbfs.append(f[:-4])
-        return tbfs
+        return sorted(tbfs)
 
     def get_app_name(self):
         """

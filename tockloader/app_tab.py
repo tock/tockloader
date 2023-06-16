@@ -432,16 +432,10 @@ class TabApp:
             # If that was not enough, then try to truncate the actual program
             # binary, which was likely padded with zeros by elf2tab.
             if len(binary) > size:
-                logging.info("Truncating binary to match.")
+                raise TockLoaderException(
+                    "Unable to make binary fit size. Compile with larger footer."
+                )
 
-                # Check on what we would be removing. If it is all zeros, we
-                # determine that it is OK to truncate.
-                to_remove = program_binary[size:]
-                if len(to_remove) != to_remove.count(0):
-                    raise TockLoaderException("Error truncating binary. Not zero.")
-
-                program_binary = program_binary[0:size]
-                binary = header_binary + program_binary + footer_binary
         return binary
 
     def get_crt0_header_str(self):
@@ -491,29 +485,6 @@ class TabApp:
             for tbf in self.tbfs:
                 out += textwrap.indent(str(tbf.tbfh), "  ")
         return out
-
-    def _truncate_binary(self, binary):
-        """
-        Optionally truncate binary if the header+protected size has grown, and
-        the actual machine code binary is now too long.
-        """
-        size = self.get_size()
-        if len(binary) > size:
-            logging.info(
-                "Binary is larger than what it says in the header. Actual:{}, expected:{}".format(
-                    len(binary), size
-                )
-            )
-            logging.info("Truncating binary to match.")
-
-            # Check on what we would be removing. If it is all zeros, we
-            # determine that it is OK to truncate.
-            to_remove = binary[size:]
-            if len(to_remove) != to_remove.count(0):
-                raise TockLoaderException("Error truncating binary. Not zero.")
-
-            binary = binary[0:size]
-        return binary
 
     def __str__(self):
         return self.get_name()

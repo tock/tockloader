@@ -1149,6 +1149,9 @@ class TBFHeader:
         tlv_main = self._get_tlv(TBFTLV.HEADER_TYPE_MAIN)
         tlv_program = self._get_tlv(TBFTLV.HEADER_TYPE_PROGRAM)
 
+        if tlv_program:
+            tlv_program.binary_end_offset += size
+
         # Decrease the protected size if possible so that the actual application
         # binary hasn't moved.
         #####
@@ -2013,6 +2016,9 @@ class TBFFooter:
                     tlv.credentials_type
                     == TBFFooterTLVCredentials.CREDENTIALS_TYPE_RESERVED
                 ):
+                    logging.debug(
+                        "Shrinking reserved credential by {} bytes".format(number_bytes)
+                    )
                     tlv.shrink(number_bytes)
                     break
 

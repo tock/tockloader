@@ -138,6 +138,17 @@ class TicKVObjectBase:
 
         return out
 
+    def object(self):
+        out = {
+            "version": self.header.version,
+            "hashed_key": self.header.hashed_key,
+            "flags": self.flags,
+            "valid": self.header.is_valid(),
+            "checksum": self.get_checksum(),
+            "value": binascii.hexlify(self.get_value_bytes()).decode("utf-8"),
+        }
+        return out
+
 
 class TicKVObjectFlash(TicKVObjectBase):
     """
@@ -246,6 +257,23 @@ class TicKVObjectTock(TicKVObjectBase):
         v = binascii.hexlify(self.storage_object.value_bytes).decode("utf-8")
         out += "    Value: {}\n".format(v)
 
+        return out
+
+    def object(self):
+        out = {
+            "version": self.header.version,
+            "hashed_key": self.header.hashed_key,
+            "flags": self.flags,
+            "valid": self.header.is_valid(),
+            "checksum": self.get_checksum(),
+            "tock_object": {
+                "version": self.storage_object.version,
+                "write_id": self.storage_object.write_id,
+                "value": binascii.hexlify(self.storage_object.value_bytes).decode(
+                    "utf-8"
+                ),
+            },
+        }
         return out
 
 

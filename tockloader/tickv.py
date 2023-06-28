@@ -599,12 +599,10 @@ class TockTicKV(TicKV):
 
     def _hash_key(self, key):
         """
-        Compute the SipHash24 for the given key. We always pad the key to
-        be 64 bytes by adding zeros.
+        Compute the SipHash24 for the given key.
         """
 
         key_buffer = key.encode("utf-8")
-        key_buffer += b"\0" * (64 - len(key_buffer))
         h = siphash24.siphash24()
         h.update(data=key_buffer)
         return h.digest()

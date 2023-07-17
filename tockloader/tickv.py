@@ -7,6 +7,7 @@ TicKV: https://github.com/tock/tock/tree/master/libraries/tickv
 import binascii
 import logging
 import struct
+import textwrap
 
 import crcmod
 import siphash24
@@ -215,6 +216,16 @@ class TockStorageObject:
             + self.value_bytes
         )
 
+    def __str__(self):
+        out = "TockTicKV Object version={} write_id={} length={}\n".format(
+            self.version,
+            self.write_id,
+            len(self.value_bytes),
+        )
+        v = binascii.hexlify(self.value_bytes).decode("utf-8")
+        out += "  Value: {}\n".format(v)
+        return out
+
 
 class TockStorageObjectFlash(TockStorageObject):
     def __init__(self, binary):
@@ -249,13 +260,7 @@ class TicKVObjectTock(TicKVObjectBase):
             self.header.is_valid(),
             self.get_checksum(),
         )
-        out += "  TockTicKV Object version={} write_id={} length={}\n".format(
-            self.storage_object.version,
-            self.storage_object.write_id,
-            len(self.storage_object.value_bytes),
-        )
-        v = binascii.hexlify(self.storage_object.value_bytes).decode("utf-8")
-        out += "    Value: {}\n".format(v)
+        out += textwrap.indent(str(self.storage_object), "  ")
 
         return out
 

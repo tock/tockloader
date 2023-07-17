@@ -127,10 +127,11 @@ class TicKVObjectBase:
 
     def __str__(self):
         out = ""
-        out += "TicKV Object hash={:#x} version={} flags={} valid={} checksum={:#x}\n".format(
+        out += "TicKV Object hash={:#x} version={} flags={} length={} valid={} checksum={:#x}\n".format(
             self.header.hashed_key,
             self.header.version,
             self.header.flags,
+            self.length(),
             self.header.is_valid(),
             self.get_checksum(),
         )
@@ -252,14 +253,7 @@ class TicKVObjectTock(TicKVObjectBase):
         return object_bytes + padding_bytes
 
     def __str__(self):
-        out = ""
-        out += "TicKV Object hash={:#x} version={} flags={} valid={} checksum={:#x}\n".format(
-            self.header.hashed_key,
-            self.header.version,
-            self.header.flags,
-            self.header.is_valid(),
-            self.get_checksum(),
-        )
+        out = super().__str__()
         out += textwrap.indent(str(self.storage_object), "  ")
 
         return out

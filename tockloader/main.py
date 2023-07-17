@@ -573,11 +573,16 @@ def command_tickv_append(args):
     else:
         append_bytes = args.value.encode("utf-8")
 
+    # By default our write_id is 0, but the write id can be specified on the
+    # command line. This allows tockloader to append k-v pairs as though they
+    # were written by an app.
+    write_id = args.write_id
+
     tock_loader = TockLoader(args)
     tock_loader.open()
 
     logging.status("Appending TicKV key...")
-    tock_loader.tickv_append(args.key, append_bytes)
+    tock_loader.tickv_append(args.key, append_bytes, write_id)
 
 
 def command_tickv_append_rsa_key(args):
@@ -1337,6 +1342,12 @@ def main():
     tickv_append.add_argument(
         "--value-file",
         help="Filepath of contents to append from the TicKV database",
+    )
+    tickv_append.add_argument(
+        "--write-id",
+        help="ID number to use when writing the key-value object",
+        type=lambda x: int(x, 0),
+        default=0,
     )
 
     tickv_append_rsa_key = tickv_subparser.add_parser(

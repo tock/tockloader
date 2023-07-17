@@ -194,7 +194,7 @@ class TockStorageObject:
     access.
     """
 
-    def __init__(self, value_bytes, version=0, write_id=0):
+    def __init__(self, value_bytes, write_id=0, version=0):
         if len(value_bytes) + 9 > 4096:
             raise TockLoaderException(
                 "Cannot create TockStorageObject object (length {} > 4087)".format(
@@ -225,7 +225,7 @@ class TockStorageObjectFlash(TockStorageObject):
 
         value_bytes = binary[9 : 9 + length]
 
-        super().__init__(value_bytes, version, write_id)
+        super().__init__(value_bytes, write_id, version)
 
 
 class TicKVObjectTock(TicKVObjectBase):
@@ -559,13 +559,13 @@ class TockTicKV(TicKV):
         hashed_key = self._hash_key_int(key)
         super().invalidate(hashed_key)
 
-    def append(self, key, value):
+    def append(self, key, value, write_id):
         logging.info("Appending TockTicKV object {}={}".format(key, value))
         hashed_key = self._hash_key_int(key)
         header = TicKVObjectHeader(hashed_key)
         if isinstance(value, str):
             value = value.encode("utf-8")
-        storage_object = TockStorageObject(value)
+        storage_object = TockStorageObject(value, write_id)
         tock_kv_object = TicKVObjectTock(header, storage_object)
 
         super()._append_object(tock_kv_object)

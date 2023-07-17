@@ -752,7 +752,7 @@ class TockLoader:
             tickv_db.invalidate(key)
             self._tickv_write_database(tickv_db)
 
-    def tickv_append(self, key, value=None):
+    def tickv_append(self, key, value=None, write_id=0):
         """
         Add a key,value pair to the database. The first argument can a list of
         key, value pairs.
@@ -763,9 +763,9 @@ class TockLoader:
             # Check if we got a list of key-value pairs or just one.
             if isinstance(key, list):
                 for k, v in key:
-                    tickv_db.append(k, v)
+                    tickv_db.append(k, v, write_id)
             else:
-                tickv_db.append(key, value)
+                tickv_db.append(key, value, write_id)
 
             self._tickv_write_database(tickv_db)
 

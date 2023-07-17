@@ -636,6 +636,16 @@ def command_tickv_reset(args):
     tock_loader.tickv_reset()
 
 
+def command_tickv_hash(args):
+    tock_loader = TockLoader(args)
+    tock_loader.open()
+
+    logging.status("Hashing a TicKV key...")
+    hash = tock_loader.tickv_hash(args.key)
+    print("Original key: {}".format(args.key))
+    print("Hashed key:   {:#x}".format(hash))
+
+
 def command_list_known_boards(args):
     tock_loader = TockLoader(args)
     tock_loader.print_known_boards()
@@ -1374,6 +1384,17 @@ def main():
         help="Reset/erase a tickv database",
     )
     tickv_reset.set_defaults(func=command_tickv_reset)
+
+    tickv_hash = tickv_subparser.add_parser(
+        "hash",
+        parents=[parent, parent_channel, parent_format, parent_tickv],
+        help="Hash a key for a tickv database",
+    )
+    tickv_hash.set_defaults(func=command_tickv_hash)
+    tickv_hash.add_argument(
+        "key",
+        help="Key to hash",
+    )
 
     #############################
     # UNDERSTANDING TOCKLOADER ##

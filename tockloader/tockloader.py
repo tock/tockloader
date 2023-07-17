@@ -788,6 +788,13 @@ class TockLoader:
             tickv_db.reset()
             self._tickv_write_database(tickv_db)
 
+    def tickv_hash(self, key):
+        """
+        Return the hash of the specified key.
+        """
+        tickv_db = TockTicKV([], 1)
+        return tickv_db._hash_key_int(key)
+
     def run_terminal(self):
         """
         Create an interactive terminal session with the board.

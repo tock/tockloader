@@ -233,7 +233,7 @@ Set the address that the bootloader jumps to to run kernel code.
 ### tickv\_append
 ```py
 
-def tickv_append(self, key, value=None)
+def tickv_append(self, key, value=None, write_id=0)
 
 ```
 
@@ -278,6 +278,18 @@ def tickv_get(self, key)
 
 
 Read a key, value pair from a TicKV database on a board.
+
+
+### tickv\_hash
+```py
+
+def tickv_hash(self, key)
+
+```
+
+
+
+Return the hash of the specified key.
 
 
 ### tickv\_invalidate

@@ -80,6 +80,19 @@ def object(self)
 
 
 
+### shrink
+```py
+
+def shrink(self, number_bytes)
+
+```
+
+
+
+Try to shrink the footer `number_bytes`. Shrink as much as possible up
+to the number by removing padding.
+
+
 ### verify\_credentials
 ```py
 
@@ -342,6 +355,15 @@ def __init__(self, buffer)
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### add\_tlv
+```py
+
+def add_tlv(self, tlvname, parameters)
+
+```
+
+
+
 ### adjust\_starting\_address
 ```py
 
@@ -370,7 +392,7 @@ Give a field name and value to set when creating the binary.
 ### delete\_tlv
 ```py
 
-def delete_tlv(self, tlvid)
+def delete_tlv(self, tlvname)
 
 ```
 
@@ -607,7 +629,7 @@ Whether the CRC and other checks passed for this header.
 ### modify\_tlv
 ```py
 
-def modify_tlv(self, tlvid, field, value)
+def modify_tlv(self, tlvname, field, value)
 
 ```
 
@@ -721,6 +743,15 @@ Create the TBF header. All we need to know is how long the entire
 padding should be.
 
 
+### add\_tlv
+```py
+
+def add_tlv(self, tlvname, parameters)
+
+```
+
+
+
 ### adjust\_starting\_address
 ```py
 
@@ -749,7 +780,7 @@ Give a field name and value to set when creating the binary.
 ### delete\_tlv
 ```py
 
-def delete_tlv(self, tlvid)
+def delete_tlv(self, tlvname)
 
 ```
 
@@ -986,7 +1017,7 @@ Whether the CRC and other checks passed for this header.
 ### modify\_tlv
 ```py
 
-def modify_tlv(self, tlvid, field, value)
+def modify_tlv(self, tlvname, field, value)
 
 ```
 
@@ -1110,7 +1141,7 @@ None
 ### \_\_init\_\_
 ```py
 
-def __init__(self, buffer)
+def __init__(self, buffer, parameters=[])
 
 ```
 
@@ -1174,7 +1205,7 @@ None
 ### \_\_init\_\_
 ```py
 
-def __init__(self, buffer)
+def __init__(self, buffer, parameters=[])
 
 ```
 
@@ -1302,7 +1333,7 @@ None
 ### \_\_init\_\_
 ```py
 
-def __init__(self, buffer)
+def __init__(self, buffer, parameters=[])
 
 ```
 
@@ -1366,13 +1397,22 @@ None
 ### \_\_init\_\_
 ```py
 
-def __init__(self, buffer)
+def __init__(self, buffer, parameters=[])
 
 ```
 
 
 
 Initialize self.  See help(type(self)) for accurate signature.
+
+
+### add
+```py
+
+def add(self, parameters)
+
+```
+
 
 
 ### get\_allowed\_commands
@@ -1448,7 +1488,7 @@ None
 ### \_\_init\_\_
 ```py
 
-def __init__(self, buffer)
+def __init__(self, buffer, parameters=[])
 
 ```
 
@@ -1696,13 +1736,22 @@ None
 ### \_\_init\_\_
 ```py
 
-def __init__(self, buffer)
+def __init__(self, buffer, parameters=[])
 
 ```
 
 
 
 Initialize self.  See help(type(self)) for accurate signature.
+
+
+### add
+```py
+
+def add(self, parameters)
+
+```
+
 
 
 ### get\_size
@@ -1752,6 +1801,40 @@ def __str__(self)
 
 Return str(self).
 
+
+
+
+### get\_addable\_tlvs
+```py
+
+def get_addable_tlvs()
+
+```
+
+
+
+Return a list of (tlv_name, #parameters) tuples for all TLV types that
+tockloader can add.
+
+
+### get\_tlv\_names
+```py
+
+def get_tlv_names()
+
+```
+
+
+
+Return a list of all TLV names.
+
+
+### get\_tlvid\_from\_name
+```py
+
+def get_tlvid_from_name(tlvname)
+
+```
 
 
 

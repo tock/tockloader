@@ -208,6 +208,15 @@ def command_tbf_credential_delete(args)
 
 
 
+### command\_tbf\_tlv\_add
+```py
+
+def command_tbf_tlv_add(args)
+
+```
+
+
+
 ### command\_tbf\_tlv\_delete
 ```py
 
@@ -283,6 +292,15 @@ def command_tickv_get(args)
 
 
 
+### command\_tickv\_hash
+```py
+
+def command_tickv_hash(args)
+
+```
+
+
+
 ### command\_tickv\_invalidate
 ```py
 
@@ -338,6 +356,19 @@ def command_write(args)
 
 
 Write flash range on the chip with a specific value.
+
+
+### get\_addable\_tlvs
+```py
+
+def get_addable_tlvs()
+
+```
+
+
+
+Return a list of (tlv_name, #parameters) tuples for all TLV types that
+tockloader can add.
 
 
 ### main

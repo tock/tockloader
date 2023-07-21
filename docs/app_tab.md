@@ -37,6 +37,18 @@ def add_credential(self, credential_type, public_key, private_key, cleartext_id)
 Add a credential by type to the TBF footer.
 
 
+### add\_tbfh\_tlv
+```py
+
+def add_tbfh_tlv(self, tlvid, parameters)
+
+```
+
+
+
+Add a particular TLV to each TBF's header.
+
+
 ### corrupt\_tbf
 ```py
 
@@ -383,17 +395,13 @@ def __str__(self)
 Return str(self).
 
 
-### \_truncate\_binary
+### \_concatenate\_and\_truncate\_binary
 ```py
 
-def _truncate_binary(self, binary)
+def _concatenate_and_truncate_binary(self, header, program_binary, footer)
 
 ```
 
-
-
-Optionally truncate binary if the header+protected size has grown, and
-the actual machine code binary is now too long.
 
 
 

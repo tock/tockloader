@@ -125,7 +125,7 @@ Print which boards tockloader has default settings for built-in.
 
 Set the jump address the bootloader uses for the location of the kernel.
 
-#### `tockloader tbf tlv delete|modify [TLVID]`
+#### `tockloader tbf tlv add|modify|delete [TLVNAME]`
 
 Interact with TLV structures within a TBF.
 

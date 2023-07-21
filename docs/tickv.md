@@ -260,6 +260,15 @@ def length(self)
 Return the total length of this object in the database in bytes.
 
 
+### object
+```py
+
+def object(self)
+
+```
+
+
+
 ### \_\_str\_\_
 ```py
 
@@ -361,6 +370,15 @@ def length(self)
 
 
 Return the total length of this object in the database in bytes.
+
+
+### object
+```py
+
+def object(self)
+
+```
+
 
 
 ### \_\_str\_\_
@@ -473,6 +491,15 @@ def length(self)
 
 
 Return the total length of this object in the database in bytes.
+
+
+### object
+```py
+
+def object(self)
+
+```
+
 
 
 ### \_\_str\_\_
@@ -701,6 +728,15 @@ def length(self)
 Return the total length of this object in the database in bytes.
 
 
+### object
+```py
+
+def object(self)
+
+```
+
+
+
 ### \_\_str\_\_
 ```py
 
@@ -813,6 +849,15 @@ def length(self)
 Return the total length of this object in the database in bytes.
 
 
+### object
+```py
+
+def object(self)
+
+```
+
+
+
 ### \_\_str\_\_
 ```py
 
@@ -851,7 +896,7 @@ access.
 ### \_\_init\_\_
 ```py
 
-def __init__(self, value_bytes, version=0, write_id=0)
+def __init__(self, value_bytes, write_id=0, version=0)
 
 ```
 
@@ -876,6 +921,18 @@ def length(self)
 
 ```
 
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
 
 
 
@@ -913,6 +970,18 @@ def length(self)
 
 
 
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
 
 
 ## Class TockTicKV
@@ -934,7 +1003,7 @@ the storage.
 ### append
 ```py
 
-def append(self, key, value)
+def append(self, key, value, write_id)
 
 ```
 
@@ -1067,8 +1136,7 @@ def _hash_key(self, key)
 
 
 
-Compute the SipHash24 for the given key. We always pad the key to
-be 64 bytes by adding zeros.
+Compute the SipHash24 for the given key.
 
 
 ### \_hash\_key\_int

@@ -29,6 +29,9 @@ def append(self, hashed_key, value)
 
 
 
+Add a key-value pair to a TicKV database.
+
+
 ### cleanup
 ```py
 
@@ -50,6 +53,9 @@ def get(self, hashed_key)
 
 
 
+Retrieve a key-value object from a TicKV database.
+
+
 ### get\_all
 ```py
 
@@ -57,6 +63,9 @@ def get_all(self, region_index)
 
 ```
 
+
+
+Retrieve all key-value objects from a TicKV database.
 
 
 ### get\_binary
@@ -68,6 +77,10 @@ def get_binary(self)
 
 
 
+Return the TicKV database as a binary object that can be written to the
+board.
+
+
 ### invalidate
 ```py
 
@@ -75,6 +88,9 @@ def invalidate(self, hashed_key)
 
 ```
 
+
+
+Mark a key-value object as deleted in a TicKV database.
 
 
 ### reset
@@ -649,7 +665,7 @@ def length(self)
 
 
 ## Class TicKVObjectTock
-Shared class representing an item in a TicKV database.
+Tock-formatted object stored in TicKV.
 ### \_\_init\_\_
 ```py
 
@@ -770,7 +786,7 @@ def _get_object_bytes(self)
 
 
 ## Class TicKVObjectTockFlash
-Shared class representing an item in a TicKV database.
+Tock-formatted object stored in TicKV and read from flash.
 ### \_\_init\_\_
 ```py
 
@@ -938,8 +954,9 @@ Return str(self).
 
 
 ## Class TockStorageObjectFlash
-This is the item stored in a TicKV value that Tock processes/kernel can
-access.
+Tock-formatted K-V object read from a flash binary.
+
+This is useful when reading a Tock K-V from a board.
 ### \_\_init\_\_
 ```py
 
@@ -1009,6 +1026,9 @@ def append(self, key, value, write_id)
 
 
 
+Add a key-value pair to the database.
+
+
 ### cleanup
 ```py
 
@@ -1030,6 +1050,9 @@ def dump(self)
 
 
 
+Display the entire contents of the database.
+
+
 ### get
 ```py
 
@@ -1037,6 +1060,9 @@ def get(self, key)
 
 ```
 
+
+
+Get the Tock-formatted value from the database given the key.
 
 
 ### get\_all
@@ -1048,6 +1074,10 @@ def get_all(self, region_index)
 
 
 
+Get all Tock objects from the database and assume they are all Tock
+formatted.
+
+
 ### get\_binary
 ```py
 
@@ -1057,6 +1087,10 @@ def get_binary(self)
 
 
 
+Return the TicKV database as a binary object that can be written to the
+board.
+
+
 ### invalidate
 ```py
 
@@ -1064,6 +1098,9 @@ def invalidate(self, key)
 
 ```
 
+
+
+Delete a key-value pair from the database.
 
 
 ### reset

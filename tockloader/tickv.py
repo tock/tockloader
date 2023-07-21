@@ -229,6 +229,12 @@ class TockStorageObject:
 
 
 class TockStorageObjectFlash(TockStorageObject):
+    """
+    Tock-formatted K-V object read from a flash binary.
+
+    This is useful when reading a Tock K-V from a board.
+    """
+
     def __init__(self, binary):
         kv_tock_header_fields = struct.unpack("<BII", binary[0:9])
         version = kv_tock_header_fields[0]
@@ -241,6 +247,10 @@ class TockStorageObjectFlash(TockStorageObject):
 
 
 class TicKVObjectTock(TicKVObjectBase):
+    """
+    Tock-formatted object stored in TicKV.
+    """
+
     def __init__(self, header, storage_object, padding=0, checksum=None):
         super().__init__(header, checksum)
 
@@ -277,6 +287,10 @@ class TicKVObjectTock(TicKVObjectBase):
 
 
 class TicKVObjectTockFlash(TicKVObjectTock):
+    """
+    Tock-formatted object stored in TicKV and read from flash.
+    """
+
     def __init__(self, tickv_object):
         value_bytes = tickv_object.get_value_bytes()
         storage_object = TockStorageObjectFlash(value_bytes)
@@ -297,7 +311,6 @@ class TicKV:
         Create a new TicKV object with a given binary buffer representing
         the storage.
         """
-
         self.storage_binary = bytearray(storage_binary)
         self.region_size = region_size
 
@@ -308,6 +321,9 @@ class TicKV:
             )
 
     def get(self, hashed_key):
+        """
+        Retrieve a key-value object from a TicKV database.
+        """
         # Iterate all pages starting with the indented page given the key.
         for region_index in self._region_range(self._get_starting_region(hashed_key)):
             region_binary = self._get_region_binary(region_index)
@@ -325,12 +341,21 @@ class TicKV:
                 offset += ex_obj.length()
 
     def get_all(self, region_index):
+        """
+        Retrieve all key-value objects from a TicKV database.
+        """
         return self._get_all(region_index, False)
 
     def invalidate(self, hashed_key):
+        """
+        Mark a key-value object as deleted in a TicKV database.
+        """
         self._invalidate_hashed_key(hashed_key)
 
     def append(self, hashed_key, value):
+        """
+        Add a key-value pair to a TicKV database.
+        """
         header = TicKVObjectHeader(hashed_key)
         kv_object = TicKVObject(header, value)
         self._append_object(kv_object)
@@ -380,6 +405,10 @@ class TicKV:
             self._append_object(obj)
 
     def get_binary(self):
+        """
+        Return the TicKV database as a binary object that can be written to the
+        board.
+        """
         return self.storage_binary
 
     def _get_all(self, region_index, valid_only):
@@ -521,6 +550,9 @@ class TockTicKV(TicKV):
     """
 
     def get(self, key):
+        """
+        Get the Tock-formatted value from the database given the key.
+        """
         logging.info('Finding key "{}" in Tock-style TicKV database.'.format(key))
 
         hashed_key = self._hash_key_int(key)
@@ -537,6 +569,10 @@ class TockTicKV(TicKV):
         return tock_kv_object
 
     def get_all(self, region_index):
+        """
+        Get all Tock objects from the database and assume they are all Tock
+        formatted.
+        """
         kv_objects = super().get_all(region_index)
         logging.debug("Found {} TicKV objects".format(len(kv_objects)))
 
@@ -555,10 +591,16 @@ class TockTicKV(TicKV):
         return tock_kv_objects
 
     def invalidate(self, key):
+        """
+        Delete a key-value pair from the database.
+        """
         hashed_key = self._hash_key_int(key)
         super().invalidate(hashed_key)
 
     def append(self, key, value, write_id):
+        """
+        Add a key-value pair to the database.
+        """
         logging.info("Appending TockTicKV object {}={}".format(key, value))
         hashed_key = self._hash_key_int(key)
         header = TicKVObjectHeader(hashed_key)
@@ -570,6 +612,9 @@ class TockTicKV(TicKV):
         super()._append_object(tock_kv_object)
 
     def dump(self):
+        """
+        Display the entire contents of the database.
+        """
         logging.info("Dumping entire contents of Tock-style TicKV database.")
 
         out = ""
@@ -600,7 +645,6 @@ class TockTicKV(TicKV):
         """
         Compute the SipHash24 for the given key.
         """
-
         key_buffer = key.encode("utf-8")
         h = siphash24.siphash24()
         h.update(data=key_buffer)
@@ -610,6 +654,5 @@ class TockTicKV(TicKV):
         """
         Compute the SipHash24 for the given key. Return as u64.
         """
-
         hashed_key_buf = self._hash_key(key)
         return struct.unpack(">Q", hashed_key_buf)[0]

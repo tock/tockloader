@@ -10,7 +10,7 @@ import struct
 import textwrap
 
 import crcmod
-import siphash24
+import siphash
 
 from .exceptions import TockLoaderException
 
@@ -646,9 +646,7 @@ class TockTicKV(TicKV):
         Compute the SipHash24 for the given key.
         """
         key_buffer = key.encode("utf-8")
-        h = siphash24.siphash24()
-        h.update(data=key_buffer)
-        return h.digest()
+        return siphash.SipHash_2_4(bytearray(16), key_buffer).digest()
 
     def _hash_key_int(self, key):
         """

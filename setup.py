@@ -34,7 +34,7 @@ setup(
         "crcmod >= 1.7",
         "pycryptodome >= 3.15.0",
         "pyserial >= 3.0.1",
-        "siphash24 >= 1.3",
+        "siphash >= 0.0.1",
         "toml >= 0.10.2",
         "tqdm >= 4.45.0 ",
         "questionary >= 1.10.0",

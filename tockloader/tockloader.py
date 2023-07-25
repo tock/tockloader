@@ -107,11 +107,12 @@ class TockLoader:
             "litex_arty": {"start_address": 0x41000000},
             "litex_sim": {"start_address": 0x00080000},
             "nrf52dk": {
+                "start_address": 0x40000,
                 "tickv": {
                     "region_size": 4096,
                     "number_regions": 32,
                     "start_address": 0x12000000,
-                }
+                },
             },
             "nucleof4": {"start_address": 0x08040000},
             "microbit_v2": {"start_address": 0x00040000},

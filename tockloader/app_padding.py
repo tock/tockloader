@@ -39,6 +39,12 @@ class PaddingApp:
         """
         return self.tbfh
 
+    def verify_credentials(self, public_keys):
+        """
+        Padding apps do not have credentials, so we ignore this.
+        """
+        pass
+
     def get_binary(self, address=None):
         """
         Return the binary array comprising the header and the padding between

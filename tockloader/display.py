@@ -68,7 +68,7 @@ class HumanReadableDisplay(Display):
                     self.out += textwrap.indent(app.info(verbose), "  ") + "\n\n"
                 else:
                     # Display padding
-                    self.out += helpers.text_in_box("Padding", 52)
+                    self.out += helpers.text_in_box("Padding", 52) + "\n"
                     self.out += textwrap.indent(app.info(verbose), "  ") + "\n\n"
 
             if len(apps) == 0:

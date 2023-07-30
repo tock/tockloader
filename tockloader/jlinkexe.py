@@ -65,6 +65,9 @@ class JLinkExe(BoardInterface):
             # there is only one for now.
             emulator = emulators[0]
             # Check for known JTAG board.
+            if emulator["ProductName"] == "J-Link (unknown)":
+                logging.warning("JLink EmuList reports 'unknown' product.")
+                logging.warning("Please try upgrading JLinkExe to latest version.")
             if emulator["ProductName"] == "J-Link OB-SAM3U128-V2-NordicSem":
                 # This seems to match both the nRF52dk (PCA10040) and the
                 # nRF52840dk (PCA10056). From a jlink perspective, they are

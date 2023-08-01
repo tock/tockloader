@@ -25,6 +25,7 @@ from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
 from .exceptions import TockLoaderException, ChannelAddressErrorException
+from .kernel_attributes import KernelAttributes
 from .tbfh import TBFHeader
 from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
@@ -986,6 +987,26 @@ class TockLoader:
         Return the address in memory where application RAM starts on this
         platform. We mostly don't know this, so it may be None.
         """
+
+        # First check if we have a cached value. We might need to lookup the
+        # app RAM address often, so we don't want to have to query the board for
+        # it each time.
+        cached = getattr(self, "app_ram_address", None)
+        if cached:
+            return cached
+
+        # Next we check for kernel attributes.
+        if self.channel:
+            app_start_flash = self._get_apps_start_address()
+            kernel_attr_binary = self.channel.read_range(app_start_flash - 100, 100)
+            kernel_attrs = KernelAttributes(kernel_attr_binary)
+            app_ram = kernel_attrs.get_app_memory_region()
+            if app_ram != None:
+                app_ram_start_address = app_ram[0]
+                self.app_ram_address = app_ram_start_address
+                return app_ram_start_address
+
+        # Finally we use a saved setting in tockloader itself.
         if "app_ram_address" in self.app_settings:
             return self.app_settings["app_ram_address"]
         else:

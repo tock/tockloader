@@ -108,6 +108,7 @@ class TockLoader:
             "litex_sim": {"start_address": 0x00080000},
             "nrf52dk": {
                 "start_address": 0x40000,
+                "app_ram_address": 0x20008000,
                 "tickv": {
                     "region_size": 4096,
                     "number_regions": 32,
@@ -980,6 +981,16 @@ class TockLoader:
         # `TOCKLOADER_APP_SETTINGS` variable.
         return self.app_settings["start_address"]
 
+    def _get_memory_start_address(self):
+        """
+        Return the address in memory where application RAM starts on this
+        platform. We mostly don't know this, so it may be None.
+        """
+        if "app_ram_address" in self.app_settings:
+            return self.app_settings["app_ram_address"]
+        else:
+            return None
+
     ############################################################################
     ## Helper Functions for Shared Code
     ############################################################################
@@ -1149,6 +1160,13 @@ class TockLoader:
         # Get where the apps live in flash.
         address = self._get_apps_start_address()
 
+        # Get where app memory might start.
+        ram_start_address = self._get_memory_start_address()
+
+        logging.debug(
+            "Shuffling apps. Flash={:#x} RAM={:#x}".format(address, ram_start_address)
+        )
+
         # First, we are going to split the work into three cases:
         #
         # 1. All apps are fixed address, meaning they have to be loaded at very
@@ -1208,6 +1226,12 @@ class TockLoader:
                 # Couldn't find a valid ordering.
                 return None
 
+            # First, if we can, filter all TBFs in each TAB for only TBFs which
+            # are plausibly within the app RAM region on the board.
+            if ram_start_address != None:
+                for app in apps:
+                    app.filter_fixed_ram_address(ram_start_address)
+
             # Get a list of all possible start and length pairs for each app to
             # flash. Also keep around the index of the app in original array.
             slices = []
@@ -1226,6 +1250,7 @@ class TockLoader:
                             )
                         )
                         continue
+
                     app_slices.append([starting_address, size, i])
                 slices.append(app_slices)
 
@@ -1246,7 +1271,7 @@ class TockLoader:
             for order in sorted(valid_order, key=lambda a: a[0]):
                 app = apps[order[2]]
                 logging.info(
-                    '  App "{}" at address {:#x}'.format(app.get_name(), order[0])
+                    '  App "{}" at Flash={:#x}'.format(app.get_name(), order[0])
                 )
                 sorted_apps.append(app)
             apps = sorted_apps

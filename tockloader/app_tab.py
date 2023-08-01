@@ -52,11 +52,16 @@ class TabApp:
 
         self.tbfs = tbfs  # A list of TabTbfs.
 
+        # Address where RAM for apps starts on the board. This is useful for
+        # filtering TBFs that are fixed address to remove TBFs which have
+        # potentially good flash addresses but wrong RAM addresses.
+        self.ram_address_filter = None
+
     def get_name(self):
         """
         Return the app name.
         """
-        app_names = set([tbf.tbfh.get_app_name() for tbf in self.tbfs])
+        app_names = set([tbf.tbfh.get_app_name() for tbf in self._get_tbfs()])
         if len(app_names) > 1:
             raise TockLoaderException("Different names inside the same TAB?")
         elif len(app_names) == 0:
@@ -77,23 +82,23 @@ class TabApp:
         Mark this app as "sticky" in the app's header. This makes it harder to
         accidentally remove this app if it is a core service or debug app.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             tbf.tbfh.set_flag("sticky", True)
 
     def get_header(self):
         """
         Return a header if there is only one.
         """
-        if len(self.tbfs) == 1:
-            return self.tbfs[0].tbfh
+        if len(self._get_tbfs()) == 1:
+            return self._get_tbfs()[0].tbfh
         return None
 
     def get_footers(self):
         """
         Return the footers if there are any.
         """
-        if len(self.tbfs) == 1:
-            return self.tbfs[0].tbff
+        if len(self._get_tbfs()) == 1:
+            return self._get_tbfs()[0].tbff
         return None
 
     def get_size(self):
@@ -102,8 +107,8 @@ class TabApp:
 
         This is only valid if there is only one TBF.
         """
-        if len(self.tbfs) == 1:
-            return self.tbfs[0].tbfh.get_app_size()
+        if len(self._get_tbfs()) == 1:
+            return self._get_tbfs()[0].tbfh.get_app_size()
         else:
             raise TockLoaderException("Size only valid with one TBF")
 
@@ -113,8 +118,8 @@ class TabApp:
 
         This is only valid if there is only one TBF.
         """
-        if len(self.tbfs) == 1:
-            return self.tbfs[0].tbfh.get_app_version()
+        if len(self._get_tbfs()) == 1:
+            return self._get_tbfs()[0].tbfh.get_app_version()
         else:
             raise TockLoaderException("Version number only valid with one TBF")
 
@@ -123,7 +128,7 @@ class TabApp:
         Force the entire app to be a certain size. If `size` is smaller than the
         actual app an error will be thrown.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             header_size = tbf.tbfh.get_header_size()
             binary_size = len(tbf.binary)
             current_size = header_size + binary_size
@@ -140,7 +145,7 @@ class TabApp:
         Force each version of the entire app to be a certain size. If `size` is
         smaller than the actual app nothing happens.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             header_size = tbf.tbfh.get_header_size()
             binary_size = len(tbf.binary)
             current_size = header_size + binary_size
@@ -159,7 +164,7 @@ class TabApp:
         """
         if constraint == "powers_of_two":
             # Make sure the total app size is a power of two.
-            for tbf in self.tbfs:
+            for tbf in self._get_tbfs():
                 current_size = tbf.tbfh.get_app_size()
                 if (current_size & (current_size - 1)) != 0:
                     # This is not a power of two, but should be.
@@ -175,7 +180,7 @@ class TabApp:
         elif type(constraint) is tuple:
             if constraint[0] == "multiple":
                 size_multiple = constraint[1]
-                for tbf in self.tbfs:
+                for tbf in self._get_tbfs():
                     current_size = tbf.tbfh.get_app_size()
                     if (current_size % size_multiple) != 0:
                         # This is not a multiple of the proper size, but should
@@ -195,11 +200,19 @@ class TabApp:
         address.
         """
         has_fixed_addresses = False
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             if tbf.tbfh.has_fixed_addresses():
                 has_fixed_addresses = True
                 break
         return has_fixed_addresses
+
+    def filter_fixed_ram_address(self, ram_address):
+        """
+        Specify the start of RAM to filter TBFs in this TAB. TBFs with fixed RAM
+        addresses that are not reasonably able to fit with the available RAM are
+        ignored from the TAB.
+        """
+        self.ram_address_filter = ram_address
 
     def get_fixed_addresses_flash_and_sizes(self):
         """
@@ -209,7 +222,7 @@ class TabApp:
         [(address, size), (address, size), ...]
         """
         apps_in_flash = []
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             apps_in_flash.append(
                 (tbf.tbfh.get_fixed_addresses()[1], tbf.tbfh.get_app_size())
             )
@@ -225,7 +238,7 @@ class TabApp:
             return True
 
         # Otherwise, see if we have a TBF which can go at the requested address.
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             fixed_flash_address = tbf.tbfh.get_fixed_addresses()[1]
             tbf_header_length = tbf.tbfh.get_header_size()
 
@@ -279,7 +292,7 @@ class TabApp:
         # Find the binary with the lowest valid address that is above `address`.
         best_address = None
         best_index = None
-        for i, tbf in enumerate(self.tbfs):
+        for i, tbf in enumerate(self._get_tbfs()):
             fixed_flash_address = tbf.tbfh.get_fixed_addresses()[1]
 
             # Align to get a reasonable address for this app.
@@ -294,7 +307,7 @@ class TabApp:
                     best_index = i
 
         if best_index != None:
-            self.tbfs = [self.tbfs[best_index]]
+            self.tbfs = [self._get_tbfs()[best_index]]
             return best_address
         else:
             return None
@@ -303,7 +316,7 @@ class TabApp:
         """
         Delete a particular TLV from each TBF header and footer.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             tbf.tbfh.delete_tlv(tlvid)
             tbf.tbff.delete_tlv(tlvid)
 
@@ -311,21 +324,21 @@ class TabApp:
         """
         Modify a particular TLV from each TBF header to set field=value.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             tbf.tbfh.modify_tlv(tlvid, field, value)
 
     def add_tbfh_tlv(self, tlvid, parameters):
         """
         Add a particular TLV to each TBF's header.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             tbf.tbfh.add_tlv(tlvid, parameters)
 
     def add_credential(self, credential_type, public_key, private_key, cleartext_id):
         """
         Add a credential by type to the TBF footer.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             integrity_blob = tbf.tbfh.get_binary() + tbf.binary
             tbf.tbff.add_credential(
                 credential_type, public_key, private_key, integrity_blob, cleartext_id
@@ -335,7 +348,7 @@ class TabApp:
         """
         Remove a credential by ID from the TBF footer.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             tbf.tbff.delete_credential(credential_type)
 
     def verify_credentials(self, public_keys):
@@ -343,7 +356,7 @@ class TabApp:
         Using an optional array of public_key binaries, try to check any
         contained credentials to verify they are valid.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             integrity_blob = tbf.tbfh.get_binary() + tbf.binary
             tbf.tbff.verify_credentials(public_keys, integrity_blob)
 
@@ -351,7 +364,7 @@ class TabApp:
         """
         Modify the TBF root header just before installing the application.
         """
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             tbf.tbfh.corrupt_tbf(field_name, value)
 
     def has_app_binary(self):
@@ -371,10 +384,10 @@ class TabApp:
         at. This means where the TBF header will go.
         """
 
-        if len(self.tbfs) == 1:
-            tbfh = self.tbfs[0].tbfh
-            app_binary = self.tbfs[0].binary
-            tbff = self.tbfs[0].tbff
+        if len(self._get_tbfs()) == 1:
+            tbfh = self._get_tbfs()[0].tbfh
+            app_binary = self._get_tbfs()[0].binary
+            tbff = self._get_tbfs()[0].tbff
 
             # If the TBF is compiled for a fixed address, then we make sure the
             # addresses are lined up.
@@ -400,13 +413,38 @@ class TabApp:
         updating a .tab file.
         """
         out = []
-        for tbf in self.tbfs:
+        for tbf in self._get_tbfs():
             # Truncate in case the header grew and elf2tab padded the binary.
             binary = self._concatenate_and_truncate_binary(
                 tbf.tbfh, tbf.binary, tbf.tbff
             )
             out.append((tbf.filename, binary))
         return out
+
+    def _get_tbfs(self):
+        """
+        Helper function so we can implement TBF filtering.
+
+        For normal TBFs (aka PIC TBFs), this doesn't do anything. For fixed
+        address TBFs, this filters the list of TBFs within the TAB to only those
+        that are plausibly within the app memory region for the board.
+        """
+        if self.ram_address_filter == None:
+            return self.tbfs
+        else:
+            tbfs = []
+            for tbf in self.tbfs:
+                fixed_addresses = tbf.tbfh.get_fixed_addresses()
+                if fixed_addresses != None:
+                    if fixed_addresses[0] < self.ram_address_filter or fixed_addresses[
+                        0
+                    ] > (self.ram_address_filter + 0x200000):
+                        pass
+                    else:
+                        tbfs.append(tbf)
+                else:
+                    tbfs.append(tbf)
+            return tbfs
 
     def _concatenate_and_truncate_binary(self, header, program_binary, footer):
         size = self.get_size()
@@ -444,8 +482,8 @@ class TabApp:
         doing PIC fixups. We assume this header is positioned immediately
         after the TBF header (AKA at the beginning of the application binary).
         """
-        tbfh = self.tbfs[0].tbfh
-        app_binary = self.tbfs[0].binary
+        tbfh = self._get_tbfs()[0].tbfh
+        app_binary = self._get_tbfs()[0].binary
 
         crt0 = struct.unpack("<IIIIIIIIII", app_binary[0:40])
 
@@ -482,7 +520,7 @@ class TabApp:
         out += "Total Size in Flash:   {} bytes\n".format(self.get_size())
 
         if verbose:
-            for tbf in self.tbfs:
+            for tbf in self._get_tbfs():
                 out += textwrap.indent(str(tbf.tbfh), "  ")
         return out
 

@@ -91,6 +91,14 @@ class InstalledApp:
         """
         return self.tbfh.has_fixed_addresses()
 
+    def filter_fixed_ram_address(self, ram_address):
+        """
+        Specify the start of RAM to filter TBFs in this TAB. For installed apps
+        this is a no-op because presumably we only installed apps that have a
+        reasonable RAM parameter.
+        """
+        pass
+
     def get_fixed_addresses_flash_and_sizes(self):
         """
         Return a list of tuples of all addresses in flash this app is compiled

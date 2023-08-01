@@ -1163,8 +1163,17 @@ class TockLoader:
         # Get where app memory might start.
         ram_start_address = self._get_memory_start_address()
 
+        # elf2tab can produce TBFs which have a fixed flash start
+        # address, but not a fixed RAM start address, in which case
+        # the above is `None`. Preformat it in case it is a number,
+        # otherwise print as "None":
+        if ram_start_address is None:
+            ram_start_address_hex = "None"
+        else:
+            ram_start_address_hex = "{:#x}".format(ram_start_address)
+
         logging.debug(
-            "Shuffling apps. Flash={:#x} RAM={:#x}".format(address, ram_start_address)
+            "Shuffling apps. Flash={:#x} RAM={}".format(address, ram_start_address_hex)
         )
 
         # First, we are going to split the work into three cases:

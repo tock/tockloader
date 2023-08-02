@@ -105,3 +105,9 @@ class KernelAttributes:
             if tlv.get_tlvid() == tlvid:
                 return tlv
         return None
+
+    def __str__(self):
+        out = "Kernel Attributes\n"
+        for tlv in self.tlvs:
+            out += str(tlv)
+        return out

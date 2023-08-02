@@ -35,6 +35,12 @@ class Display:
         """
         pass
 
+    def kernel_attributes(self, kern_attrs):
+        """
+        Show the kernel attributes stored in the kernel binary.
+        """
+        pass
+
     def get(self):
         return self.out
 
@@ -93,6 +99,9 @@ class HumanReadableDisplay(Display):
 
     def bootloader_version(self, version):
         self.out += "Bootloader version: {}".format(version)
+
+    def kernel_attributes(self, kern_attrs):
+        self.out += str(kern_attrs)
 
 
 class JSONDisplay(Display):

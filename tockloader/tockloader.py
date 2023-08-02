@@ -656,6 +656,12 @@ class TockLoader:
                     version = "unknown"
                 displayer.bootloader_version(version)
 
+            # Try to show kernel attributes
+            app_start_flash = self._get_apps_start_address()
+            kernel_attr_binary = self.channel.read_range(app_start_flash - 100, 100)
+            kernel_attrs = KernelAttributes(kernel_attr_binary)
+            displayer.kernel_attributes(kernel_attrs)
+
             print(displayer.get())
 
     def dump_flash_page(self, page_num):

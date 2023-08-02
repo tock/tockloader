@@ -62,7 +62,11 @@ class KernelAttributes:
 
         # Check for sentinel at the end. It should be "TOCK".
         sentinel_bytes = buffer[-4:]
-        sentinel_string = sentinel_bytes.decode("utf-8")
+        try:
+            sentinel_string = sentinel_bytes.decode("utf-8")
+        except:
+            # Kernel attributes not present.
+            return
         if sentinel_string != "TOCK":
             return
         buffer = buffer[:-4]

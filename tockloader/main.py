@@ -105,17 +105,15 @@ def collect_tabs(args):
         # on a remote hosting server.
         if not urllib.parse.urlparse(tab_name).scheme and not os.path.exists(tab_name):
             logging.info('Could not find TAB named "{}" locally.'.format(tab_name))
-            response = helpers.menu(
-                ["No", "Yes"],
-                return_type="index",
-                prompt="Would you like to check the online TAB repository for that app? ",
+            use_app_store = helpers.menu_new_yes_no(
+                prompt="Would you like to check the online TAB repository for that app?",
             )
-            if response == 0:
-                # User said no, skip this tab_name.
-                continue
-            else:
+            if use_app_store:
                 # User said yes, create that URL and try to load the TAB.
                 tab_name = "https://www.tockos.org/assets/tabs/{}.tab".format(tab_name)
+            else:
+                # User said no, skip this tab_name.
+                continue
 
         try:
             tabs.append(TAB(tab_name, args))
@@ -123,6 +121,9 @@ def collect_tabs(args):
             if args.debug:
                 logging.debug("Exception: {}".format(e))
             logging.error('Error opening and reading "{}"'.format(tab_name))
+
+    if len(tabs) == 0:
+        raise TockLoaderException("No valid TABs to use.")
 
     return tabs
 

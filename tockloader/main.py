@@ -82,6 +82,20 @@ def collect_tabs(args):
         if len(tab_names) == 0:
             raise TockLoaderException("No TAB files found.")
 
+        # If there are multiple tabs and they are all in the local directory
+        # then we assume the user wants to use all of them. If at least one tab
+        # is NOT in the local directory, we assume the user did not know which
+        # tabs would be found and ask them to specify which to use.
+        if len(tab_names) > 1:
+            if len(list(filter(lambda x: os.path.dirname(x) != ".", tab_names))) > 0:
+                # At least one tab path has a subdirectory in it.
+                tab_names = helpers.menu_multiple(
+                    tab_names, prompt="Which TAB files do you want to use?"
+                )
+
+        if len(tab_names) == 0:
+            raise TockLoaderException("No TAB files selected.")
+
         logging.info("Using: {}".format(tab_names))
 
     # Concatenate the binaries.

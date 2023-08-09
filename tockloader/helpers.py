@@ -140,6 +140,13 @@ def menu(options, *, return_type, default_index=0, prompt="Which option? ", titl
         raise NotImplementedError("Menu caller asked for bad return_type")
 
 
+def menu_multiple(options, prompt="Make your selections:"):
+    choices = questionary.checkbox(prompt, choices=options).ask()
+    if choices == None:
+        return []
+    return choices
+
+
 def plural(value):
     """
     Return '' or 's' based on whether the `value` means a string should have

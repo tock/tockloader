@@ -82,6 +82,16 @@ def menu_new(options, *, return_type, default_index=None, prompt="", title=""):
         raise NotImplementedError("Menu caller asked for bad return_type")
 
 
+def menu_new_yes_no(prompt=""):
+    """
+    Present an interactive yes/no prompt to the user.
+    """
+    response = questionary.select(
+        prompt, choices=["Yes", "No"], default=None, qmark=""
+    ).ask()
+    return response == "Yes"
+
+
 def menu(options, *, return_type, default_index=0, prompt="Which option? ", title=""):
     """
     Present a menu of choices to a user

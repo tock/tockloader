@@ -213,10 +213,35 @@ class TockLoader:
                     logging.info("Using openocd channel to communicate with the board.")
                     break
 
-                # Default to using the serial bootloader. This is how tockloader
-                # has worked for a long time. We may want to change this, but
-                # for now we don't change the default behavior.
-                self.channel = BootloaderSerial(self.args)
+                # Try using the serial bootloader. Traditionally, we have
+                # defaulted to this, and if there is a reasonable serial port we
+                # still will, but we no longer unconditionally default to this.
+                # The number of tock boards in frequent use that use the serial
+                # bootloader has decreased.
+                serial_channel = BootloaderSerial(self.args)
+                if serial_channel.attached_board_exists():
+                    self.channel = serial_channel
+                    logging.info("Using serial channel to communicate with the board.")
+                    break
+
+                # If we get here we were unable to connect to a board and a
+                # specific instruction was not given to us. We offer to use a
+                # simulated flash-file board.
+                logging.info("No connected board detected.")
+                use_sim_board = helpers.menu_new_yes_no(
+                    prompt="Would you like to use a local simulated board?",
+                )
+                if use_sim_board:
+                    logging.info(
+                        "Using simulated board file 'tock_simulated_board.bin'"
+                    )
+                    if not hasattr(self.args, "arch") or self.args.arch == None:
+                        logging.info("Using default arch of 'cortex-m4'")
+                        self.args.arch = "cortex-m4"
+                    self.args.flash_file = "tock_simulated_board.bin"
+                    self.channel = FlashFile(self.args)
+                else:
+                    raise TockLoaderException("No connected board found.")
 
                 # Exit while(1) loop, do not remove this break!
                 break

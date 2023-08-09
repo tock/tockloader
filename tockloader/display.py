@@ -7,6 +7,9 @@ import logging
 import textwrap
 
 from . import helpers
+from .app_installed import InstalledApp
+from .app_padding import PaddingApp
+from .app_tab import TabApp
 
 
 class Display:
@@ -83,6 +86,55 @@ class HumanReadableDisplay(Display):
         else:
             # In quiet mode just show the names.
             self.out += " ".join([app.get_name() for app in apps])
+
+    def show_app_map(self, apps, start_address):
+        def choose(b, t, f):
+            if b:
+                return t
+            return f
+
+        def start_of_app(width, address):
+            return "{:>#10x}┬{}┐\n".format(address, "─" * width)
+
+        def end_of_app(width, address, continuing):
+            left_corner = choose(continuing, "┼", "┴")
+            right_corner = choose(continuing, "┤", "┘")
+            return "{:>#10x}{}{}{}\n".format(
+                address, left_corner, "─" * width, right_corner
+            )
+
+        def app_bracket(width, left, right):
+            if len(left) + len(right) >= (width - 1):
+                room_for_left = width - 1 - 1 - len(right)
+                left = "{}…".format(left[0:room_for_left])
+            left_size = width - len(right)
+            content = "{:<{left_size}}{}".format(left, right, left_size=left_size)
+            return "{}│{}│\n".format(" " * 10, content)
+
+        out = ""
+        address = start_address
+        for i, app in enumerate(apps):
+            continuing = i < len(apps) - 1
+            size = app.get_size()
+
+            if i == 0:
+                out += start_of_app(50, address)
+
+            if isinstance(app, TabApp):
+                title = "App: {}".format(app.get_name())
+                out += app_bracket(50, title, "[From TAB]")
+            elif isinstance(app, InstalledApp):
+                title = "App: {}".format(app.get_name())
+                out += app_bracket(50, title, "[Installed]")
+            elif isinstance(app, PaddingApp):
+                out += app_bracket(50, "Padding", "")
+
+            address += size
+
+            out += app_bracket(50, "  Length: {} ({:#x})".format(size, size), "")
+            out += end_of_app(50, address, continuing)
+
+        self.out += out
 
     def list_attributes(self, attributes):
         if self.show_headers:

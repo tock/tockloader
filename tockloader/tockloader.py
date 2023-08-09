@@ -1341,6 +1341,13 @@ class TockLoader:
                         "Could not load apps due to address mismatches"
                     )
 
+            logging.info("App Layout:")
+            displayer = display.HumanReadableDisplay()
+            displayer.show_app_map(to_flash_apps, address)
+            app_layout = displayer.get()
+            for l in app_layout.splitlines():
+                logging.info(l)
+
             # Actually write apps to the board.
             app_address = address
             if self.args.bundle_apps:

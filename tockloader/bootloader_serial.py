@@ -173,6 +173,7 @@ class BootloaderSerial(BoardInterface):
             # Macs will report Bluetooth devices with serial, which is
             # almost certainly never what you want, so drop those.
             ports = [p for p in ports if "Bluetooth-Incoming-Port" not in p.device]
+            ports = [p for p in ports if "cu.BLTH" not in p.device]
 
             if len(ports) == 0:
                 raise TockLoaderException(

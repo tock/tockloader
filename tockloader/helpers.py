@@ -141,7 +141,18 @@ def menu(options, *, return_type, default_index=0, prompt="Which option? ", titl
 
 
 def menu_multiple(options, prompt="Make your selections:"):
-    choices = questionary.checkbox(prompt, choices=options).ask()
+    choices = questionary.checkbox(prompt, choices=options, qmark="").ask()
+    if choices == None:
+        return []
+    return choices
+
+
+def menu_multiple_indices(options, prompt="Make your selections:"):
+    qchoices = []
+    for i, choice in enumerate(options):
+        qchoices.append(questionary.Choice(choice, value=i))
+
+    choices = questionary.checkbox(prompt, choices=qchoices, qmark="").ask()
     if choices == None:
         return []
     return choices

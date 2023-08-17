@@ -413,31 +413,39 @@ class TockLoader:
             # Get a list of installed apps
             apps = self._extract_all_app_headers()
 
+            # Candidate apps to remove.
+            candidate_apps = []
+
             # If the user didn't specify an app list...
             if len(app_names) == 0:
                 if len(apps) == 0:
                     raise TockLoaderException("No apps are installed on the board")
                 elif len(apps) == 1:
                     # If there's only one app, delete it
-                    app_names = [apps[0].get_name()]
+                    candidate_apps = apps
                     logging.info("Only one app on board.")
                 else:
                     options = ["** Delete all"]
                     options.extend([app.get_name() for app in apps])
-                    name = helpers.menu(
-                        options,
-                        return_type="value",
-                        prompt="Select app to uninstall ",
-                        title="There are multiple apps currently on the board:",
+                    app_indices = helpers.menu_multiple_indices(
+                        options, prompt="Select app to uninstall "
                     )
-                    if name == "** Delete all":
-                        app_names = [app.get_name() for app in apps]
+
+                    if 0 in app_indices:
+                        # Delete all
+                        candidate_apps = apps
                     else:
-                        app_names = [name]
+                        for app_index in app_indices:
+                            candidate_apps.append(apps[app_index - 1])
+            else:
+                # User did specify an app list.
+                for app in apps:
+                    if app.get_name() in app_names:
+                        candidate_apps.append(app)
 
             logging.status("Attempting to uninstall:")
-            for app_name in app_names:
-                logging.status("  - {}".format(app_name))
+            for app in candidate_apps:
+                logging.status("  - {}".format(app.get_name()))
 
             #
             # Uninstall apps by replacing their TBF header with one that is just
@@ -446,30 +454,27 @@ class TockLoader:
 
             # Get a list of apps to remove respecting the sticky bit.
             remove_apps = []
-            for app in apps:
+            for app in candidate_apps:
                 # Only remove apps that are marked for uninstall, unless they
                 # are sticky without force being set.
-                if app.get_name() in app_names:
-                    if app.is_sticky():
-                        if self.args.force:
-                            logging.info(
-                                'Removing sticky app "{}" because --force was used.'.format(
-                                    app
-                                )
+                if app.is_sticky():
+                    if self.args.force:
+                        logging.info(
+                            'Removing sticky app "{}" because --force was used.'.format(
+                                app
                             )
-                            remove_apps.append(app)
-                        else:
-                            logging.info(
-                                'Not removing app "{}" because it is sticky.'.format(
-                                    app
-                                )
-                            )
-                            logging.info(
-                                "To remove this you need to include the --force option."
-                            )
-                    else:
-                        # Normal uninstall
+                        )
                         remove_apps.append(app)
+                    else:
+                        logging.info(
+                            'Not removing app "{}" because it is sticky.'.format(app)
+                        )
+                        logging.info(
+                            "To remove this you need to include the --force option."
+                        )
+                else:
+                    # Normal uninstall
+                    remove_apps.append(app)
 
             if len(remove_apps) > 0:
                 # Uninstall apps by replacing them all with padding.

@@ -27,6 +27,8 @@ let
       mkdir -p $out/
       cp -r * $out/
     '';
+
+    meta.license = lib.licenses.unfree;
   };
 
   pythonPackages = lib.fix' (self: with self; pkgs.python3Packages //
@@ -66,6 +68,8 @@ let
         tomli-w
         future
       ];
+
+      meta.license = lib.licenses.unfree;
     };
   });
 in pkgs.python3Packages.buildPythonPackage rec {

@@ -93,4 +93,10 @@ in pkgs.python3Packages.buildPythonPackage rec {
 
   # Dependency checks require unfree software
   doCheck = withUnfreePkgs;
+
+  # Make other dependencies explicitly available as passthru attributes
+  passthru = {
+    inherit nrf-command-line-tools;
+    pynrfjprog = python3Packages.pynrfjprog;
+  };
 }

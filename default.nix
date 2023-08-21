@@ -27,9 +27,11 @@ let
       mkdir -p $out/
       cp -r * $out/
     '';
+
+    meta.license = lib.licenses.unfree;
   };
 
-  pythonPackages = lib.fix' (self: with self; pkgs.python3Packages //
+  python3Packages = lib.fix' (self: with self; pkgs.python3Packages //
   {
     siphash = buildPythonPackage rec {
       pname = "siphash";
@@ -66,6 +68,8 @@ let
         tomli-w
         future
       ];
+
+      meta.license = lib.licenses.unfree;
     };
   });
 in pkgs.python3Packages.buildPythonPackage rec {
@@ -73,7 +77,7 @@ in pkgs.python3Packages.buildPythonPackage rec {
   version = "1.10.0";
   name = "${pname}-${version}";
 
-  propagatedBuildInputs = with pythonPackages; [
+  propagatedBuildInputs = with python3Packages; [
     argcomplete
     colorama
     crcmod
@@ -89,4 +93,10 @@ in pkgs.python3Packages.buildPythonPackage rec {
 
   # Dependency checks require unfree software
   doCheck = withUnfreePkgs;
+
+  # Make other dependencies explicitly available as passthru attributes
+  passthru = {
+    inherit nrf-command-line-tools;
+    pynrfjprog = python3Packages.pynrfjprog;
+  };
 }

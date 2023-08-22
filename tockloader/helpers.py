@@ -82,6 +82,16 @@ def menu_new(options, *, return_type, default_index=None, prompt="", title=""):
         raise NotImplementedError("Menu caller asked for bad return_type")
 
 
+def menu_new_yes_no(prompt=""):
+    """
+    Present an interactive yes/no prompt to the user.
+    """
+    response = questionary.select(
+        prompt, choices=["Yes", "No"], default=None, qmark=""
+    ).ask()
+    return response == "Yes"
+
+
 def menu(options, *, return_type, default_index=0, prompt="Which option? ", title=""):
     """
     Present a menu of choices to a user
@@ -128,6 +138,24 @@ def menu(options, *, return_type, default_index=0, prompt="Which option? ", titl
         return options[resp]
     else:
         raise NotImplementedError("Menu caller asked for bad return_type")
+
+
+def menu_multiple(options, prompt="Make your selections:"):
+    choices = questionary.checkbox(prompt, choices=options, qmark="").ask()
+    if choices == None:
+        return []
+    return choices
+
+
+def menu_multiple_indices(options, prompt="Make your selections:"):
+    qchoices = []
+    for i, choice in enumerate(options):
+        qchoices.append(questionary.Choice(choice, value=i))
+
+    choices = questionary.checkbox(prompt, choices=qchoices, qmark="").ask()
+    if choices == None:
+        return []
+    return choices
 
 
 def plural(value):

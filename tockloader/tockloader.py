@@ -25,6 +25,7 @@ from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
 from .exceptions import TockLoaderException, ChannelAddressErrorException
+from .kernel_attributes import KernelAttributes
 from .tbfh import TBFHeader
 from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
@@ -212,10 +213,35 @@ class TockLoader:
                     logging.info("Using openocd channel to communicate with the board.")
                     break
 
-                # Default to using the serial bootloader. This is how tockloader
-                # has worked for a long time. We may want to change this, but
-                # for now we don't change the default behavior.
-                self.channel = BootloaderSerial(self.args)
+                # Try using the serial bootloader. Traditionally, we have
+                # defaulted to this, and if there is a reasonable serial port we
+                # still will, but we no longer unconditionally default to this.
+                # The number of tock boards in frequent use that use the serial
+                # bootloader has decreased.
+                serial_channel = BootloaderSerial(self.args)
+                if serial_channel.attached_board_exists():
+                    self.channel = serial_channel
+                    logging.info("Using serial channel to communicate with the board.")
+                    break
+
+                # If we get here we were unable to connect to a board and a
+                # specific instruction was not given to us. We offer to use a
+                # simulated flash-file board.
+                logging.info("No connected board detected.")
+                use_sim_board = helpers.menu_new_yes_no(
+                    prompt="Would you like to use a local simulated board?",
+                )
+                if use_sim_board:
+                    logging.info(
+                        "Using simulated board file 'tock_simulated_board.bin'"
+                    )
+                    if not hasattr(self.args, "arch") or self.args.arch == None:
+                        logging.info("Using default arch of 'cortex-m4'")
+                        self.args.arch = "cortex-m4"
+                    self.args.flash_file = "tock_simulated_board.bin"
+                    self.channel = FlashFile(self.args)
+                else:
+                    raise TockLoaderException("No connected board found.")
 
                 # Exit while(1) loop, do not remove this break!
                 break
@@ -387,31 +413,39 @@ class TockLoader:
             # Get a list of installed apps
             apps = self._extract_all_app_headers()
 
+            # Candidate apps to remove.
+            candidate_apps = []
+
             # If the user didn't specify an app list...
             if len(app_names) == 0:
                 if len(apps) == 0:
                     raise TockLoaderException("No apps are installed on the board")
                 elif len(apps) == 1:
                     # If there's only one app, delete it
-                    app_names = [apps[0].get_name()]
+                    candidate_apps = apps
                     logging.info("Only one app on board.")
                 else:
                     options = ["** Delete all"]
                     options.extend([app.get_name() for app in apps])
-                    name = helpers.menu(
-                        options,
-                        return_type="value",
-                        prompt="Select app to uninstall ",
-                        title="There are multiple apps currently on the board:",
+                    app_indices = helpers.menu_multiple_indices(
+                        options, prompt="Select app to uninstall "
                     )
-                    if name == "** Delete all":
-                        app_names = [app.get_name() for app in apps]
+
+                    if 0 in app_indices:
+                        # Delete all
+                        candidate_apps = apps
                     else:
-                        app_names = [name]
+                        for app_index in app_indices:
+                            candidate_apps.append(apps[app_index - 1])
+            else:
+                # User did specify an app list.
+                for app in apps:
+                    if app.get_name() in app_names:
+                        candidate_apps.append(app)
 
             logging.status("Attempting to uninstall:")
-            for app_name in app_names:
-                logging.status("  - {}".format(app_name))
+            for app in candidate_apps:
+                logging.status("  - {}".format(app.get_name()))
 
             #
             # Uninstall apps by replacing their TBF header with one that is just
@@ -420,30 +454,27 @@ class TockLoader:
 
             # Get a list of apps to remove respecting the sticky bit.
             remove_apps = []
-            for app in apps:
+            for app in candidate_apps:
                 # Only remove apps that are marked for uninstall, unless they
                 # are sticky without force being set.
-                if app.get_name() in app_names:
-                    if app.is_sticky():
-                        if self.args.force:
-                            logging.info(
-                                'Removing sticky app "{}" because --force was used.'.format(
-                                    app
-                                )
+                if app.is_sticky():
+                    if self.args.force:
+                        logging.info(
+                            'Removing sticky app "{}" because --force was used.'.format(
+                                app
                             )
-                            remove_apps.append(app)
-                        else:
-                            logging.info(
-                                'Not removing app "{}" because it is sticky.'.format(
-                                    app
-                                )
-                            )
-                            logging.info(
-                                "To remove this you need to include the --force option."
-                            )
-                    else:
-                        # Normal uninstall
+                        )
                         remove_apps.append(app)
+                    else:
+                        logging.info(
+                            'Not removing app "{}" because it is sticky.'.format(app)
+                        )
+                        logging.info(
+                            "To remove this you need to include the --force option."
+                        )
+                else:
+                    # Normal uninstall
+                    remove_apps.append(app)
 
             if len(remove_apps) > 0:
                 # Uninstall apps by replacing them all with padding.
@@ -654,6 +685,12 @@ class TockLoader:
                 if version == None:
                     version = "unknown"
                 displayer.bootloader_version(version)
+
+            # Try to show kernel attributes
+            app_start_flash = self._get_apps_start_address()
+            kernel_attr_binary = self.channel.read_range(app_start_flash - 100, 100)
+            kernel_attrs = KernelAttributes(kernel_attr_binary)
+            displayer.kernel_attributes(kernel_attrs)
 
             print(displayer.get())
 
@@ -986,6 +1023,26 @@ class TockLoader:
         Return the address in memory where application RAM starts on this
         platform. We mostly don't know this, so it may be None.
         """
+
+        # First check if we have a cached value. We might need to lookup the
+        # app RAM address often, so we don't want to have to query the board for
+        # it each time.
+        cached = getattr(self, "app_ram_address", None)
+        if cached:
+            return cached
+
+        # Next we check for kernel attributes.
+        if self.channel:
+            app_start_flash = self._get_apps_start_address()
+            kernel_attr_binary = self.channel.read_range(app_start_flash - 100, 100)
+            kernel_attrs = KernelAttributes(kernel_attr_binary)
+            app_ram = kernel_attrs.get_app_memory_region()
+            if app_ram != None:
+                app_ram_start_address = app_ram[0]
+                self.app_ram_address = app_ram_start_address
+                return app_ram_start_address
+
+        # Finally we use a saved setting in tockloader itself.
         if "app_ram_address" in self.app_settings:
             return self.app_settings["app_ram_address"]
         else:
@@ -1313,6 +1370,13 @@ class TockLoader:
                     raise TockLoaderException(
                         "Could not load apps due to address mismatches"
                     )
+
+            logging.info("App Layout:")
+            displayer = display.HumanReadableDisplay()
+            displayer.show_app_map(to_flash_apps, address)
+            app_layout = displayer.get()
+            for l in app_layout.splitlines():
+                logging.info(l)
 
             # Actually write apps to the board.
             app_address = address

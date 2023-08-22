@@ -82,6 +82,20 @@ def collect_tabs(args):
         if len(tab_names) == 0:
             raise TockLoaderException("No TAB files found.")
 
+        # If there are multiple tabs and they are all in the local directory
+        # then we assume the user wants to use all of them. If at least one tab
+        # is NOT in the local directory, we assume the user did not know which
+        # tabs would be found and ask them to specify which to use.
+        if len(tab_names) > 1:
+            if len(list(filter(lambda x: os.path.dirname(x) != ".", tab_names))) > 0:
+                # At least one tab path has a subdirectory in it.
+                tab_names = helpers.menu_multiple(
+                    tab_names, prompt="Which TAB files do you want to use?"
+                )
+
+        if len(tab_names) == 0:
+            raise TockLoaderException("No TAB files selected.")
+
         logging.info("Using: {}".format(tab_names))
 
     # Concatenate the binaries.
@@ -91,17 +105,15 @@ def collect_tabs(args):
         # on a remote hosting server.
         if not urllib.parse.urlparse(tab_name).scheme and not os.path.exists(tab_name):
             logging.info('Could not find TAB named "{}" locally.'.format(tab_name))
-            response = helpers.menu(
-                ["No", "Yes"],
-                return_type="index",
-                prompt="Would you like to check the online TAB repository for that app? ",
+            use_app_store = helpers.menu_new_yes_no(
+                prompt="Would you like to check the online TAB repository for that app?",
             )
-            if response == 0:
-                # User said no, skip this tab_name.
-                continue
-            else:
+            if use_app_store:
                 # User said yes, create that URL and try to load the TAB.
                 tab_name = "https://www.tockos.org/assets/tabs/{}.tab".format(tab_name)
+            else:
+                # User said no, skip this tab_name.
+                continue
 
         try:
             tabs.append(TAB(tab_name, args))
@@ -109,6 +121,9 @@ def collect_tabs(args):
             if args.debug:
                 logging.debug("Exception: {}".format(e))
             logging.error('Error opening and reading "{}"'.format(tab_name))
+
+    if len(tabs) == 0:
+        raise TockLoaderException("No valid TABs to use.")
 
     return tabs
 

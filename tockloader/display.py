@@ -150,7 +150,7 @@ class HumanReadableDisplay(Display):
                 self.out += "{:02d}:\n".format(index)
 
     def bootloader_version(self, version):
-        self.out += "Bootloader version: {}".format(version)
+        self.out += "Bootloader version: {}\n".format(version)
 
     def kernel_attributes(self, kern_attrs):
         self.out += str(kern_attrs)

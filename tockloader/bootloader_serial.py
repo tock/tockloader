@@ -896,9 +896,17 @@ class BootloaderSerial(BoardInterface):
                     "Padding binary with {} bytes already on chip.".format(remaining)
                 )
 
+        # Get indices of pages that have valid data to write.
+        valid_pages = []
+        for i in range(len(binary) // self.page_size):
+            if not all(
+                b == 0 for b in binary[i * self.page_size : (i + 1) * self.page_size]
+            ):
+                valid_pages.append(i)
+
         # Loop through the binary by pages at a time until it has been flashed
         # to the chip.
-        for i in tqdm(range(len(binary) // self.page_size)):
+        for i in tqdm(valid_pages):
             # Create the packet that we send to the bootloader. First four
             # bytes are the address of the page.
             pkt = struct.pack("<I", address + (i * self.page_size))
@@ -938,7 +946,7 @@ class BootloaderSerial(BoardInterface):
                 )
 
         # And check the CRC
-        self._check_crc(address, binary)
+        self._check_crc(address, binary, valid_pages)
 
     def read_range(self, address, length):
         # Can only read up to 4095 bytes at a time.
@@ -1054,29 +1062,66 @@ class BootloaderSerial(BoardInterface):
 
         return crc
 
-    def _check_crc(self, address, binary):
+    def _check_crc(self, address, binary, valid_pages):
         """
         Compares the CRC of the local binary to the one calculated by the
         bootloader.
         """
-        # Check the CRC
-        crc_data = self._get_crc_internal_flash(address, len(binary))
 
-        # Now interpret the returned bytes as the CRC
-        crc_bootloader = struct.unpack("<I", crc_data[0:4])[0]
+        def get_sequences(l):
+            """
+            Find the start and end of sequences in `l`. [0, 1, 2, 5, 6, 11]
+            would return: [(0, 3), (5, 7), (11, 12)].
+            """
+            sequences = []
+            start = -1
+            last = -1
+            for i in l:
+                if start == -1:
+                    start = i
+                else:
+                    if i - 1 == start or i - 1 == last:
+                        last = i
+                    else:
+                        if last == -1:
+                            last = start + 1
+                        sequences.append((start, last))
+                        start = i
+                        last = -1
+            sequences.append((start, l[-1] + 1))
+            return sequences
 
-        # Calculate the CRC locally
-        crc_function = crcmod.mkCrcFun(0x104C11DB7, initCrc=0, xorOut=0xFFFFFFFF)
-        crc_loader = crc_function(binary, 0)
+        # Compute the CRC for each stretch of pages in the flashed binary.
+        crcs = []
+        for start, last in get_sequences(valid_pages):
+            # Found end of a run. Check CRC.
+            crc_address = address + (start * self.page_size)
+            crc_length = (last - start) * self.page_size
 
-        if crc_bootloader != crc_loader:
-            raise TockLoaderException(
-                "Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}".format(
-                    crc_loader, crc_bootloader
-                )
+            # Check the CRC
+            crc_data = self._get_crc_internal_flash(crc_address, crc_length)
+
+            # Now interpret the returned bytes as the CRC
+            crc_bootloader = struct.unpack("<I", crc_data[0:4])[0]
+
+            # Calculate the CRC locally
+            crc_function = crcmod.mkCrcFun(0x104C11DB7, initCrc=0, xorOut=0xFFFFFFFF)
+            crc_loader = crc_function(
+                binary[start * self.page_size : last * self.page_size], 0
             )
-        else:
-            logging.info("CRC check passed. Binaries successfully loaded.")
+
+            # Add to list of crcs to compare
+            crcs.append((crc_bootloader, crc_loader))
+
+        # Check each run of pages.
+        for crc_bootloader, crc_loader in crcs:
+            if crc_bootloader != crc_loader:
+                raise TockLoaderException(
+                    "Error: CRC check failed. Expected: 0x{:04x}, Got: 0x{:04x}".format(
+                        crc_loader, crc_bootloader
+                    )
+                )
+        logging.info("CRC check passed. Binaries successfully loaded.")
 
     def get_attribute(self, index):
         # Check for cached value.

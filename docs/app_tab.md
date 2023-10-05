@@ -85,6 +85,20 @@ def delete_tlv(self, tlvid)
 Delete a particular TLV from each TBF header and footer.
 
 
+### filter\_fixed\_ram\_address
+```py
+
+def filter_fixed_ram_address(self, ram_address)
+
+```
+
+
+
+Specify the start of RAM to filter TBFs in this TAB. TBFs with fixed RAM
+addresses that are not reasonably able to fit with the available RAM are
+ignored from the TAB.
+
+
 ### fix\_at\_next\_loadable\_address
 ```py
 
@@ -402,6 +416,22 @@ def _concatenate_and_truncate_binary(self, header, program_binary, footer)
 
 ```
 
+
+
+### \_get\_tbfs
+```py
+
+def _get_tbfs(self)
+
+```
+
+
+
+Helper function so we can implement TBF filtering.
+
+For normal TBFs (aka PIC TBFs), this doesn't do anything. For fixed
+address TBFs, this filters the list of TBFs within the TAB to only those
+that are plausibly within the app memory region for the board.
 
 
 

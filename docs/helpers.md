@@ -101,6 +101,24 @@ if the user simply presses enter). Passing `None` disables default
 selection.
 
 
+### menu\_multiple
+```py
+
+def menu_multiple(options, prompt='Make your selections:')
+
+```
+
+
+
+### menu\_multiple\_indices
+```py
+
+def menu_multiple_indices(options, prompt='Make your selections:')
+
+```
+
+
+
 ### menu\_new
 ```py
 
@@ -122,6 +140,18 @@ into strings.
 `default_index` is the index to present as the default value (what happens
 if the user simply presses enter). Passing `None` disables default
 selection.
+
+
+### menu\_new\_yes\_no
+```py
+
+def menu_new_yes_no(prompt='')
+
+```
+
+
+
+Present an interactive yes/no prompt to the user.
 
 
 ### plural

@@ -39,6 +39,18 @@ def get(self)
 
 
 
+### kernel\_attributes
+```py
+
+def kernel_attributes(self, kern_attrs)
+
+```
+
+
+
+Show the kernel attributes stored in the kernel binary.
+
+
 ### list\_apps
 ```py
 
@@ -101,6 +113,18 @@ def get(self)
 
 
 
+### kernel\_attributes
+```py
+
+def kernel_attributes(self, kern_attrs)
+
+```
+
+
+
+Show the kernel attributes stored in the kernel binary.
+
+
 ### list\_apps
 ```py
 
@@ -123,6 +147,15 @@ def list_attributes(self, attributes)
 
 
 Show the key value pairs for a list of attributes.
+
+
+### show\_app\_map
+```py
+
+def show_app_map(self, apps, start_address)
+
+```
+
 
 
 
@@ -161,6 +194,18 @@ def get(self)
 
 ```
 
+
+
+### kernel\_attributes
+```py
+
+def kernel_attributes(self, kern_attrs)
+
+```
+
+
+
+Show the kernel attributes stored in the kernel binary.
 
 
 ### list\_apps

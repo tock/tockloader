@@ -88,6 +88,18 @@ def is_app(self)
 Whether this is an app or padding.
 
 
+### verify\_credentials
+```py
+
+def verify_credentials(self, public_keys)
+
+```
+
+
+
+Padding apps do not have credentials, so we ignore this.
+
+
 ### \_\_str\_\_
 ```py
 
@@ -188,6 +200,18 @@ def is_app(self)
 
 
 Whether this is an app or padding.
+
+
+### verify\_credentials
+```py
+
+def verify_credentials(self, public_keys)
+
+```
+
+
+
+Padding apps do not have credentials, so we ignore this.
 
 
 ### \_\_str\_\_

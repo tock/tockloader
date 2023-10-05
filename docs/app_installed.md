@@ -19,6 +19,20 @@ def __init__(self, tbfh, tbff, address, app_binary=None)
 Initialize self.  See help(type(self)) for accurate signature.
 
 
+### filter\_fixed\_ram\_address
+```py
+
+def filter_fixed_ram_address(self, ram_address)
+
+```
+
+
+
+Specify the start of RAM to filter TBFs in this TAB. For installed apps
+this is a no-op because presumably we only installed apps that have a
+reasonable RAM parameter.
+
+
 ### fix\_at\_next\_loadable\_address
 ```py
 

@@ -410,6 +410,19 @@ This might be set on the board itself, in the command line arguments
 to Tockloader, or just be the default.
 
 
+### \_get\_memory\_start\_address
+```py
+
+def _get_memory_start_address(self)
+
+```
+
+
+
+Return the address in memory where application RAM starts on this
+platform. We mostly don't know this, so it may be None.
+
+
 ### \_print\_apps
 ```py
 

@@ -338,7 +338,7 @@ increase the baud rate to make everything faster.
 ### \_check\_crc
 ```py
 
-def _check_crc(self, address, binary)
+def _check_crc(self, address, binary, valid_pages)
 
 ```
 

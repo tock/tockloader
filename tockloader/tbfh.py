@@ -1837,9 +1837,11 @@ class TBFFooter:
         else:
             integrity_blob = None
 
-        # Iterate all TLVs and add to list.
-        position = 0
-        while position < len(buffer):
+        # Iterate all TLVs and add to list. During the iteration, we modify
+        # `buffer` to refer to the remaining unprocessed bytes.
+        # If len(buffer) is 1-3, that means it consists entirely of trailing
+        # padding.
+        while len(buffer) >= 4:
             base = struct.unpack("<HH", buffer[0:4])
             buffer = buffer[4:]
             tlv_type = base[0]

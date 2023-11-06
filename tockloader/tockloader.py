@@ -116,6 +116,9 @@ class TockLoader:
                     "start_address": 0x12000000,
                 },
             },
+            "particle_boron": {
+                "start_address": 0x40000,
+            },
             "nucleof4": {"start_address": 0x08040000},
             "microbit_v2": {"start_address": 0x00040000},
             "qemu_rv32_virt": {"start_address": 0x80100000},

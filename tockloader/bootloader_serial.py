@@ -904,6 +904,17 @@ class BootloaderSerial(BoardInterface):
             ):
                 valid_pages.append(i)
 
+        # Make sure to always include one blank page (if exists) after the end
+        # of a valid page. There might be a usable 0 on the next page. It's
+        # unlikely there is more than entire page of valid 0s on the next page.
+        ending_pages = []
+        for i in valid_pages:
+            if (not (i + 1) in valid_pages) and (
+                (i + 1) < (len(binary) // self.page_size)
+            ):
+                ending_pages.append(i + 1)
+        valid_pages = valid_pages + ending_pages
+
         # Loop through the binary by pages at a time until it has been flashed
         # to the chip.
         for i in tqdm(valid_pages):

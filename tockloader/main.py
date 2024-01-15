@@ -834,7 +834,9 @@ def main():
     )
 
     # Support multiple commands for this tool
-    subparser = parser.add_subparsers(title="Commands", metavar="                    ")
+    subparser = parser.add_subparsers(
+        title="Commands", metavar="                    ", dest="command"
+    )
 
     # Command Groups
     #
@@ -1158,7 +1160,9 @@ def main():
         help="Commands for interacting with TBFs inside of TAB files",
     )
 
-    tbf_subparser = tbf.add_subparsers(title="Commands", metavar="            ")
+    tbf_subparser = tbf.add_subparsers(
+        title="Commands", metavar="            ", dest="subcommand"
+    )
 
     ##############
     ## TBF TLVS ##
@@ -1169,7 +1173,9 @@ def main():
         help="Commands for interacting with TLV structures in TBFs",
     )
 
-    tbf_tlv_subparser = tbf_tlv.add_subparsers(title="Commands", metavar="")
+    tbf_tlv_subparser = tbf_tlv.add_subparsers(
+        title="Commands", metavar="", dest="subsubcommand"
+    )
 
     ## ADD
 
@@ -1178,7 +1184,7 @@ def main():
         help="Add a TLV to the TBF header",
     )
     tbf_tlv_add_subparser = tbf_tlv_add.add_subparsers(
-        title="Commands", metavar="", dest="subparser_name"
+        title="Commands", metavar="", dest="subsubsubcommand"
     )
 
     # Add subcommands for adding each TLV so we can specify number of arguments.
@@ -1316,8 +1322,7 @@ def main():
     )
 
     tickv = subparser.add_parser(
-        "tickv",
-        help="Commands for interacting with a TicKV database",
+        "tickv", help="Commands for interacting with a TicKV database"
     )
 
     tickv_subparser = tickv.add_subparsers(title="Commands", metavar="")
@@ -1462,7 +1467,34 @@ def main():
             sys.exit(1)
     else:
         logging.error("Missing Command.\n")
-        parser.print_help()
+
+        if hasattr(args, "command") and getattr(args, "command") != None:
+
+            def print_help_command(a, title, p):
+                """
+                Recurse the parser tree to print the help for the command which
+                is incomplete
+
+                a = args
+                p = parser
+                """
+                if hasattr(a, title):
+                    subtitle = "{}{}".format("sub", title)
+                    title_value = getattr(a, title)
+                    for action in p._actions:
+                        if isinstance(action, argparse._SubParsersAction):
+                            if not hasattr(a, subtitle) or getattr(a, subtitle) == None:
+                                print(action.choices[title_value].format_help())
+                            else:
+                                print_help_command(
+                                    a, subtitle, action.choices[title_value]
+                                )
+
+            # If this is a invocation with subcommands, print the relevant help
+            # at the layer of the incorrect subcommand.
+            print_help_command(args, "command", parser)
+        else:
+            parser.print_help()
         sys.exit(1)
 
 

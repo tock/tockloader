@@ -302,9 +302,15 @@ class InstalledApp:
 
         if verbose:
             out += "Address in Flash:      {:#x}\n".format(offset)
-            out += textwrap.indent(str(self.tbfh), "  ")
+            out += textwrap.indent(self.tbfh.to_str_at_address(offset), "  ")
             if self.tbff:
-                out += textwrap.indent(str(self.tbff), "  ")
+                out += "\n"
+                out += textwrap.indent(
+                    self.tbff.to_str_at_address(
+                        offset + self.tbfh.get_binary_end_offset()
+                    ),
+                    "  ",
+                )
         return out
 
     def object(self):

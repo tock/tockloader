@@ -92,7 +92,7 @@ class InstalledPaddingApp(PaddingApp):
 
         if verbose:
             out += "Address in Flash:      {:#x}\n".format(self.address)
-            out += textwrap.indent(str(self.tbfh), "  ")
+            out += textwrap.indent(self.tbfh.to_str_at_address(self.address), "  ")
         return out
 
     def __str__(self):

@@ -582,7 +582,7 @@ class TBFTLVPersistentACL(TBFTLV):
 
     def __str__(self):
         out = "TLV: Persistent ACL ({})\n".format(self.TLVID)
-        out += "  {:<20}:  {:>10} {:>#12x}\n".format(
+        out += "  {:<20}: {:>10} {:>#12x}\n".format(
             "Write ID", self.write_id, self.write_id
         )
         out += "  {:<20}: {}\n".format(
@@ -1326,12 +1326,17 @@ class TBFHeader:
         return None
 
     def __str__(self):
+        return self.to_str_at_address(None)
+
+    def to_str_at_address(self, address):
         out = ""
 
         if not self.valid:
             out += "INVALID!\n"
 
-        out += "{:<22}: {}\n".format("version", self.version)
+        version = "{:<22}: {}".format("version", self.version)
+        absolute_address = " [{:<#9x}]".format(address) if address else ""
+        out += "{:<48}[{:<#5x}]{}\n".format(version, 0, absolute_address)
 
         # Special case version 1. However, at this point (May 2020), I would be
         # shocked if this ever gets run on a version 1 TBFH.
@@ -1373,12 +1378,13 @@ class TBFHeader:
 
         for tlv in self.tlvs:
             # Format the offset so we know the size of each TLV.
-            offset = "[{:<#5x}] ".format(index)
+            offset = "[{:<#5x}]".format(index)
+            absolute_address = " [{:<#9x}]".format(address + index) if address else ""
             # Create the base TLV format.
             tlv_str = str(tlv)
             # Insert the address at the end of the first line of the TLV str.
             lines = tlv_str.split("\n")
-            lines[0] = "{:<48}{}".format(lines[0], offset)
+            lines[0] = "{:<48}{}{}".format(lines[0], offset, absolute_address)
             # Recreate string.
             out += "\n".join(lines)
 
@@ -2042,15 +2048,33 @@ class TBFFooter:
         return footer_size
 
     def __str__(self):
-        footer_size = self.get_size()
+        return self.to_str_at_address(None)
 
-        out = "Footer\n"
+    def to_str_at_address(self, address):
+        footer_size = self.get_size()
+        out = ""
+
+        out += "Footer\n"
         out += "{:<22}: {:>10} {:>#12x}\n".format(
             "  footer_size", footer_size, footer_size
         )
 
+        index = 0
         for tlv in self.tlvs:
-            out += str(tlv)
+            # Format the offset so we know the size of each TLV.
+            offset = "[{:<#5x}]".format(index)
+            absolute_address = " [{:<#9x}]".format(address + index) if address else ""
+            # Create the base TLV format.
+            tlv_str = str(tlv)
+            # Insert the address at the end of the first line of the TLV str.
+            lines = tlv_str.split("\n")
+            lines[0] = "{:<48}{}{}".format(lines[0], offset, absolute_address)
+            # Recreate string.
+            out += "\n".join(lines)
+
+            # Increment the byte index with the size of the TLV.
+            index += tlv.get_size()
+
         return out
 
     def object(self):

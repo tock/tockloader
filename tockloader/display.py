@@ -153,7 +153,7 @@ class HumanReadableDisplay(Display):
         self.out += "Bootloader version: {}\n".format(version)
 
     def kernel_attributes(self, kern_attrs):
-        self.out += str(kern_attrs)
+        self.out += kern_attrs.info()
 
 
 class JSONDisplay(Display):

@@ -106,7 +106,7 @@ class KernelAttributes:
 
     KATLV_TYPES = [KATLVAppMemory, KATLVKernelBinary]
 
-    def __init__(self, buffer):
+    def __init__(self, buffer, address):
         self.tlvs = []
 
         # Check for sentinel at the end. It should be "TOCK".
@@ -119,13 +119,14 @@ class KernelAttributes:
         if sentinel_string != "TOCK":
             return
         buffer = buffer[:-4]
+        self.address = address
 
         # Parse the version number.
-        version = struct.unpack("<B", buffer[-1:])[0]
+        self.version = struct.unpack("<B", buffer[-1:])[0]
         # Skip the version and three reserved bytes.
         buffer = buffer[:-4]
 
-        if version == 1:
+        if self.version == 1:
             while len(buffer) > 4:
                 # Now try to parse TLVs, but going backwards in flash.
                 t, l = struct.unpack("<HH", buffer[-4:])
@@ -165,7 +166,41 @@ class KernelAttributes:
         return None
 
     def __str__(self):
-        out = "Kernel Attributes\n"
+        return self.info()
+
+    def info(self):
+        out = ""
+
+        address = self.address
+        index = 0
+
+        ka = "Kernel Attributes"
+        absolute_address = " [{:<#9x}]".format(address + index) if address else ""
+        out += "{:<48}[{:<#5x}]{}\n".format(ka, index, absolute_address)
+        index -= 4
+
+        sentinel = "  {:<20}: {}".format("sentinel", "TOCK")
+        absolute_address = " [{:<#9x}]".format(address + index) if address else ""
+        out += "{:<48}[{:<#5x}]{}\n".format(sentinel, index, absolute_address)
+        index -= 4
+
+        version = "  {:<20}: {}".format("version", self.version)
+        absolute_address = " [{:<#9x}]".format(address + index) if address else ""
+        out += "{:<48}[{:<#5x}]{}\n".format(version, index, absolute_address)
+
         for tlv in self.tlvs:
-            out += str(tlv)
+            # Decrement the byte index FIRST so we get the beginning address.
+            index -= tlv.get_size()
+
+            # Format the offset so we know the size.
+            offset = "[{:<#5x}]".format(index)
+            absolute_address = " [{:<#9x}]".format(address + index) if address else ""
+            # Create the base TLV format.
+            tlv_str = str(tlv)
+            # Insert the address at the end of the first line of the TLV str.
+            lines = tlv_str.split("\n")
+            lines[0] = "{:<48}{}{}".format(lines[0], offset, absolute_address)
+            # Recreate string.
+            out += "\n".join(lines)
+
         return out

@@ -692,7 +692,7 @@ class TockLoader:
             # Try to show kernel attributes
             app_start_flash = self._get_apps_start_address()
             kernel_attr_binary = self.channel.read_range(app_start_flash - 100, 100)
-            kernel_attrs = KernelAttributes(kernel_attr_binary)
+            kernel_attrs = KernelAttributes(kernel_attr_binary, app_start_flash)
             displayer.kernel_attributes(kernel_attrs)
 
             print(displayer.get())

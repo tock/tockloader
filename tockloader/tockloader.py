@@ -1038,7 +1038,7 @@ class TockLoader:
         if self.channel:
             app_start_flash = self._get_apps_start_address()
             kernel_attr_binary = self.channel.read_range(app_start_flash - 100, 100)
-            kernel_attrs = KernelAttributes(kernel_attr_binary)
+            kernel_attrs = KernelAttributes(kernel_attr_binary, app_start_flash)
             app_ram = kernel_attrs.get_app_memory_region()
             if app_ram != None:
                 app_ram_start_address = app_ram[0]

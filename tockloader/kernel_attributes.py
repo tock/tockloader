@@ -108,6 +108,7 @@ class KernelAttributes:
 
     def __init__(self, buffer, address):
         self.tlvs = []
+        self.address = address
 
         # Check for sentinel at the end. It should be "TOCK".
         sentinel_bytes = buffer[-4:]
@@ -119,7 +120,6 @@ class KernelAttributes:
         if sentinel_string != "TOCK":
             return
         buffer = buffer[:-4]
-        self.address = address
 
         # Parse the version number.
         self.version = struct.unpack("<B", buffer[-1:])[0]
@@ -170,6 +170,10 @@ class KernelAttributes:
 
     def info(self):
         out = ""
+
+        # Check if we found kernel attributes at all. If not, return early.
+        if not hasattr(self, "version"):
+            return out
 
         address = self.address
         index = 0

@@ -64,6 +64,7 @@ class BoardInterface:
             "nrfjprog": {
                 "device_family": "NRF52",
                 "qspi_size": 1024 * 1024 * 64,
+                "qspi_address": 0x12000000,
             },
         },
         "nano33ble": {

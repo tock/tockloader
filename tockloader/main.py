@@ -454,7 +454,7 @@ def command_tbf_tlv_add(args):
     if len(tabs) == 0:
         raise TockLoaderException("No TABs found, no TBF headers to process")
 
-    tlvname = args.subparser_name
+    tlvname = args.subsubsubcommand
     parameters = args.parameters
     logging.status("Adding TLV {}...".format(tlvname))
     for tab in tabs:

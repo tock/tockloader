@@ -382,7 +382,8 @@ class TBFTLVFixedAddress(TBFTLV):
 
 class TBFTLVPermissions(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_PERMISSIONS
-    NUMBER_PARAMETERS = 3
+    NUMBER_PARAMETERS = 2
+    PARAMETER_HELP = "<driver_numer> <command_number>"
 
     def __init__(self, buffer, parameters=[]):
         self.valid = False
@@ -406,11 +407,16 @@ class TBFTLVPermissions(TBFTLV):
                     self.valid = True
         else:
             try:
-                if len(parameters) == 3:
+                if len(parameters) == 2:
+                    driver_number = int(parameters[0], 0)
+                    command_number = int(parameters[1], 0)
+                    offset = command_number // 64
+                    index = command_number - (offset * 64)
+
                     permission = {
-                        "driver_number": int(parameters[0], 0),
-                        "offset": int(parameters[1], 0),
-                        "allowed_commands": int(parameters[2], 0),
+                        "driver_number": driver_number,
+                        "offset": offset,
+                        "allowed_commands": (1 << index),
                     }
                     self.permissions.append(permission)
                     self.valid = True
@@ -419,13 +425,26 @@ class TBFTLVPermissions(TBFTLV):
 
     def add(self, parameters):
         try:
-            if len(parameters) == 3:
-                permission = {
-                    "driver_number": int(parameters[0], 0),
-                    "offset": int(parameters[1], 0),
-                    "allowed_commands": int(parameters[2], 0),
-                }
-                self.permissions.append(permission)
+            if len(parameters) == 2:
+                driver_number = int(parameters[0], 0)
+                command_number = int(parameters[1], 0)
+                offset = command_number // 64
+                index = command_number - (offset * 64)
+
+                for permission in self.permissions:
+                    if (
+                        permission["driver_number"] == driver_number
+                        and permission["offset"] == offset
+                    ):
+                        permission["allowed_commands"] |= 1 << index
+                        break
+                else:
+                    permission = {
+                        "driver_number": driver_number,
+                        "offset": offset,
+                        "allowed_commands": (1 << index),
+                    }
+                    self.permissions.append(permission)
         except:
             logging.error("Failed parsing params for TLVID={}".format(self.TLVID))
 

@@ -180,6 +180,7 @@ class TBFTLVProgram(TBFTLV):
 class TBFTLVWriteableFlashRegions(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_WRITEABLE_FLASH_REGIONS
     NUMBER_PARAMETERS = 2
+    PARAMETER_HELP = "<offset> <length>"
 
     def __init__(self, buffer, parameters=[]):
         self.valid = False
@@ -243,6 +244,7 @@ class TBFTLVWriteableFlashRegions(TBFTLV):
 class TBFTLVPackageName(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_PACKAGE_NAME
     NUMBER_PARAMETERS = 1
+    PARAMETER_HELP = "<name>"
 
     def __init__(self, buffer, parameters=[]):
         self.valid = True
@@ -338,6 +340,7 @@ class TBFTLVPicOption1(TBFTLV):
 class TBFTLVFixedAddress(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_FIXED_ADDRESSES
     NUMBER_PARAMETERS = 2
+    PARAMETER_HELP = "<ram_address> <flash_address>"
 
     def __init__(self, buffer, parameters=[]):
         self.valid = False
@@ -514,6 +517,7 @@ class TBFTLVPermissions(TBFTLV):
 class TBFTLVPersistentACL(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_PERSISTENT_ACL
     NUMBER_PARAMETERS = 3
+    PARAMETER_HELP = "<write_id> [read_id,read_id,...] [modify_id,modify_id,...]"
 
     def __init__(self, buffer, parameters=[]):
         self.valid = False
@@ -626,7 +630,8 @@ class TBFTLVPersistentACL(TBFTLV):
 
 class TBFTLVKernelVersion(TBFTLV):
     TLVID = TBFTLV.HEADER_TYPE_KERNEL_VERSION
-    NUMBER_PARAMETERS = 2
+    NUMBER_PARAMETERS = 1
+    PARAMETER_HELP = "<version>"
 
     def __init__(self, buffer, parameters=[]):
         self.valid = False
@@ -695,7 +700,7 @@ def get_addable_tlvs():
     addable_tlvs = []
     for k, v in TLV_MAPPINGS.items():
         try:
-            addable_tlvs.append((k, v.NUMBER_PARAMETERS))
+            addable_tlvs.append((k, v.NUMBER_PARAMETERS, v.PARAMETER_HELP))
         except:
             pass
     return addable_tlvs

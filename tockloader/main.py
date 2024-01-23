@@ -1188,16 +1188,14 @@ def main():
     )
 
     # Add subcommands for adding each TLV so we can specify number of arguments.
-    for tlvname, nargs in tbfh.get_addable_tlvs():
+    for tlvname, nargs, param_help in tbfh.get_addable_tlvs():
         tbf_tlv_add_tlv = tbf_tlv_add_subparser.add_parser(
             tlvname,
             parents=[parent],
             help="Add a {} TLV to the TBF header".format(tlvname),
         )
         tbf_tlv_add_tlv.set_defaults(func=command_tbf_tlv_add)
-        tbf_tlv_add_tlv.add_argument(
-            "parameters", help="Relevant values for this TLV", nargs=nargs
-        )
+        tbf_tlv_add_tlv.add_argument("parameters", help=param_help, nargs=nargs)
         tbf_tlv_add_tlv.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
 
     ## MODIFY

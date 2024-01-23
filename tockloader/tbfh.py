@@ -638,9 +638,10 @@ class TBFTLVKernelVersion(TBFTLV):
             self.valid = True
         else:
             try:
-                if len(parameters) == 2:
-                    self.kernel_major = int(parameters[0], 0)
-                    self.kernel_minor = int(parameters[1], 0)
+                if len(parameters) == 1:
+                    fields = parameters[0].split(".")
+                    self.kernel_major = int(fields[0], 0)
+                    self.kernel_minor = int(fields[1], 0)
                     self.valid = True
             except:
                 logging.error("Failed parsing params for TLVID={}".format(self.TLVID))

@@ -163,6 +163,10 @@ def command_install(args):
     replace = "yes"
     if args.no_replace:
         replace = "no"
+    if args.preserve_order:
+        # We are just going to append all specified apps in the order they are
+        # included on the command line.
+        replace = "no"
 
     logging.status("Installing app{} on the board...".format(helpers.plural(len(tabs))))
     tock_loader.install(tabs, replace=replace, erase=args.erase, sticky=args.sticky)
@@ -946,6 +950,11 @@ def main():
         "--corrupt-tbf",
         help="Modify the root TBF header when installing an app.",
         nargs=2,
+    )
+    install.add_argument(
+        "--preserve-order",
+        help="Install all specified TABs in the order they are on command line.",
+        action="store_true",
     )
 
     update = subparser.add_parser(

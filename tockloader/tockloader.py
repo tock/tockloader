@@ -330,6 +330,9 @@ class TockLoader:
         if len(tabs) == 0:
             raise TockLoaderException("No TABs to install")
 
+        # Check for the `--preserve-order` flag that `--erase` was also specified.
+        # We don't know
+
         # Enter bootloader mode to get things started
         with self._start_communication_with_board():
             # This is the architecture we need for the board.
@@ -401,7 +404,9 @@ class TockLoader:
 
             if changed:
                 # Since something is now different, update all of the apps
-                self._reshuffle_apps(resulting_apps)
+                self._reshuffle_apps(
+                    resulting_apps, preserve_order=self.args.preserve_order
+                )
             else:
                 # Nothing changed, so we can raise an error
                 raise TockLoaderException("Nothing found to update")
@@ -1198,7 +1203,7 @@ class TockLoader:
     ## Helper Functions for Manipulating Binaries and TBF
     ############################################################################
 
-    def _reshuffle_apps(self, apps):
+    def _reshuffle_apps(self, apps, preserve_order=False):
         """
         Given an array of apps, some of which are new and some of which exist,
         sort them so we can write them to flash.
@@ -1206,6 +1211,10 @@ class TockLoader:
         This function is really the driver of tockloader, and is responsible for
         setting up applications in a way that can be successfully used by the
         board.
+
+        If `preserve_order` is set to `True` this won't actually do any
+        shuffling, and will instead load apps with padding in the order they are
+        in the array.
         """
 
         #
@@ -1263,6 +1272,11 @@ class TockLoader:
             #
             # This is the fixed addresses case
             #
+
+            if preserve_order:
+                raise TockLoaderException(
+                    "Cannot preserve order with fixed-address apps."
+                )
 
             def brad_sort(slices):
                 """
@@ -1427,7 +1441,11 @@ class TockLoader:
 
         # We are given an array of apps. First we need to order them based on
         # the ordering requested by this board (or potentially the user).
-        if self.app_settings["order"] == "size_descending":
+        if preserve_order:
+            # We already have our sort order if we are preserving the order.
+            # We use the order the apps were given to us.
+            pass
+        elif self.app_settings["order"] == "size_descending":
             apps.sort(key=lambda app: app.get_size(), reverse=True)
         elif self.app_settings["order"] == None:
             # Any order is fine.
@@ -1482,6 +1500,21 @@ class TockLoader:
             # and special case this bundle operation.
             app_bundle = bytearray()
             for app in apps:
+                # Check if we might need to insert a padding app.
+                if self.app_settings["alignment_constraint"]:
+                    if self.app_settings["alignment_constraint"] == "size":
+                        # We need to make sure the app is aligned to a multiple
+                        # of its size.
+                        size = app.get_size()
+                        multiple = app_address // size
+                        if multiple * size != app_address:
+                            # Not aligned. Insert padding app.
+                            new_address = ((app_address + size) // size) * size
+                            gap_size = new_address - app_address
+                            padding = PaddingApp(gap_size)
+                            app_bundle += padding
+                            app_address = new_address
+
                 app_bundle += app.get_binary(app_address)
                 app_address += app.get_size()
             logging.info(
@@ -1493,6 +1526,25 @@ class TockLoader:
             # not be modified is if it was read off the board and nothing
             # changed.
             for app in apps:
+                # Check if we might need to insert a padding app.
+                if self.app_settings["alignment_constraint"]:
+                    if self.app_settings["alignment_constraint"] == "size":
+                        # We need to make sure the app is aligned to a multiple
+                        # of its size.
+                        size = app.get_size()
+                        multiple = app_address // size
+                        if multiple * size != app_address:
+                            # Not aligned. Insert padding app.
+                            new_address = ((app_address + size) // size) * size
+                            gap_size = new_address - app_address
+                            padding = PaddingApp(gap_size)
+
+                            logging.info("Flashing padding to board.")
+                            self.channel.flash_binary(
+                                app_address, padding.get_binary(app_address)
+                            )
+                            app_address = new_address
+
                 # If we get a binary, then we need to flash it. Otherwise,
                 # the app is already installed.
                 optional_binary = app.get_binary(app_address)

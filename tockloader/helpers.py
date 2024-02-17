@@ -176,7 +176,7 @@ def plural(value):
         return "s"
 
 
-def text_in_box(string, box_width):
+def text_in_box(string, box_width, box_height=3):
     """
     Return a string like:
     ```
@@ -189,8 +189,17 @@ def text_in_box(string, box_width):
     truncated_str = (
         (string[: string_len - 3] + "...") if len(string) > string_len else string
     )
+
+    vertical_padding = max(box_height - 3, 0)
+    vertical_padding_top = vertical_padding // 2
+    vertical_padding_bottom = vertical_padding - vertical_padding_top
+
     out = "┌{}┐\n".format("─" * (box_width - 2))
+    for i in range(0, vertical_padding_top):
+        out += "│ {} |\n".format(" " * string_len)
     out += "│ {} |\n".format(truncated_str.ljust(string_len))
+    for i in range(0, vertical_padding_bottom):
+        out += "│ {} |\n".format(" " * string_len)
     out += "└{}┘".format("─" * (box_width - 2))
     return out
 

@@ -136,6 +136,27 @@ class HumanReadableDisplay(Display):
 
         self.out += out
 
+    def show_board_visual(self, apps):
+        def horizontal_add(existing, new):
+            existing_lines = existing.split("\n")
+            new_lines = existing.split("\n")
+            out = ""
+            for i, l in enumerate(existing_lines):
+                out += "{} {}\n".format(l, new_lines[i])
+            return out
+
+        out = ""
+        for i, app in enumerate(apps):
+            name = app.get_name()
+            box_width = len(name) + 4
+            box = helpers.text_in_box(name, box_width, 10)
+            if i == 0:
+                out = box
+            else:
+                out = horizontal_add(out, box)
+
+        self.out = out
+
     def list_attributes(self, attributes):
         if self.show_headers:
             self.out += "Attributes:\n"
@@ -154,6 +175,70 @@ class HumanReadableDisplay(Display):
 
     def kernel_attributes(self, kern_attrs):
         self.out += kern_attrs.info()
+
+
+class VisualDisplay(Display):
+    """
+    Format output as an ASCII art string.
+
+    ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌───────┐
+    │         | │         | │         | │       |
+    │         | │         | │         | │       |
+    │         | │         | │         | │       |
+    │ version | │ version | │ version | │ blink |
+    │         | │         | │         | │       |
+    │         | │         | │         | │       |
+    │         | │         | │         | │       |
+    │         | │         | │         | │       |
+    └─────────┘ └─────────┘ └─────────┘ └───────┘
+    ┌───────────────────────────────────────────┐
+    │ Kernel                                    |
+    └───────────────────────────────────────────┘
+    """
+
+    def __init__(self):
+        self.out = ""
+
+    def list_apps(self, apps, verbose, quiet):
+        def horizontal_add(existing, new):
+            existing_lines = existing.split("\n")
+            new_lines = new.split("\n")
+            out = ""
+            for i, l in enumerate(existing_lines):
+                if len(l) > 0:
+                    out += "{} {}\n".format(l, new_lines[i])
+            return out[:-1]
+
+        out = ""
+        for i, app in enumerate(apps):
+            name = app.get_name()
+            box_width = len(name) + 4
+            box = helpers.text_in_box(name, box_width, 10) + "\n"
+            if i == 0:
+                out = box
+            else:
+                out = horizontal_add(out, box)
+
+        self.out += out
+
+    def list_attributes(self, attributes):
+        pass
+
+    def bootloader_version(self, version):
+        pass
+
+    def kernel_attributes(self, kern_attrs):
+        width = self._width()
+        out = "\n"
+        out += helpers.text_in_box("Tock Kernel", width)
+        self.out += out
+
+    def _width(self):
+        width = 0
+        for l in self.out.split("\n"):
+            if len(l) > width:
+                width = len(l)
+        return width
 
 
 class JSONDisplay(Display):

@@ -833,7 +833,7 @@ def main():
     parent_format.add_argument(
         "--output-format",
         help="Address where apps are located",
-        choices=["terminal", "json"],
+        choices=["terminal", "visual", "json"],
         default="terminal",
     )
 

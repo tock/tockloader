@@ -676,6 +676,8 @@ class TockLoader:
         with self._start_communication_with_board():
             if self.args.output_format == "json":
                 displayer = display.JSONDisplay()
+            elif self.args.output_format == "visual":
+                displayer = display.VisualDisplay()
             else:
                 displayer = display.HumanReadableDisplay(show_headers=True)
 

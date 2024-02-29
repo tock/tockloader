@@ -1099,7 +1099,8 @@ class BootloaderSerial(BoardInterface):
                         sequences.append((start, last))
                         start = i
                         last = -1
-            sequences.append((start, l[-1] + 1))
+            if start != -1:
+                sequences.append((start, l[-1] + 1))
             return sequences
 
         # Compute the CRC for each stretch of pages in the flashed binary.

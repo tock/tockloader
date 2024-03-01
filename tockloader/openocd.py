@@ -369,15 +369,16 @@ You may need to update OpenOCD to the version in latest git master."
         self._configure_from_known_boards()
 
         # Check that we learned what we needed to learn.
-        if (
-            self.board == None
-            or self.arch == None
-            or self.openocd_board == "cortex-m0"
-            or self.page_size == 0
-        ):
+        if self.board is None:
+            raise TockLoaderException("Could not determine the current board")
+        if self.arch is None:
+            raise TockLoaderException("Could not determine the current arch")
+        if self.openocd_board == "cortex-m0":
             raise TockLoaderException(
-                "Could not determine the current board or arch or openocd board name"
+                "Could not determine the current openocd board name"
             )
+        if self.page_size == 0:
+            raise TockLoaderException("Could not determine the current page size")
 
     def run_terminal(self):
         self.open_link_to_board()

@@ -363,3 +363,8 @@ directory:
     ./generate_docs.py
     cd ..
     mkdocs serve --dev-addr=0.0.0.0:8001
+
+### Create requirements.txt
+
+    pip3 install pipreqs
+    pipreqs . --force

@@ -1,0 +1,9 @@
+argcomplete
+crcmod
+colorama
+questionary
+toml
+pycryptodome
+siphash
+pyserial
+tqdm

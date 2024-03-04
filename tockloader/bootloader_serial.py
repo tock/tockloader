@@ -904,6 +904,13 @@ class BootloaderSerial(BoardInterface):
             ):
                 valid_pages.append(i)
 
+        # Make sure that there is at least one valid page. If we are only trying
+        # to write 0s then all pages would have been removed. In that case, we
+        # want to write all requested pages.
+        if len(valid_pages) == 0:
+            for i in range(len(binary) // self.page_size):
+                valid_pages.append(i)
+
         # Make sure to always include one blank page (if exists) after the end
         # of a valid page. There might be a usable 0 on the next page. It's
         # unlikely there is more than entire page of valid 0s on the next page.

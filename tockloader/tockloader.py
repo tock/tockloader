@@ -1534,6 +1534,11 @@ class TockLoader:
 
                 app_bundle += app.get_binary(app_address)
                 app_address += app.get_size()
+
+            # Add blank at the end to make sure we clear the end of the list of
+            # apps.
+            app_bundle += bytes([0xFF] * 8)
+
             logging.info(
                 "Installing app bundle. Size: {} bytes.".format(len(app_bundle))
             )
@@ -1570,11 +1575,11 @@ class TockLoader:
                     self.channel.flash_binary(app_address, optional_binary)
                 app_address = app_address + app.get_size()
 
-        # Then erase the next page if we have not already rewritten all existing
-        # apps. This ensures that flash is clean at the end of the installed
-        # apps and makes sure the kernel will find the correct end of
-        # applications.
-        self.channel.clear_bytes(app_address)
+            # Then erase the next page if we have not already rewritten all
+            # existing apps. This ensures that flash is clean at the end of the
+            # installed apps and makes sure the kernel will find the correct end
+            # of applications.
+            self.channel.clear_bytes(app_address)
 
     def _replace_with_padding(self, app):
         """

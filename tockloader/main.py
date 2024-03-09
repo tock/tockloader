@@ -759,6 +759,9 @@ def main():
         "--openocd", action="store_true", help="Use OpenOCD to flash."
     )
     parent_channel.add_argument(
+        "--stlink", action="store_true", help="Use ST-Link tools to flash."
+    )
+    parent_channel.add_argument(
         "--jtag-device",
         default="cortex-m0",
         help="The device type to pass to JLinkExe. Useful for initial commissioning. Deprecated. Use --jlink-device instead.",
@@ -794,6 +797,12 @@ def main():
         action=helpers.ListToDictAction,
         help='Directly specify which OpenOCD commands to use for "program", "read", or "erase" actions. Example: "program=flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};"',
         nargs="*",
+    )
+    parent_channel.add_argument(
+        "--stinfo-cmd", default="st-info", help="The st-info binary to invoke."
+    )
+    parent_channel.add_argument(
+        "--stflash-cmd", default="st-flash", help="The st-flash binary to invoke."
     )
     parent_channel.add_argument(
         "--flash-file",

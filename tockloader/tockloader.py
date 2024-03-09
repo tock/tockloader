@@ -30,6 +30,7 @@ from .tbfh import TBFHeader
 from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
 from .openocd import OpenOCD, collect_temp_files
+from .stlink import STLink
 from .flash_file import FlashFile
 from .tickv import TockTicKV
 
@@ -163,6 +164,7 @@ class TockLoader:
                         [
                             getattr(self.args, "jlink", False),
                             getattr(self.args, "openocd", False),
+                            getattr(self.args, "stlink", False),
                             getattr(self.args, "flash_file") != None,
                             getattr(self.args, "serial", False),
                         ],
@@ -172,7 +174,7 @@ class TockLoader:
             > 1
         ):
             raise TockLoaderException(
-                "Can only use one of --jlink, --openocd, --flash-file or --serial options"
+                "Can only use one of --jlink, --openocd, --stlink, --flash-file or --serial options"
             )
 
         # Get an object that allows talking to the board.
@@ -182,6 +184,9 @@ class TockLoader:
         elif hasattr(self.args, "openocd") and self.args.openocd:
             # User passed `--openocd`. Force the OpenOCD channel.
             self.channel = OpenOCD(self.args)
+        elif hasattr(self.args, "stlink") and self.args.stlink:
+            # User passed `--stlink`. Force the STLink channel.
+            self.channel = STLink(self.args)
         elif hasattr(self.args, "serial") and self.args.serial:
             # User passed `--serial`. Force the serial bootloader channel.
             self.channel = BootloaderSerial(self.args)
@@ -214,6 +219,13 @@ class TockLoader:
                 if openocd_channel.attached_board_exists():
                     self.channel = openocd_channel
                     logging.info("Using openocd channel to communicate with the board.")
+                    break
+
+                # Next try st-link.
+                stlink_channel = STLink(self.args)
+                if stlink_channel.attached_board_exists():
+                    self.channel = stlink_channel
+                    logging.info("Using stlink channel to communicate with the board.")
                     break
 
                 # Try using the serial bootloader. Traditionally, we have

@@ -234,6 +234,17 @@ file to use.
     - `{address:#x}`: The specified address for the binary to be programmed at.
     - `{length}`: The number of bytes. Only valid for the `read` operation.
 
+For STM32 boards, Tockloader supports
+[STLINK](https://github.com/stlink-org/stlink). The stlink tool knows how to
+interface with the boards, so there are not many flags.
+
+    tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
+                         --stlink \
+                         --stinfo-cmd [stinfo_cmd] --stflash-cmd [stflash_cmd]
+
+- `stinfo_cmd`: The st-info executable to invoke. Defaults to `st-info`.
+- `stflash_cmd`: The st-flash executable to invoke. Defaults to `st-flash`.
+
 Finally, Tockloader can treat a local file as though it were the flash contents
 of a board. The file can then be loaded separately onto a board.
 

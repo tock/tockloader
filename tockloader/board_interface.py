@@ -180,12 +180,7 @@ class BoardInterface:
             "page_size": 2048,
             "no_attribute_table": True,
             "openocd": {
-                "prefix": 'interface hla; \
-                           hla_layout stlink; \
-                           hla_device_desc "ST-LINK/V2-1"; \
-                           hla_vid_pid 0x0483 0x374b; \
-                           set WORKAREASIZE 0xC000; \
-                           source [find target/stm32f3x.cfg];',
+                "cfg": "stm32f3discovery.cfg",
             },
         },
         "stm32f4discovery": {
@@ -194,12 +189,7 @@ class BoardInterface:
             "page_size": 2048,
             "no_attribute_table": True,
             "openocd": {
-                "prefix": 'interface hla; \
-                           hla_layout stlink; \
-                           hla_device_desc "ST-LINK/V2-1"; \
-                           hla_vid_pid 0x0483 0x374b; \
-                           set WORKAREASIZE 0x40000; \
-                           source [find target/stm32f4x.cfg];',
+                "cfg": "stm32f4discovery.cfg",
             },
         },
         "nucleof4": {

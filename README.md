@@ -6,7 +6,8 @@ Install
 -------
 
 ```
-pip3 install tockloader --user
+pip3 install pipx
+pipx install tockloader
 ```
 
 If you want tab completions:

@@ -55,7 +55,7 @@ class BoardInterface:
             "page_size": 4096,
             "no_attribute_table": True,
             "jlink": {
-                "device": "nrf52",
+                "device": "nrf52840_xxAA",
                 "address_maximum": 0x11FFFFFF,
             },
             "openocd": {

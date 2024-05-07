@@ -71,7 +71,7 @@ class JLinkExe(BoardInterface):
             if emulator["ProductName"] == "J-Link OB-SAM3U128-V2-NordicSem":
                 # This seems to match both the nRF52dk (PCA10040) and the
                 # nRF52840dk (PCA10056). From a jlink perspective, they are
-                # the same, which is nice.
+                # close enough, which is nice.
                 return "nrf52dk"
             if emulator["ProductName"] == "J-Link OB-nRF5340-NordicSemi":
                 # This matches the new (3.0.0+) version of the nRF52840dk

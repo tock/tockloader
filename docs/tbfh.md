@@ -93,6 +93,15 @@ Try to shrink the footer `number_bytes`. Shrink as much as possible up
 to the number by removing padding.
 
 
+### to\_str\_at\_address
+```py
+
+def to_str_at_address(self, address)
+
+```
+
+
+
 ### verify\_credentials
 ```py
 
@@ -676,6 +685,15 @@ Set a flag in the TBF header.
 Valid flag names: `enable`, `sticky`
 
 
+### to\_str\_at\_address
+```py
+
+def to_str_at_address(self, address)
+
+```
+
+
+
 ### \_\_str\_\_
 ```py
 
@@ -1062,6 +1080,15 @@ def set_flag(self, flag_name, flag_value)
 Set a flag in the TBF header.
 
 Valid flag names: `enable`, `sticky`
+
+
+### to\_str\_at\_address
+```py
+
+def to_str_at_address(self, address)
+
+```
+
 
 
 ### \_\_str\_\_

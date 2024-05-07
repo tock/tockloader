@@ -451,7 +451,7 @@ to effectively uninstall it.
 ### \_reshuffle\_apps
 ```py
 
-def _reshuffle_apps(self, apps)
+def _reshuffle_apps(self, apps, preserve_order=False)
 
 ```
 
@@ -463,6 +463,10 @@ sort them so we can write them to flash.
 This function is really the driver of tockloader, and is responsible for
 setting up applications in a way that can be successfully used by the
 board.
+
+If `preserve_order` is set to `True` this won't actually do any
+shuffling, and will instead load apps with padding in the order they are
+in the array.
 
 
 ### \_set\_attribute

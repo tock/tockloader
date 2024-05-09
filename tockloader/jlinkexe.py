@@ -36,6 +36,9 @@ class JLinkExe(BoardInterface):
             if platform.system() == "Windows":
                 self.jlink_cmd = "JLink"
 
+        # Obtain serial number if --jlink-serial-number argument provided
+        self.jlink_serial_number = getattr(self.args, "jlink_serial_number")
+
         # By default we assume that jlinkexe can be used to read any address on
         # this board, so we set `address_maximum` to None. In some cases,
         # however, particularly with external flash chips, jlinkexe may not be
@@ -195,6 +198,10 @@ class JLinkExe(BoardInterface):
                 self.jlink_speed,
                 jlink_file.name,
             )
+
+            # Append target selector if serial number provided.
+            if self.jlink_serial_number:
+                jlink_command += " -USB {}".format(self.jlink_serial_number)
 
             logging.debug('Running "{}".'.format(jlink_command))
 
@@ -456,9 +463,19 @@ class JLinkExe(BoardInterface):
             return
 
         logging.status("Starting JLinkExe JTAG connection.")
+
+        # Include serial number specifier if `--jlink-serial-number` flag provided.
+        jlink_serial_number_str = ""
+        if self.jlink_serial_number:
+            jlink_serial_number_str = ("-USB {}").format(self.jlink_serial_number)
+
         jtag_p = subprocess.Popen(
-            "{} -device {} -if {} -speed {} -autoconnect 1 -jtagconf -1,-1".format(
-                self.jlink_cmd, self.jlink_device, self.jlink_if, self.jlink_speed
+            "{} -device {} -if {} -speed {} -autoconnect 1 {} --jtagconf -1,-1".format(
+                self.jlink_cmd,
+                self.jlink_device,
+                self.jlink_if,
+                self.jlink_speed,
+                jlink_serial_number_str,
             ).split(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

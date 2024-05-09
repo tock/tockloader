@@ -200,6 +200,12 @@ knowing the device type of the MCU on the board.
 - `speed`: The speed value to pass to JLink. Defaults to 1200.
 - `if`: The interface to pass to JLink.
 
+JLink supports selecting the target board based on the serial number of the
+JTAG. Tockloader exposes this functionality with the `jlink-serial-number`
+flag. 
+
+    tockloader [command] --jlink-serial-number [serial_number]
+
 Tockloader can also do JTAG using OpenOCD. OpenOCD needs to know which config
 file to use.
 

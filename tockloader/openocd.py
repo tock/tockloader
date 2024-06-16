@@ -291,7 +291,7 @@ You may need to update OpenOCD to the version in latest git master."
         Write using openocd `program` command.
         """
         # The "normal" flash command uses `program`.
-        command = "program {{binary}} verify {address:#x};"
+        command = "program {{binary}} verify {address:#x}; reset;"
 
         # Check if the configuration wants to override the default program command.
         if "program" in self.openocd_commands:

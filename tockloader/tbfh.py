@@ -26,6 +26,7 @@ class TBFTLV:
     HEADER_TYPE_PERSISTENT_ACL = 0x07
     HEADER_TYPE_KERNEL_VERSION = 0x08
     HEADER_TYPE_PROGRAM = 0x09
+    HEADER_TYPE_SHORT_ID = 0x0A
 
     def get_tlvid(self):
         return self.TLVID
@@ -672,6 +673,42 @@ class TBFTLVKernelVersion(TBFTLV):
         }
 
 
+class TBFTLVShortId(TBFTLV):
+    TLVID = TBFTLV.HEADER_TYPE_SHORT_ID
+    NUMBER_PARAMETERS = 1
+    PARAMETER_HELP = "<shortid>"
+
+    def __init__(self, buffer, parameters=[]):
+        self.valid = False
+
+        if len(buffer) == 4:
+            base = struct.unpack("<I", buffer)
+            self.short_id = base[0]
+            self.valid = True
+        else:
+            try:
+                if len(parameters) == 1:
+                    self.short_id = int(parameters[0], 0)
+                    self.valid = True
+            except:
+                logging.error("Failed parsing params for TLVID={}".format(self.TLVID))
+
+    def pack(self):
+        return struct.pack("<HHI", self.TLVID, 4, self.short_id)
+
+    def __str__(self):
+        out = "TLV: ShortID ({})\n".format(self.TLVID)
+        out += "  {:<20}: {}\n".format("short_id", self.short_id)
+        return out
+
+    def object(self):
+        return {
+            "type": "short_id",
+            "id": self.TLVID,
+            "short_id": self.short_id,
+        }
+
+
 TLV_MAPPINGS = {
     "main": TBFTLVMain,
     "program": TBFTLVProgram,
@@ -682,6 +719,7 @@ TLV_MAPPINGS = {
     "permissions": TBFTLVPermissions,
     "persistent_acl": TBFTLVPersistentACL,
     "kernel_version": TBFTLVKernelVersion,
+    "short_id": TBFTLVShortId,
 }
 
 
@@ -846,6 +884,10 @@ class TBFHeader:
                         elif tipe == TBFTLV.HEADER_TYPE_KERNEL_VERSION:
                             if remaining >= 4 and length == 4:
                                 self.tlvs.append(TBFTLVKernelVersion(buffer[0:4]))
+
+                        elif tipe == TBFTLV.HEADER_TYPE_SHORT_ID:
+                            if remaining >= 4 and length == 4:
+                                self.tlvs.append(TBFTLVShortId(buffer[0:4]))
 
                         else:
                             logging.warning("Unknown TLV block in TBF header.")

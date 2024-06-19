@@ -1231,7 +1231,7 @@ def main():
     )
     tbf_tlv_modify.add_argument("field", help="TLV field name")
     tbf_tlv_modify.add_argument(
-        "value", help="TLV field new value", type=lambda x: int(x, 0)
+        "value", help="TLV field new value", type=helpers.number_or
     )
     tbf_tlv_modify.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
 

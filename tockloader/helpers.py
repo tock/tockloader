@@ -176,6 +176,16 @@ def plural(value):
         return "s"
 
 
+def number_or(value):
+    """
+    Try to format value as a number. If that fails, just leave it alone.
+    """
+    try:
+        return int(value, 0)
+    except:
+        return value
+
+
 def text_in_box(string, box_width, box_height=3):
     """
     Return a string like:

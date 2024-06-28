@@ -698,7 +698,9 @@ class TBFTLVShortId(TBFTLV):
 
     def __str__(self):
         out = "TLV: ShortID ({})\n".format(self.TLVID)
-        out += "  {:<20}: {}\n".format("short_id", self.short_id)
+        out += "  {:<20}: {:>10} {:>#12x}\n".format(
+            "short_id", self.short_id, self.short_id
+        )
         return out
 
     def object(self):

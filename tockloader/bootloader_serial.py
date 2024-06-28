@@ -17,10 +17,14 @@ import sys
 import time
 import threading
 
-# Although Windows is not supported actively, this allow features that "just
-# work" to work on Windows.
+# Windows support in tockloader is currently experimental. Please report bugs,
+# and ideally rough paths to fixing them. The core maintainers have limited
+# access to Windows machines, and support in testing fixes/updates is helpful.
 if platform.system() != "Windows":
     import fcntl
+    _IS_WINDOWS = False
+else:
+    _IS_WINDOWS = True
 
 import serial
 import serial.tools.list_ports
@@ -297,21 +301,36 @@ class BootloaderSerial(BoardInterface):
         # Before connecting, check whether there is another tockloader process
         # running, and if it's a listen, pause that listen (unless we are also
         # doing a listen), otherwise bail out.
-        self.comm_path = "/tmp/tockloader." + self._get_serial_port_hash()
-        if os.path.exists(self.comm_path):
-            # Open a socket to the other tockloader instance if one exists.
-            self.client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+
+        # Windows has only partial unix socket support, so Python rejects them.
+        # Work around this by listening on a reasonably-unlikely-to-collide
+        # localhost port derived from the serial port name.
+        if _IS_WINDOWS:
+            self.comm_port = self._get_serial_port_hashed_to_ip_port()
+            self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                self.client_sock.connect(self.comm_path)
+                self.client_sock.connect(('localhost', self.comm_port))
+                logging.debug("Connected to existing `tockloader listen`")
             except ConnectionRefusedError:
-                logging.warning("Found stale tockloader server, removing.")
-                logging.warning(
-                    "This may occur if a previous tockloader instance crashed."
-                )
-                os.unlink(self.comm_path)
+                logging.debug(f"No other listen instances running (tried localhost::{self.comm_port})")
                 self.client_sock = None
         else:
-            self.client_sock = None
+            self.comm_path = "/tmp/tockloader." + self._get_serial_port_hash()
+            if os.path.exists(self.comm_path):
+                self.client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                try:
+                    self.client_sock.connect(self.comm_path)
+                except ConnectionRefusedError:
+                    logging.warning("Found stale tockloader server, removing.")
+                    logging.warning(
+                        "This may occur if a previous tockloader instance crashed."
+                    )
+                    os.unlink(self.comm_path)
+                    self.client_sock = None
+            else:
+                self.client_sock = None
+
 
         # Check if another tockloader instance exists based on whether we were
         # able to create a socket to it.
@@ -386,17 +405,23 @@ class BootloaderSerial(BoardInterface):
             # listen, allow the other tockloader instance to complete, and then
             # resume listening.
 
-            # Create the socket we will listen on.
-            self.server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            if _IS_WINDOWS:
+                self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.server_sock.bind(('localhost', self.comm_port))
+                logging.debug(f"listening on localhost::{self.comm_port}")
+            else:
+                # Create the socket we will listen on.
+                self.server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
-            # Close the file descriptor if exec() is called (apparently). I'm
-            # not sure why we need this (or if we do).
-            flags = fcntl.fcntl(self.server_sock, fcntl.F_GETFD)
-            fcntl.fcntl(self.server_sock, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+                # Close the file descriptor if exec() is called (apparently). I'm
+                # not sure why we need this (or if we do).
+                flags = fcntl.fcntl(self.server_sock, fcntl.F_GETFD)
+                fcntl.fcntl(self.server_sock, fcntl.F_SETFD, flags | fcntl.FD_CLOEXEC)
+
+                self.server_sock.bind(self.comm_path)
 
             # Finish setting up the socket, and spawn a thread to listen on that
             # socket.
-            self.server_sock.bind(self.comm_path)
             self.server_sock.listen(1)
             self.server_event = threading.Event()
             self.server_thread = threading.Thread(
@@ -411,7 +436,8 @@ class BootloaderSerial(BoardInterface):
             def server_cleanup():
                 if self.server_sock is not None:
                     self.server_sock.close()
-                    os.unlink(self.comm_path)
+                    if not _IS_WINDOWS:
+                        os.unlink(self.comm_path)
 
             atexit.register(server_cleanup)
 
@@ -514,6 +540,14 @@ class BootloaderSerial(BoardInterface):
         slashes) that would interfere with using as a file name.
         """
         return hashlib.sha1(self.sp.port.encode("utf-8")).hexdigest()
+
+    def _get_serial_port_hashed_to_ip_port(self):
+        """
+        This is a bit of a hack, but it's means to find a reasonably unlikely
+        to collide port number based on the serial port used to talk to the
+        board.
+        """
+        return int(self._get_serial_port_hash(), 16) % 40000 + 10000
 
     def _toggle_bootloader_entry_DTR_RTS(self):
         """

@@ -605,18 +605,22 @@ class TBFTLVPersistentACL(TBFTLV):
         return out
 
     def __str__(self):
-        out = "TLV: Persistent ACL ({})\n".format(self.TLVID)
+        out = "TLV: Persistent Storage ({})\n".format(self.TLVID)
         out += "  {:<20}: {:>10} {:>#12x}\n".format(
             "Write ID", self.write_id, self.write_id
         )
-        out += "  {:<20}: {}\n".format(
-            "Read IDs ({})".format(len(self.read_ids)),
-            ", ".join(map(str, self.read_ids)),
-        )
-        out += "  {:<20}: {}\n".format(
-            "Access IDs ({})".format(len(self.access_ids)),
-            ", ".join(map(str, self.access_ids)),
-        )
+        # Read IDs
+        out += "  {:<20}:".format("Read IDs ({})".format(len(self.read_ids)))
+        for index, read_id in enumerate(self.read_ids):
+            if index > 0:
+                out += "  {:<20}:".format("")
+            out += " {:>10} {:>#12x}\n".format(read_id, read_id)
+        # Modify IDs
+        out += "  {:<20}:".format("Modify IDs ({})".format(len(self.access_ids)))
+        for index, access_id in enumerate(self.access_ids):
+            if index > 0:
+                out += "  {:<20}:".format("")
+            out += " {:>10} {:>#12x}\n".format(access_id, access_id)
         return out
 
     def object(self):
@@ -720,6 +724,7 @@ TLV_MAPPINGS = {
     "fixed_addresses": TBFTLVFixedAddress,
     "permissions": TBFTLVPermissions,
     "persistent_acl": TBFTLVPersistentACL,
+    "persistent_storage": TBFTLVPersistentACL,
     "kernel_version": TBFTLVKernelVersion,
     "short_id": TBFTLVShortId,
 }

@@ -229,8 +229,9 @@ class BootloaderSerial(BoardInterface):
                         # VCOM0.
                         ports = [p for p in ports if vcom0_path not in p.device]
                         index = 0
-
                 except:
+                    # Any error with nrfjprog we just don't use this
+                    # optimization.
                     pass
 
             # Continue searching if our special-case discovery did not find

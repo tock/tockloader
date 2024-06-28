@@ -1401,7 +1401,7 @@ class TBFHeader:
         if not self.valid:
             out += "INVALID!\n"
 
-        version = "{:<22}: {}".format("version", self.version)
+        version = "{:<22}: {}".format("TBF version", self.version)
         absolute_address = " [{:<#9x}]".format(address) if address else ""
         out += "{:<48}[{:<#5x}]{}\n".format(version, 0, absolute_address)
 
@@ -1430,12 +1430,15 @@ class TBFHeader:
         out += "{:<22}:            {:>#12x}\n".format(
             "checksum", self.fields["checksum"]
         )
+        # Flags
         out += "{:<22}: {:>10} {:>#12x}\n".format(
             "flags", self.fields["flags"], self.fields["flags"]
         )
+        # Flag: enabled
         out += "  {:<20}: {}\n".format(
             "enabled", ["No", "Yes"][(self.fields["flags"] >> 0) & 0x01]
         )
+        # Flag: sticky
         out += "  {:<20}: {}\n".format(
             "sticky", ["No", "Yes"][(self.fields["flags"] >> 1) & 0x01]
         )

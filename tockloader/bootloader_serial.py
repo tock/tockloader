@@ -165,7 +165,7 @@ class BootloaderSerial(BoardInterface):
                 index = helpers.menu(
                     ports,
                     return_type="index",
-                    title="Multiple serial port options found. Which would you like to use?",
+                    title="Multiple matching serial port options found. Which would you like to use?",
                 )
         else:
             # Just find any port. If one, use that. If multiple, ask user.
@@ -174,27 +174,85 @@ class BootloaderSerial(BoardInterface):
             # almost certainly never what you want, so drop those.
             ports = [p for p in ports if "Bluetooth-Incoming-Port" not in p.device]
             ports = [p for p in ports if "cu.BLTH" not in p.device]
+            index = None
 
             if len(ports) == 0:
                 raise TockLoaderException(
                     "No serial ports found. Is the board connected?"
                 )
 
-            logging.info(
-                'No serial port with device name "{}" found.'.format(device_name)
-            )
-            logging.info(
-                "Found {} serial port{}.".format(len(ports), ("s", "")[len(ports) == 1])
-            )
+            # Attempt to workaround the issue with the nRF52840dk (PCA10056),
+            # particularly newer revisions of that board, that open two serial
+            # ports by detecting which one is the correct port.
+            #
+            # We first try to only run this if we think that the user actually
+            # has a nRF52840dk plugged in. We check that by looking for two
+            # devices that both have "J-Link - CDC" in the name.
+            #
+            # If we find that, we use the `nrfjprog --com` command which lists
+            # attached ports and their VCOM indices. We want VCOM0. We use the
+            # pynrfjprog to run the same operation as `--com`. `nrfjprog --com`
+            # has output that looks like:
+            #
+            # ```
+            # $ nrfjprog --com
+            # 1050288520    /dev/tty.usbmodem0010502885201    VCOM0
+            # 1050288520    /dev/tty.usbmodem0010502885203    VCOM1
+            # ```
+            jlink_cdc_ports = [p for p in ports if "J-Link - CDC" in p.description]
+            if len(jlink_cdc_ports) == 2:
+                # It looks like the user has the nRF52840dk connected.
+                try:
+                    import pynrfjprog
+                    from pynrfjprog import LowLevel
 
-            if len(ports) == 1 or any:
-                index = 0
-            else:
-                index = helpers.menu(
-                    ports,
-                    return_type="index",
-                    title="Multiple serial port options found. Which would you like to use?",
+                    api = pynrfjprog.LowLevel.API()
+                    if not api.is_open():
+                        api.open()
+
+                    vcom0_path = None
+                    jtag_emulators = api.enum_emu_con_info()
+                    for jtag_emulator in jtag_emulators:
+                        jtag_emulator_ports = api.enum_emu_com_ports(
+                            jtag_emulator.serial_number
+                        )
+                        for jtag_emulator_port in jtag_emulator_ports:
+                            # We want to see VCOM == 0
+                            if jtag_emulator_port.vcom == 0:
+                                vcom0_path = jtag_emulator_port.path
+                                break
+                        # Only support one connected nRF52840dk for now.
+                        break
+
+                    if vcom0_path != None:
+                        # Update list of ports to just the one we found for
+                        # VCOM0.
+                        ports = [p for p in ports if vcom0_path not in p.device]
+                        index = 0
+
+                except:
+                    pass
+
+            # Continue searching if our special-case discovery did not find
+            # anything.
+            if index == None:
+                logging.info(
+                    'No serial port with device name "{}" found.'.format(device_name)
                 )
+                logging.info(
+                    "Found {} serial port{}.".format(
+                        len(ports), ("s", "")[len(ports) == 1]
+                    )
+                )
+
+                if len(ports) == 1 or any:
+                    index = 0
+                else:
+                    index = helpers.menu(
+                        ports,
+                        return_type="index",
+                        title="Multiple serial port options found. Which would you like to use?",
+                    )
 
         # Choose port. This should be a serial.ListPortInfo type.
         port = ports[index]

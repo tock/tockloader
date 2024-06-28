@@ -243,6 +243,7 @@ You may need to update OpenOCD to the version in latest git master."
         # openocd output, board is the name in the known boards struct.
         magic_strings_boards = [
             ("J-Link OB-SAM3U128-V2-NordicSemi", "nrf52dk"),
+            ("J-Link OB-nRF5340-NordicSemi", "nrf52dk"),
             ("(mfg: 0x049 (Xilinx), part: 0x3631, ver: 0x1)", "arty"),
             ("SWD DPIDR 0x2ba01477", "microbit_v2"),
             ("stm32f4x.cpu", "stm32f4discovery"),

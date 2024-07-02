@@ -172,7 +172,7 @@ class OpenOCD(BoardInterface):
             [commands], binary, write
         )
 
-        logging.debug('Running "{}".'.format(openocd_command.replace("$", "\$")))
+        logging.debug('Running "{}".'.format(openocd_command.replace("$", "\\$")))
 
         def print_output(subp):
             response = ""
@@ -402,7 +402,7 @@ You may need to update OpenOCD to the version in latest git master."
             exit=False,
         )
 
-        logging.debug('Running "{}".'.format(openocd_command.replace("$", "\$")))
+        logging.debug('Running "{}".'.format(openocd_command.replace("$", "\\$")))
 
         cleanup = []
         try:

@@ -233,6 +233,9 @@ class BootloaderSerial(BoardInterface):
                         # VCOM0.
                         ports = [p for p in ports if vcom0_path not in p.device]
                         index = 0
+                        logging.info(
+                            'Discovered "{}" as nRF52840dk VCOM0.'.format(vcom0_path)
+                        )
                 except:
                     # Any error with nrfjprog we just don't use this
                     # optimization.

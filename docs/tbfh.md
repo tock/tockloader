@@ -1703,6 +1703,70 @@ Return str(self).
 
 
 
+## Class TBFTLVShortId
+None
+### \_\_init\_\_
+```py
+
+def __init__(self, buffer, parameters=[])
+
+```
+
+
+
+Initialize self.  See help(type(self)) for accurate signature.
+
+
+### get\_size
+```py
+
+def get_size(self)
+
+```
+
+
+
+### get\_tlvid
+```py
+
+def get_tlvid(self)
+
+```
+
+
+
+### object
+```py
+
+def object(self)
+
+```
+
+
+
+### pack
+```py
+
+def pack(self)
+
+```
+
+
+
+### \_\_str\_\_
+```py
+
+def __str__(self)
+
+```
+
+
+
+Return str(self).
+
+
+
+
 ## Class TBFTLVUnknown
 None
 ### \_\_init\_\_

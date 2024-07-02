@@ -449,6 +449,20 @@ machine that is also guaranteed to not have any special characters (like
 slashes) that would interfere with using as a file name.
 
 
+### \_get\_serial\_port\_hashed\_to\_ip\_port
+```py
+
+def _get_serial_port_hashed_to_ip_port(self)
+
+```
+
+
+
+This is a bit of a hack, but it's means to find a reasonably unlikely
+to collide port number based on the serial port used to talk to the
+board.
+
+
 ### \_issue\_command
 ```py
 

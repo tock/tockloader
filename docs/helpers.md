@@ -154,6 +154,18 @@ def menu_new_yes_no(prompt='')
 Present an interactive yes/no prompt to the user.
 
 
+### number\_or
+```py
+
+def number_or(value)
+
+```
+
+
+
+Try to format value as a number. If that fails, just leave it alone.
+
+
 ### plural
 ```py
 

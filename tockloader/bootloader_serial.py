@@ -22,6 +22,7 @@ import threading
 # access to Windows machines, and support in testing fixes/updates is helpful.
 if platform.system() != "Windows":
     import fcntl
+
     _IS_WINDOWS = False
 else:
     _IS_WINDOWS = True
@@ -236,6 +237,10 @@ class BootloaderSerial(BoardInterface):
                         logging.info(
                             'Discovered "{}" as nRF52840dk VCOM0.'.format(vcom0_path)
                         )
+
+                    # Must close this to end the underlying pynrfjprog process.
+                    # Otherwise on my machine it sits at 100% CPU.
+                    api.close()
                 except:
                     # Any error with nrfjprog we just don't use this
                     # optimization.
@@ -364,7 +369,6 @@ class BootloaderSerial(BoardInterface):
         # running, and if it's a listen, pause that listen (unless we are also
         # doing a listen), otherwise bail out.
 
-
         # Windows has only partial unix socket support, so Python rejects them.
         # Work around this by listening on a reasonably-unlikely-to-collide
         # localhost port derived from the serial port name.
@@ -372,10 +376,12 @@ class BootloaderSerial(BoardInterface):
             self.comm_port = self._get_serial_port_hashed_to_ip_port()
             self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                self.client_sock.connect(('localhost', self.comm_port))
+                self.client_sock.connect(("localhost", self.comm_port))
                 logging.debug("Connected to existing `tockloader listen`")
             except ConnectionRefusedError:
-                logging.debug(f"No other listen instances running (tried localhost::{self.comm_port})")
+                logging.debug(
+                    f"No other listen instances running (tried localhost::{self.comm_port})"
+                )
                 self.client_sock = None
         else:
             self.comm_path = "/tmp/tockloader." + self._get_serial_port_hash()
@@ -392,7 +398,6 @@ class BootloaderSerial(BoardInterface):
                     self.client_sock = None
             else:
                 self.client_sock = None
-
 
         # Check if another tockloader instance exists based on whether we were
         # able to create a socket to it.
@@ -469,7 +474,7 @@ class BootloaderSerial(BoardInterface):
 
             if _IS_WINDOWS:
                 self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.server_sock.bind(('localhost', self.comm_port))
+                self.server_sock.bind(("localhost", self.comm_port))
                 logging.debug(f"listening on localhost::{self.comm_port}")
             else:
                 # Create the socket we will listen on.

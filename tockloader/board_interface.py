@@ -291,6 +291,17 @@ class BoardInterface:
                 "max_size": 0x00100000,
             },
         },
+        "opentitan_earlgrey_rom_ext": {
+            "description": "OpenTitan EarlGrey chip with ROM_EXT targeting the Earlgrey-M2.5.2-RC0 hardware",
+            "arch": "rv32imc",
+            "page_size": 512,
+            "no_attribute_table": True,
+            "address_translator": lambda addr: addr - 0x20010000,
+            "flash_file": {
+                # Set to the maximum flash size.
+                "max_size": 0x00100000,
+            },
+        },
     }
 
     def __init__(self, args):

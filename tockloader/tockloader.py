@@ -108,6 +108,7 @@ class TockLoader:
             "hifive1b": {"start_address": 0x20040000},
             "litex_arty": {"start_address": 0x41000000},
             "litex_sim": {"start_address": 0x00080000},
+            "veer_el2_sim": {"start_address": 0x20300000},
             "nrf52dk": {
                 "start_address": 0x40000,
                 "app_ram_address": 0x20008000,

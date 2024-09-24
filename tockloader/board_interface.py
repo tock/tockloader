@@ -162,6 +162,12 @@ class BoardInterface:
                 "max_size": 0x00100000,
             },
         },
+        "veer_el2_sim": {
+            "description": "VeeR EL2 running on Verilated simulation",
+            "arch": "rv32imc",
+            "no_attribute_table": True,
+            "address_translator": lambda addr: addr - 0x20000000,
+        },
         "qemu_rv32_virt": {
             "description": "QEMU RISC-V 32 bit virt Platform",
             "arch": "rv32imac",

@@ -230,12 +230,22 @@ class BootloaderSerial(BoardInterface):
                         break
 
                     if vcom0_path != None:
+                        # On mac, the nrfjprog tool uses the /dev/tty* paths,
+                        # and we need the /dev/cu* paths. We just hack in a
+                        # substitution here which will only have an effect on
+                        # the mac paths.
+                        vcom0_path_standarized = vcom0_path.replace(
+                            "/dev/tty.usbmodem", "/dev/cu.usbmodem"
+                        )
+
                         # Update list of ports to just the one we found for
                         # VCOM0.
-                        ports = [p for p in ports if vcom0_path not in p.device]
+                        ports = [p for p in ports if vcom0_path_standarized in p.device]
                         index = 0
                         logging.info(
-                            'Discovered "{}" as nRF52840dk VCOM0.'.format(vcom0_path)
+                            'Discovered "{}" as nRF52840dk VCOM0.'.format(
+                                vcom0_path_standarized
+                            )
                         )
 
                     # Must close this to end the underlying pynrfjprog process.

@@ -779,6 +779,11 @@ def main():
         "--jlink-if", help="The interface type to pass to JLinkExe."
     )
     parent_channel.add_argument(
+        "--jlink-serial-number",
+        default=None,
+        help="Specify a specific JLink via serial number. Useful when multiple JLinks are connected to the same machine.",
+    )
+    parent_channel.add_argument(
         "--openocd-board", help="The cfg file in OpenOCD `board` folder."
     )
     parent_channel.add_argument(

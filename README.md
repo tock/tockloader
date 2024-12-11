@@ -192,13 +192,15 @@ knowing the device type of the MCU on the board.
 
     tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
                          --jlink --jlink-cmd [jlink_cmd] --jlink-device [device] \
-                         --jlink-speed [speed] --jlink-if [if]
+                         --jlink-speed [speed] --jlink-if [if] \
+                         --jlink-serial-number [serial_number]
 
 - `jlink_cmd`: The JLink executable to invoke. Defaults to `JLinkExe` on
   Mac/Linux, and `JLink` on Windows.
 - `device`: The JLinkExe device identifier.
 - `speed`: The speed value to pass to JLink. Defaults to 1200.
 - `if`: The interface to pass to JLink.
+- `serial-number`: The serial number of the target board to use with JLink.
 
 Tockloader can also do JTAG using OpenOCD. OpenOCD needs to know which config
 file to use.

@@ -283,9 +283,11 @@ class BootloaderSerial(BoardInterface):
         logging.info('Using "{}".'.format(port))
 
         # Save the serial number. This might help us reconnect later if say we
-        # have to boot into the bootloader and the OS assigns a new port name
-        # to the same physical board.
-        self.sp_serial_number = port.serial_number
+        # have to boot into the bootloader and the OS assigns a new port name to
+        # the same physical board. On _some_ USB devices there is no serial
+        # number. This was first found on the WM1110-dev board. In that case we
+        # fall back the port name.
+        self.sp_serial_number = port.serial_number or port.name
 
         # Improve UI for users
         helpers.set_terminal_title_from_port_info(port)

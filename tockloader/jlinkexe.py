@@ -252,7 +252,8 @@ class JLinkExe(BoardInterface):
             # Cleanup files on Windows if needed.
             if not self.args.debug:
                 os.remove(jlink_file.name)
-                os.remove(temp_bin.name)
+                if binary or not write:
+                    os.remove(temp_bin.name)
 
             return ret
 
@@ -333,7 +334,6 @@ class JLinkExe(BoardInterface):
             # Cleanup files on Windows if needed.
             if not self.args.debug:
                 os.remove(jlink_file.name)
-                os.remove(temp_bin.name)
 
         return emulators
 

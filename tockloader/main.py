@@ -168,8 +168,14 @@ def command_install(args):
         # included on the command line.
         replace = "no"
 
+    layout = None
+    if args.layout:
+        layout = args.layout[0]
+
     logging.status("Installing app{} on the board...".format(helpers.plural(len(tabs))))
-    tock_loader.install(tabs, replace=replace, erase=args.erase, sticky=args.sticky)
+    tock_loader.install(
+        tabs, replace=replace, erase=args.erase, sticky=args.sticky, layout=layout
+    )
 
 
 def command_update(args):
@@ -969,6 +975,11 @@ def main():
         "--preserve-order",
         help="Install all specified TABs in the order they are on command line.",
         action="store_true",
+    )
+    install.add_argument(
+        "--layout",
+        help="Specify layout of installed apps. Implies --erase and --force. Use T and p<size>.",
+        nargs=1,
     )
 
     update = subparser.add_parser(

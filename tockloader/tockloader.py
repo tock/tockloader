@@ -13,6 +13,7 @@ import itertools
 import logging
 import os
 import platform
+import re
 import textwrap
 import time
 
@@ -335,12 +336,13 @@ class TockLoader:
             displayer.list_apps(apps, verbose, quiet)
             print(displayer.get())
 
-    def install(self, tabs, replace="yes", erase=False, sticky=False):
+    def install(self, tabs, replace="yes", erase=False, sticky=False, layout=None):
         """
         Add or update TABs on the board.
 
         - `replace` can be "yes", "no", or "only"
         - `erase` if true means erase all other apps before installing
+        - `layout` is a layout string for specifying how apps should be installed
         """
         # Check if we have any apps to install. If not, then we can quit early.
         if len(tabs) == 0:
@@ -358,8 +360,58 @@ class TockLoader:
                     "Need known arch to install apps. Perhaps use `--arch` flag."
                 )
 
+            # Check if a specific layout was specified. If so, we don't want to
+            # use any app layout helpers (e.g. alignment and size requirements).
+            # We set this early because we don't want the TAB apps to be
+            # modified based on these settings.
+            if layout:
+                logging.info(
+                    "Layout specified, disabling any app size or alignment constraints."
+                )
+                self.app_settings["size_constraint"] = None
+                self.app_settings["alignment_constraint"] = None
+
             # Start with the apps we are searching for.
             replacement_apps = self._extract_apps_from_tabs(tabs, arch)
+
+            # What apps we want after this command completes
+            resulting_apps = []
+
+            # Check if the user specified a very specific layout for installed
+            # apps. This is probably not for normal operation but for testing.
+            # In this case, we force --erase and --force, ignore anything
+            # already installed, and just setup the layout as specified.
+            if layout:
+                m = re.findall(r"(T)?(p[0-9]+)?", layout)
+                layout_items = list(filter(lambda x: len(x) > 0, itertools.chain(*m)))
+
+                # Debugging output
+                display_items = []
+                for l in layout_items:
+                    if l[0] == "T":
+                        display_items.append("TBF")
+                    elif l[0] == "p":
+                        padding_size = int(l[1:])
+                        display_items.append(f"PaddingApp {padding_size} bytes")
+                display_str = ", ".join(display_items)
+                logging.info(f"Using layout: {display_str}")
+
+                app_index = 0
+                for l in layout_items:
+                    if l[0] == "T":
+                        if len(replacement_apps) <= app_index:
+                            logging.error(
+                                f"Insufficient TABs specified for layout: {layout}"
+                            )
+                            raise TockLoaderException("Cannot install specified layout")
+                        resulting_apps.append(replacement_apps[app_index])
+                        app_index += 1
+                    elif l[0] == "p":
+                        padding_size = int(l[1:])
+                        resulting_apps.append(PaddingApp(padding_size))
+
+                self._reshuffle_apps(resulting_apps, preserve_order=True)
+                return
 
             # If we want to install these as sticky apps, mark that now.
             if sticky:
@@ -369,9 +421,6 @@ class TockLoader:
 
             # Get a list of installed apps
             existing_apps = self._extract_all_app_headers()
-
-            # What apps we want after this command completes
-            resulting_apps = []
 
             # Whether we actually made a change or not
             changed = False

@@ -8,12 +8,13 @@ class PaddingApp:
     Representation of a placeholder app that is only padding between other apps.
     """
 
-    def __init__(self, size):
+    def __init__(self, size, address=None):
         """
         Create a `PaddingApp` based on the amount of size needing in the
         padding.
         """
         self.tbfh = TBFHeaderPadding(size)
+        self.address = address
 
     def is_app(self):
         """
@@ -44,6 +45,25 @@ class PaddingApp:
         Padding apps do not have credentials, so we ignore this.
         """
         pass
+
+    def has_fixed_addresses(self):
+        """
+        A padding app is not an executable so can be placed anywhere.
+        """
+        return False
+
+    def get_address(self):
+        """
+        Get the address of where on the board this padding app is.
+        """
+        return self.address
+
+    def has_app_binary(self):
+        """
+        We can always return the binary for a padding app, so we can always
+        return true.
+        """
+        return True
 
     def get_binary(self, address=None):
         """

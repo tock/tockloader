@@ -144,9 +144,15 @@ def command_list(args):
                 with open(key_path, "rb") as f:
                     public_keys.append(f.read())
 
+    verbose = args.verbose
+    if args.map:
+        # We always want verbose if showing the map so we see all apps including
+        # padding.
+        verbose = True
+
     tock_loader = TockLoader(args)
     tock_loader.open()
-    tock_loader.list_apps(args.verbose, args.quiet, public_keys)
+    tock_loader.list_apps(verbose, args.quiet, args.map, public_keys)
 
 
 def command_install(args):
@@ -1011,6 +1017,11 @@ def main():
         "--quiet",
         "-q",
         help="Print just a list of application names",
+        action="store_true",
+    )
+    listcmd.add_argument(
+        "--map",
+        help="Print a table with apps and addresses",
         action="store_true",
     )
     listcmd.add_argument(

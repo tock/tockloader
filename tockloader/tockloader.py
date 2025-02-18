@@ -301,12 +301,13 @@ class TockLoader:
                         logging.debug("Unable to set attribute after flash command.")
                         logging.debug(ret)
 
-    def list_apps(self, verbose, quiet, verify_credentials_public_keys):
+    def list_apps(self, verbose, quiet, map, verify_credentials_public_keys):
         """
         Query the chip's flash to determine which apps are installed.
 
         - `verbose` - bool: Show details about TBF.
         - `quiet` - bool: Just show the app name.
+        - `map` - bool: Show a diagram listing apps with addresses.
         - `verify_credentials_public_keys`: Either `None`, meaning do not verify
           any credentials, or a list of public keys binaries to use to help
           verify credentials. The list can be empty and all credentials that can
@@ -333,7 +334,11 @@ class TockLoader:
             else:
                 displayer = display.HumanReadableDisplay()
 
-            displayer.list_apps(apps, verbose, quiet)
+            if map:
+                displayer.show_app_map_actual_address(apps)
+            else:
+                displayer.list_apps(apps, verbose, quiet)
+
             print(displayer.get())
 
     def install(self, tabs, replace="yes", erase=False, sticky=False, layout=None):
@@ -1457,7 +1462,7 @@ class TockLoader:
 
             logging.info("App Layout:")
             displayer = display.HumanReadableDisplay()
-            displayer.show_app_map(to_flash_apps, address)
+            displayer.show_app_map_from_address(to_flash_apps, address)
             app_layout = displayer.get()
             for l in app_layout.splitlines():
                 logging.info(l)

@@ -48,6 +48,31 @@ class Display:
         return self.out
 
 
+def choose(b, t, f):
+    if b:
+        return t
+    return f
+
+
+def start_of_app(width, address):
+    return "{:>#10x}┬{}┐\n".format(address, "─" * width)
+
+
+def end_of_app(width, address, continuing):
+    left_corner = choose(continuing, "┼", "┴")
+    right_corner = choose(continuing, "┤", "┘")
+    return "{:>#10x}{}{}{}\n".format(address, left_corner, "─" * width, right_corner)
+
+
+def app_bracket(width, left, right):
+    if len(left) + len(right) >= (width - 1):
+        room_for_left = width - 1 - 1 - len(right)
+        left = "{}…".format(left[0:room_for_left])
+    left_size = width - len(right)
+    content = "{:<{left_size}}{}".format(left, right, left_size=left_size)
+    return "{}│{}│\n".format(" " * 10, content)
+
+
 class HumanReadableDisplay(Display):
     """
     Format output as a string meant to be human readable.
@@ -87,30 +112,21 @@ class HumanReadableDisplay(Display):
             # In quiet mode just show the names.
             self.out += " ".join([app.get_name() for app in apps])
 
-    def show_app_map(self, apps, start_address):
-        def choose(b, t, f):
-            if b:
-                return t
-            return f
+    def show_app_map_from_address(self, apps, start_address):
+        """
+        Print a layout map of apps assuming they are located back-to-back
+        starting from `start_address`. Example:
 
-        def start_of_app(width, address):
-            return "{:>#10x}┬{}┐\n".format(address, "─" * width)
-
-        def end_of_app(width, address, continuing):
-            left_corner = choose(continuing, "┼", "┴")
-            right_corner = choose(continuing, "┤", "┘")
-            return "{:>#10x}{}{}{}\n".format(
-                address, left_corner, "─" * width, right_corner
-            )
-
-        def app_bracket(width, left, right):
-            if len(left) + len(right) >= (width - 1):
-                room_for_left = width - 1 - 1 - len(right)
-                left = "{}…".format(left[0:room_for_left])
-            left_size = width - len(right)
-            content = "{:<{left_size}}{}".format(left, right, left_size=left_size)
-            return "{}│{}│\n".format(" " * 10, content)
-
+        ```
+        0x30000┬──────────────────────────────────────────────────┐
+               │App: blink                             [Installed]│
+               │  Length: 16384 (0x4000)                          │
+        0x34000┼──────────────────────────────────────────────────┤
+               │App: blink                             [Installed]│
+               │  Length: 16384 (0x4000)                          │
+        0x3c000┴──────────────────────────────────────────────────┘
+        ```
+        """
         out = ""
         address = start_address
         for i, app in enumerate(apps):
@@ -133,6 +149,54 @@ class HumanReadableDisplay(Display):
 
             out += app_bracket(50, "  Length: {} ({:#x})".format(size, size), "")
             out += end_of_app(50, address, continuing)
+
+        self.out += out
+
+    def show_app_map_actual_address(self, apps):
+        """
+        Show a map of installed applications with known addresses. Example:
+
+        ```
+        0x30000┬──────────────────────────────────────────────────┐
+               │App: blink                             [Installed]│
+               │  Length: 16384 (0x4000)                          │
+        0x34000┴──────────────────────────────────────────────────┘
+        0x38000┬──────────────────────────────────────────────────┐
+               │App: blink                             [Installed]│
+               │  Length: 16384 (0x4000)                          │
+        0x3c000┴──────────────────────────────────────────────────┘
+        ```
+        """
+
+        out = ""
+        prev_address = -1
+        for i, app in enumerate(apps):
+            size = app.get_size()
+            active_address = app.get_address()
+
+            if active_address != prev_address:
+                out += start_of_app(50, active_address)
+
+            if isinstance(app, TabApp):
+                title = "App: {}".format(app.get_name())
+                out += app_bracket(50, title, "[From TAB]")
+            elif isinstance(app, InstalledApp):
+                title = "App: {}".format(app.get_name())
+                out += app_bracket(50, title, "[Installed]")
+            elif isinstance(app, PaddingApp):
+                out += app_bracket(50, "Padding", "")
+            out += app_bracket(50, "  Length: {} ({:#x})".format(size, size), "")
+
+            prev_address = active_address + size
+
+            # Check if the next app starts at the address the current app ends
+            # at.
+            immediately_after = False
+            if i < len(apps) - 1:
+                next_address = apps[i + 1].get_address()
+                immediately_after = prev_address == next_address
+
+            out += end_of_app(50, prev_address, immediately_after)
 
         self.out += out
 

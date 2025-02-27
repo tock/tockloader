@@ -796,6 +796,11 @@ def main():
         help="Specify a specific JLink via serial number. Useful when multiple JLinks are connected to the same machine.",
     )
     parent_channel.add_argument(
+        "--openocd-serial-number",
+        default=None,
+        help="Specify a specific board via serial number when using OpenOCD. Useful when multiple identical boards are connected.",
+    )
+    parent_channel.add_argument(
         "--openocd-board", help="The cfg file in OpenOCD `board` folder."
     )
     parent_channel.add_argument(

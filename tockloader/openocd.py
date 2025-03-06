@@ -31,6 +31,9 @@ class OpenOCD(BoardInterface):
         # Command can be passed in as an argument, otherwise use default.
         self.openocd_cmd = getattr(self.args, "openocd_cmd")
 
+        # Store the serial number if provided
+        self.openocd_serial_number = getattr(self.args, "openocd_serial_number")
+
     def attached_board_exists(self):
         # Get a list of attached devices, check if that list has at least
         # one entry.
@@ -132,8 +135,14 @@ class OpenOCD(BoardInterface):
         # Defaults.
         prefix = ""
         source = "source [find board/{board}];".format(board=self.openocd_board)
+
         cmd_prefix = "init; reset init; halt;"
         cmd_suffix = ""
+        serial_no_cmd = ""
+
+        # Add serial number specification if provided
+        if hasattr(self, "openocd_serial_number") and self.openocd_serial_number:
+            serial_no_cmd = "adapter serial {};".format(self.openocd_serial_number)
 
         # Do the customizations
         if "workareazero" in self.openocd_options:
@@ -151,12 +160,15 @@ class OpenOCD(BoardInterface):
         if exit:
             cmd_suffix += "exit"
 
-        command_param = "{prefix} {source} {cmd_prefix} {cmd} {cmd_suffix}".format(
-            prefix=prefix,
-            source=source,
-            cmd_prefix=cmd_prefix,
-            cmd="; ".join(commands),
-            cmd_suffix=cmd_suffix,
+        command_param = (
+            "{prefix} {serial_no_cmd} {source} {cmd_prefix} {cmd} {cmd_suffix}".format(
+                prefix=prefix,
+                serial_no_cmd=serial_no_cmd,
+                source=source,
+                cmd_prefix=cmd_prefix,
+                cmd="; ".join(commands),
+                cmd_suffix=cmd_suffix,
+            )
         )
 
         return (

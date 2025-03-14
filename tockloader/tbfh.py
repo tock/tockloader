@@ -527,7 +527,7 @@ class TBFTLVPersistentACL(TBFTLV):
 
         # Need at least `write_id` (4B), `num_read_ids` (2B) and
         # `num_access_ids` (2B).
-        if len(buffer) > 8:
+        if len(buffer) >= 8:
             self.write_id = struct.unpack("<I", buffer[0:4])[0]
             buffer = buffer[4:]
 
@@ -615,12 +615,16 @@ class TBFTLVPersistentACL(TBFTLV):
             if index > 0:
                 out += "  {:<20}:".format("")
             out += " {:>10} {:>#12x}\n".format(read_id, read_id)
+        if len(self.read_ids) == 0:
+            out += "\n"
         # Modify IDs
         out += "  {:<20}:".format("Modify IDs ({})".format(len(self.access_ids)))
         for index, access_id in enumerate(self.access_ids):
             if index > 0:
                 out += "  {:<20}:".format("")
             out += " {:>10} {:>#12x}\n".format(access_id, access_id)
+        if len(self.access_ids) == 0:
+            out += "\n"
         return out
 
     def object(self):

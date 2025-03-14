@@ -8,6 +8,7 @@ import Crypto
 from Crypto.Signature import pkcs1_15
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA512, SHA256, HMAC
+import ecdsa
 
 from .exceptions import TockLoaderException
 
@@ -1535,7 +1536,8 @@ class TBFFooterTLVCredentials(TBFTLV):
     CREDENTIALS_TYPE_SHA256 = 0x03
     CREDENTIALS_TYPE_SHA384 = 0x04
     CREDENTIALS_TYPE_SHA512 = 0x05
-    CREDENTIALS_TYPE_HMACSHA256 = 0x06
+    CREDENTIALS_TYPE_ECDSAP256 = 0x06
+    CREDENTIALS_TYPE_HMACSHA256 = 0x07
     CREDENTIALS_TYPE_RSA2048 = 0x0A
     CREDENTIALS_TYPE_CLEARTEXTID = 0xF1
 
@@ -1592,6 +1594,12 @@ class TBFFooterTLVCredentials(TBFTLV):
                     self.valid = True
                 self.verify([], integrity_blob)
 
+            elif credentials_type == self.CREDENTIALS_TYPE_ECDSAP256:
+                self.credentials_type = self.CREDENTIALS_TYPE_ECDSAP256
+                self.buffer = buffer[4:]
+                if len(self.buffer) == 64:
+                    self.valid = True
+
             elif credentials_type == self.CREDENTIALS_TYPE_HMACSHA256:
                 self.credentials_type = self.CREDENTIALS_TYPE_HMACSHA256
                 self.buffer = buffer[4:]
@@ -1627,8 +1635,8 @@ class TBFFooterTLVCredentials(TBFTLV):
             "SHA256",
             "SHA384",
             "SHA512",
+            "ECDSAP256",
             "HMACSHA256",
-            "Unknown",
             "Unknown",
             "Unknown",
             "RSA2048",
@@ -1650,6 +1658,7 @@ class TBFFooterTLVCredentials(TBFTLV):
             "sha256": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA256,
             "sha384": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA384,
             "sha512": TBFFooterTLVCredentials.CREDENTIALS_TYPE_SHA512,
+            "ecdsap256": TBFFooterTLVCredentials.CREDENTIALS_TYPE_ECDSAP256,
             "hmac_sha256": TBFFooterTLVCredentials.CREDENTIALS_TYPE_HMACSHA256,
             "rsa2048": TBFFooterTLVCredentials.CREDENTIALS_TYPE_RSA2048,
         }
@@ -1685,6 +1694,24 @@ class TBFFooterTLVCredentials(TBFTLV):
             else:
                 self.verified = "no"
                 logging.warning("SHA512 hash in footer does not match binary.")
+
+        elif self.credentials_type == self.CREDENTIALS_TYPE_ECDSAP256:
+            logging.debug("Verifying the ECDSA-P256 credential.")
+
+            # Unpack the credential buffer.
+            signature = self.buffer[0:64]
+
+            # Try all keys to see if one matches. If no keys match then we can't
+            # verify this credential one way or another.
+            for i, key in enumerate(keys):
+                try:
+                    signature = key.verify(
+                        signature, integrity_blob, hashfunc=hashlib.sha256
+                    )
+                    self.verified = "yes"
+                except Exception as e:
+                    print(e)
+                    pass
 
         elif self.credentials_type == self.CREDENTIALS_TYPE_HMACSHA256:
             logging.debug("Verifying the HMAC-SHA256 credential.")
@@ -1844,6 +1871,8 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
             self.buffer = bytearray(96)
         elif self.credentials_type == self.CREDENTIALS_TYPE_SHA512:
             self.buffer = bytearray(128)
+        elif self.credentials_type == self.CREDENTIALS_TYPE_ECDSAP256:
+            self.buffer = bytearray(64)
         elif self.credentials_type == self.CREDENTIALS_TYPE_HMACSHA256:
             self.buffer = bytearray(64)
         elif self.credentials_type == self.CREDENTIALS_TYPE_RSA4096KEY:
@@ -1873,6 +1902,13 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
             self.buffer = hashlib.sha512(integrity_blob).digest()
             self.valid = True
             self.verified = "yes"
+        elif self.credentials_type == self.CREDENTIALS_TYPE_ECDSAP256:
+            # Load the private key from the .pem file.
+            pri_key = ecdsa.SigningKey.from_pem(private_key)
+            # Compute the signature.
+            signature = pri_key.sign(integrity_blob, hashfunc=hashlib.sha256)
+            # Store the signature.
+            self.buffer = signature
         elif self.credentials_type == self.CREDENTIALS_TYPE_HMACSHA256:
             self.buffer = hashlib.sha512(integrity_blob).digest()
             h = Crypto.Hash.HMAC.new(private_key, digestmod=Crypto.Hash.SHA256)
@@ -2089,7 +2125,12 @@ class TBFFooter:
                     key = Crypto.PublicKey.RSA.importKey(public_key)
                     keys.append(key)
                 except:
-                    keys.append(public_key)
+                    pass
+                try:
+                    key = ecdsa.VerifyingKey.from_pem(public_key)
+                    keys.append(key)
+                except:
+                    pass
 
         for tlv in self.tlvs:
             tlv.verify(keys, integrity_blob)

@@ -1293,6 +1293,7 @@ def main():
             "sha256",
             "sha384",
             "sha512",
+            "ecdsap256",
             "hmac_sha256",
             "rsa4096",
             "rsa2048",

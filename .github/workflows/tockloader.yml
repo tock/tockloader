@@ -19,6 +19,7 @@ jobs:
         python-version: 3.13
     - name: Install dependencies
       run: |
+        pip install setuptools
         python setup.py install
     - name: Run basic commands
       run: |

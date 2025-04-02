@@ -1,12 +1,12 @@
-argcomplete==3.2.2
+argcomplete==3.6.1
 colorama==0.4.6
 crcmod==1.7
 ecdsa==0.19.1
-pycryptodome==3.20.0
+pycryptodome==3.22.0
 pynrfjprog==10.19.0
 pyserial==3.5
-questionary==2.0.1
-setuptools==70.0.0
+questionary==2.1.0
+setuptools==68.2.2
 siphash==0.0.1
 toml==0.10.2
-tqdm==4.66.3
+tqdm==4.67.1

@@ -149,13 +149,50 @@ def list_attributes(self, attributes)
 Show the key value pairs for a list of attributes.
 
 
-### show\_app\_map
+### show\_app\_map\_actual\_address
 ```py
 
-def show_app_map(self, apps, start_address)
+def show_app_map_actual_address(self, apps)
 
 ```
 
+
+
+Show a map of installed applications with known addresses. Example:
+
+```
+0x30000┬──────────────────────────────────────────────────┐
+       │App: blink                             [Installed]│
+       │  Length: 16384 (0x4000)                          │
+0x34000┴──────────────────────────────────────────────────┘
+0x38000┬──────────────────────────────────────────────────┐
+       │App: blink                             [Installed]│
+       │  Length: 16384 (0x4000)                          │
+0x3c000┴──────────────────────────────────────────────────┘
+```
+
+
+### show\_app\_map\_from\_address
+```py
+
+def show_app_map_from_address(self, apps, start_address)
+
+```
+
+
+
+Print a layout map of apps assuming they are located back-to-back
+starting from `start_address`. Example:
+
+```
+0x30000┬──────────────────────────────────────────────────┐
+       │App: blink                             [Installed]│
+       │  Length: 16384 (0x4000)                          │
+0x34000┼──────────────────────────────────────────────────┤
+       │App: blink                             [Installed]│
+       │  Length: 16384 (0x4000)                          │
+0x3c000┴──────────────────────────────────────────────────┘
+```
 
 
 ### show\_board\_visual
@@ -337,5 +374,41 @@ def _width(self)
 ```
 
 
+
+
+
+### app\_bracket
+```py
+
+def app_bracket(width, left, right)
+
+```
+
+
+
+### choose
+```py
+
+def choose(b, t, f)
+
+```
+
+
+
+### end\_of\_app
+```py
+
+def end_of_app(width, address, continuing)
+
+```
+
+
+
+### start\_of\_app
+```py
+
+def start_of_app(width, address)
+
+```
 
 

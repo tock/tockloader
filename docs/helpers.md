@@ -16,7 +16,7 @@ This will also do the following conversions:
 ### \_\_init\_\_
 ```py
 
-def __init__(self, option_strings, dest, nargs=None, const=None, default=None, type=None, choices=None, required=False, help=None, metavar=None)
+def __init__(self, option_strings, dest, nargs=None, const=None, default=None, type=None, choices=None, required=False, help=None, metavar=None, deprecated=False)
 
 ```
 

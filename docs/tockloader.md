@@ -81,7 +81,7 @@ Print all info about this board.
 ### install
 ```py
 
-def install(self, tabs, replace='yes', erase=False, sticky=False)
+def install(self, tabs, replace='yes', erase=False, sticky=False, layout=None)
 
 ```
 
@@ -91,12 +91,13 @@ Add or update TABs on the board.
 
 - `replace` can be "yes", "no", or "only"
 - `erase` if true means erase all other apps before installing
+- `layout` is a layout string for specifying how apps should be installed
 
 
 ### list\_apps
 ```py
 
-def list_apps(self, verbose, quiet, verify_credentials_public_keys)
+def list_apps(self, verbose, quiet, map, verify_credentials_public_keys)
 
 ```
 
@@ -106,6 +107,7 @@ Query the chip's flash to determine which apps are installed.
 
 - `verbose` - bool: Show details about TBF.
 - `quiet` - bool: Just show the app name.
+- `map` - bool: Show a diagram listing apps with addresses.
 - `verify_credentials_public_keys`: Either `None`, meaning do not verify
   any credentials, or a list of public keys binaries to use to help
   verify credentials. The list can be empty and all credentials that can

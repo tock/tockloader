@@ -192,13 +192,15 @@ knowing the device type of the MCU on the board.
 
     tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
                          --jlink --jlink-cmd [jlink_cmd] --jlink-device [device] \
-                         --jlink-speed [speed] --jlink-if [if]
+                         --jlink-speed [speed] --jlink-if [if] \
+                         --jlink-serial-number [serial_number]
 
 - `jlink_cmd`: The JLink executable to invoke. Defaults to `JLinkExe` on
   Mac/Linux, and `JLink` on Windows.
 - `device`: The JLinkExe device identifier.
 - `speed`: The speed value to pass to JLink. Defaults to 1200.
 - `if`: The interface to pass to JLink.
+- `serial-number`: The serial number of the target board to use with JLink.
 
 Tockloader can also do JTAG using OpenOCD. OpenOCD needs to know which config
 file to use.
@@ -287,6 +289,22 @@ operation based on the requirements of a particular hardware platform.
   bundle using only a single flash command. This will require that anytime any
   app changes in any way (e.g. its header changes or the app is updated or a new
   app is installed) all apps are re-written.
+- `--layout`: Specify exactly how apps and padding apps should be written to the
+  board. This implies `--erase` and `--force` as all existing (even sticky) apps
+  will be removed.
+
+    The layout is specified as a string of how apps from TBFs and padding apps
+    should be written to the board. The syntax for the layout uses the following
+    identifiers:
+
+    - `T`: indicates to install a TBF app.
+    - `p<size>`: indicates to install a padding app of `<size>` bytes.
+
+    For example `--layout Tp1024TT` specifies to install the first app at the
+    `app-address`, then install a 1024 byte padding app, then install the second
+    app, then install the third app. No board-specific alignment or sizing will
+    be used; the apps will be installed exactly as described. It can be helpful
+    to use `tockloader list --map` to view how the apps were actually installed.
 
 Credentials and Integrity Support
 ---------------------------------

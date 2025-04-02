@@ -15,6 +15,18 @@ def __init__(self, tbfh, address)
 Create a `InstalledPaddingApp` from an extracted TBFH.
 
 
+### get\_address
+```py
+
+def get_address(self)
+
+```
+
+
+
+Get the address of where on the board this padding app is.
+
+
 ### get\_binary
 ```py
 
@@ -62,6 +74,31 @@ def get_tbfh(self)
 
 
 Return the TBF header.
+
+
+### has\_app\_binary
+```py
+
+def has_app_binary(self)
+
+```
+
+
+
+We can always return the binary for a padding app, so we can always
+return true.
+
+
+### has\_fixed\_addresses
+```py
+
+def has_fixed_addresses(self)
+
+```
+
+
+
+A padding app is not an executable so can be placed anywhere.
 
 
 ### info
@@ -119,7 +156,7 @@ Representation of a placeholder app that is only padding between other apps.
 ### \_\_init\_\_
 ```py
 
-def __init__(self, size)
+def __init__(self, size, address=None)
 
 ```
 
@@ -127,6 +164,18 @@ def __init__(self, size)
 
 Create a `PaddingApp` based on the amount of size needing in the
 padding.
+
+
+### get\_address
+```py
+
+def get_address(self)
+
+```
+
+
+
+Get the address of where on the board this padding app is.
 
 
 ### get\_binary
@@ -176,6 +225,31 @@ def get_tbfh(self)
 
 
 Return the TBF header.
+
+
+### has\_app\_binary
+```py
+
+def has_app_binary(self)
+
+```
+
+
+
+We can always return the binary for a padding app, so we can always
+return true.
+
+
+### has\_fixed\_addresses
+```py
+
+def has_fixed_addresses(self)
+
+```
+
+
+
+A padding app is not an executable so can be placed anywhere.
 
 
 ### info

@@ -557,6 +557,41 @@ def command_tbf_credential_delete(args):
                 tab.update_tbf(app)
 
 
+def command_tbf_convert(args):
+    tabs = collect_tabs(args)
+
+    if len(tabs) == 0:
+        raise TockLoaderException("No TABs found to inspect")
+
+    if len(tabs) > 1:
+        tab_names = [tab.get_app_name() for tab in tabs]
+        index = helpers.menu_new(
+            tab_names + ["None"],
+            return_type="index",
+            title="Which TAB to use to convert a TBF?",
+        )
+        if index >= len(tabs):
+            return
+        tab = tabs[index]
+    else:
+        tab = tabs[0]
+
+    # Ask the user if they want to see more detail about a certain TBF.
+    tbf_names = tab.get_tbf_names()
+    index = helpers.menu_new(
+        tbf_names + ["None"],
+        return_type="index",
+        title="Which TBF to convert?",
+    )
+    if index >= len(tbf_names):
+        return
+
+    app = tab.extract_tbf(tbf_names[index])
+
+    converted = app.convert(args.format)
+    print(converted)
+
+
 def command_dump_flash_page(args):
     tock_loader = TockLoader(args)
     tock_loader.open()
@@ -1342,6 +1377,26 @@ def main():
     tbf_credential_delete.add_argument(
         "tab", help="The TAB or TABs to modify", nargs="*"
     )
+
+    #################
+    ## TBF CONVERT ##
+    #################
+
+    tbf_convert = tbf_subparser.add_parser(
+        "convert",
+        parents=[parent],
+        help="Commands for converting TBFs into different formats",
+    )
+
+    tbf_convert.set_defaults(func=command_tbf_convert)
+    tbf_convert.add_argument(
+        "format",
+        help="Output format",
+        choices=[
+            "cbinary",
+        ],
+    )
+    tbf_convert.add_argument("tab", help="The TAB or TABs to modify", nargs="*")
 
     ###########
     ## TICKV ##

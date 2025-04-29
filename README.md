@@ -134,6 +134,10 @@ Interact with TLV structures within a TBF.
 
 Add and remove credentials in the TBF footer.
 
+#### `tockloader tbf convert [output format]`
+
+Convert a TBF to a different format.
+
 #### `tockloader tickv get|append|invalidate|dump|cleanup|reset [key] [value]`
 
 Interact with a TicKV key-value database.

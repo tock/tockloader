@@ -407,6 +407,47 @@ class TabApp:
         else:
             raise ("Only valid for one TBF file.")
 
+    def convert(self, format):
+        """
+        Convert a TAB-based app to a different format. Valid formats:
+        - `cbinary`: Create a C struct with a binary representation of the app.
+
+        This is only valid if there is one TBF file.
+        """
+
+        def trim_trailing_zeroes(b):
+            for i in range(len(b) - 1, 0, -1):
+                if b[i] != 0x0:
+                    return b[0 : i + 1]
+
+        def format_data_strings(b):
+            def chunked(source, size):
+                for i in range(0, len(source), size):
+                    yield source[i : i + size]
+
+            out = "{"
+            rows = []
+            for chunk in chunked(b, 10):
+                row = ["0x{:02x}".format(c) for c in chunk]
+                rows.append(", ".join(row))
+            return "{{{}}}".format(",\n   ".join(rows))
+
+        if format == "cbinary":
+            output = """
+struct tock_app app = {{
+  "{name}",
+  {length},
+  {data},
+}};
+"""
+            name = self.get_name()
+            binary = self.get_binary(0)
+            length = len(binary)
+            trimmed = trim_trailing_zeroes(binary)
+            data = format_data_strings(trimmed)
+            out = output.format(name=name, length=length, data=data)
+            return out
+
     def get_names_and_binaries(self):
         """
         Return (filename, binary) tuples for each contained TBF. This is for

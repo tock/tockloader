@@ -49,6 +49,21 @@ def add_tbfh_tlv(self, tlvid, parameters)
 Add a particular TLV to each TBF's header.
 
 
+### convert
+```py
+
+def convert(self, format)
+
+```
+
+
+
+Convert a TAB-based app to a different format. Valid formats:
+- `cbinary`: Create a C struct with a binary representation of the app.
+
+This is only valid if there is one TBF file.
+
+
 ### corrupt\_tbf
 ```py
 

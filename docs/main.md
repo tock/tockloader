@@ -190,6 +190,15 @@ def command_sticky_app(args)
 
 
 
+### command\_tbf\_convert
+```py
+
+def command_tbf_convert(args)
+
+```
+
+
+
 ### command\_tbf\_credential\_add
 ```py
 

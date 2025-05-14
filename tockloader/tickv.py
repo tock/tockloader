@@ -369,7 +369,7 @@ class TicKV:
 
     def _reset(self):
         db_len = len(self.storage_binary)
-        self.storage_binary = bytearray(b"\xFF" * db_len)
+        self.storage_binary = bytearray(b"\xff" * db_len)
 
         # Add the known initialize key, value. I don't know what this key
         # is from, but it is the standard.

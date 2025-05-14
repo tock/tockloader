@@ -20,7 +20,7 @@ let
     ];
 
     propagatedBuildInputs = with pkgs; [
-      segger-jlink libusb
+      segger-jlink libusb1
     ];
 
     installPhase = ''
@@ -74,7 +74,9 @@ let
   });
 in pkgs.python3Packages.buildPythonPackage rec {
   pname = "tockloader";
-  version = "1.10.0";
+  version = let
+      pattern = "^__version__ = ['\"]([^'\"]*)['\"]\n";
+    in elemAt (match pattern (readFile ./tockloader/_version.py)) 0;
   name = "${pname}-${version}";
 
   propagatedBuildInputs = with python3Packages; [
@@ -87,6 +89,7 @@ in pkgs.python3Packages.buildPythonPackage rec {
     questionary
     pycrypto
     siphash
+    ecdsa
   ] ++ (lib.optional withUnfreePkgs pynrfjprog);
 
   src = ./.;

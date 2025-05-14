@@ -384,10 +384,18 @@ directory:
     python3 -m tockloader.main <COMMANDS>
 
 
+### Build and Install Locally
+
+    pipx install build
+    pyproject-build
+    pipx install .
+
 ### Upload to PyPI
 
-    python3 setup.py sdist bdist_wheel
-    twine upload dist/*
+    pipx install build
+    pipx install flit
+    pyproject-build
+    flit publish
 
 
 ### Build Docs

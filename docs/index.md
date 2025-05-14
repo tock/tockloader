@@ -134,6 +134,10 @@ Interact with TLV structures within a TBF.
 
 Add and remove credentials in the TBF footer.
 
+#### `tockloader tbf convert [output format]`
+
+Convert a TBF to a different format.
+
 #### `tockloader tickv get|append|invalidate|dump|cleanup|reset [key] [value]`
 
 Interact with a TicKV key-value database.
@@ -380,10 +384,18 @@ directory:
     python3 -m tockloader.main <COMMANDS>
 
 
+### Build and Install Locally
+
+    pipx install build
+    pyproject-build
+    pipx install .
+
 ### Upload to PyPI
 
-    python3 setup.py sdist bdist_wheel
-    twine upload dist/*
+    pipx install build
+    pipx install flit
+    pyproject-build
+    flit publish
 
 
 ### Build Docs

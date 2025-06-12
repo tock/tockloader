@@ -1624,8 +1624,15 @@ class TBFFooterTLVCredentials(TBFTLV):
                     self.valid = True
 
             else:
-                logging.warning("Unknown credential type in TBF footer TLV.")
+                logging.warning(
+                    "Unknown credential type ({:#02x}) in TBF footer TLV.".format(
+                        credentials_type
+                    )
+                )
                 logging.warning("You might want to update tockloader.")
+
+                self.credentials_type = credentials_type
+                self.buffer = buffer[4:]
 
     def _credentials_type_to_str(self):
         names = [

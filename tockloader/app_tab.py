@@ -430,22 +430,25 @@ class TabApp:
             for chunk in chunked(b, 10):
                 row = ["0x{:02x}".format(c) for c in chunk]
                 rows.append(", ".join(row))
-            return "{{{}}}".format(",\n   ".join(rows))
+            return "{}".format(",\n   ".join(rows))
 
         if format == "cbinary":
             output = """
-struct tock_app app = {{
-  "{name}",
-  {length},
-  {data},
+const unsigned char {name}_embed[] = {{
+   {data}
 }};
+const size_t {name}_embed_size = {length};
+const size_t {name}_embed_actual_size = {trimmed_length};
 """
             name = self.get_name()
             binary = self.get_binary(0)
             length = len(binary)
             trimmed = trim_trailing_zeroes(binary)
+            trimmed_length = len(trimmed)
             data = format_data_strings(trimmed)
-            out = output.format(name=name, length=length, data=data)
+            out = output.format(
+                name=name, length=length, data=data, trimmed_length=trimmed_length
+            )
             return out
 
     def get_names_and_binaries(self):

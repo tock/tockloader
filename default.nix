@@ -79,6 +79,12 @@ in pkgs.python3Packages.buildPythonPackage rec {
     in elemAt (match pattern (readFile ./tockloader/_version.py)) 0;
   name = "${pname}-${version}";
 
+  pyproject = true;
+
+  nativeBuildInputs = with python3Packages; [
+    flit
+  ];
+
   propagatedBuildInputs = with python3Packages; [
     argcomplete
     colorama

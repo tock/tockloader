@@ -74,6 +74,7 @@ let
   });
 in pkgs.python3Packages.buildPythonPackage rec {
   pname = "tockloader";
+  pyproject = true;
   version = let
       pattern = "^__version__ = ['\"]([^'\"]*)['\"]\n";
     in elemAt (match pattern (readFile ./tockloader/_version.py)) 0;
@@ -90,6 +91,7 @@ in pkgs.python3Packages.buildPythonPackage rec {
     pycrypto
     siphash
     ecdsa
+    flit-core
   ] ++ (lib.optional withUnfreePkgs pynrfjprog);
 
   src = ./.;
@@ -98,8 +100,7 @@ in pkgs.python3Packages.buildPythonPackage rec {
   doCheck = withUnfreePkgs;
 
   # Make other dependencies explicitly available as passthru attributes
-  passthru = {
-    inherit nrf-command-line-tools;
-    pynrfjprog = python3Packages.pynrfjprog;
-  };
+  passthru = if withUnfreePkgs then {
+      inherit pynrfjprog nrf-command-line-tools;
+    } else { };
 }

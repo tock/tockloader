@@ -104,8 +104,8 @@ in pkgs.python3Packages.buildPythonPackage rec {
   doCheck = withUnfreePkgs;
 
   # Make other dependencies explicitly available as passthru attributes
-  passthru = {
+  passthru = if withUnfreePkgs then {
     inherit nrf-command-line-tools;
     pynrfjprog = python3Packages.pynrfjprog;
-  };
+  } else { };
 }

@@ -109,6 +109,60 @@ class BootloaderSerial(BoardInterface):
         # local data structure to hold them.
         self.attributes = ["uncached"] * 16
 
+    def _find_nrf_vcom0_pynrfjprog(self, jlink_cdc_ports):
+        index = None
+
+        try:
+           import pynrfjprog
+           from pynrfjprog import LowLevel
+
+           api = pynrfjprog.LowLevel.API()
+           if not api.is_open():
+               api.open()
+
+           vcom0_path = None
+           jtag_emulators = api.enum_emu_con_info()
+           for jtag_emulator in jtag_emulators:
+               jtag_emulator_ports = api.enum_emu_com_ports(
+                   jtag_emulator.serial_number
+               )
+               for jtag_emulator_port in jtag_emulator_ports:
+                   # We want to see VCOM == 0
+                   if jtag_emulator_port.vcom == 0:
+                       vcom0_path = jtag_emulator_port.path
+                       break
+               # Only support one connected nRF52840dk for now.
+               break
+
+           if vcom0_path != None:
+               # On mac, the nrfjprog tool uses the /dev/tty* paths,
+               # and we need the /dev/cu* paths. We just hack in a
+               # substitution here which will only have an effect on
+               # the mac paths.
+               vcom0_path_standarized = vcom0_path.replace(
+                   "/dev/tty.usbmodem", "/dev/cu.usbmodem"
+               )
+
+               # Update list of ports to just the one we found for
+               # VCOM0.
+               ports = [p for p in ports if vcom0_path_standarized in p.device]
+               index = 0
+               logging.info(
+                   'Discovered "{}" as nRF52840dk VCOM0.'.format(
+                       vcom0_path_standarized
+                   )
+               )
+
+           # Must close this to end the underlying pynrfjprog process.
+           # Otherwise on my machine it sits at 100% CPU.
+           api.close()
+       except:
+           # Any error with nrfjprog we just don't use this
+           # optimization.
+           pass
+
+       return index
+
     def _determine_port(self, any=False):
         """
         Helper function to determine which serial port on the host to use to
@@ -206,55 +260,14 @@ class BootloaderSerial(BoardInterface):
             # ```
             jlink_cdc_ports = [p for p in ports if "J-Link - CDC" in p.description]
             if len(jlink_cdc_ports) == 2:
-                # It looks like the user has the nRF52840dk connected.
-                try:
-                    import pynrfjprog
-                    from pynrfjprog import LowLevel
+                # It looks like the user has the nRF52840dk connected. Try
+                # determining the serial port to use using pynrfjprog:
+                index = _find_nrf_vcom0_pynrfjprog(jlink_cdc_ports)
 
-                    api = pynrfjprog.LowLevel.API()
-                    if not api.is_open():
-                        api.open()
-
-                    vcom0_path = None
-                    jtag_emulators = api.enum_emu_con_info()
-                    for jtag_emulator in jtag_emulators:
-                        jtag_emulator_ports = api.enum_emu_com_ports(
-                            jtag_emulator.serial_number
-                        )
-                        for jtag_emulator_port in jtag_emulator_ports:
-                            # We want to see VCOM == 0
-                            if jtag_emulator_port.vcom == 0:
-                                vcom0_path = jtag_emulator_port.path
-                                break
-                        # Only support one connected nRF52840dk for now.
-                        break
-
-                    if vcom0_path != None:
-                        # On mac, the nrfjprog tool uses the /dev/tty* paths,
-                        # and we need the /dev/cu* paths. We just hack in a
-                        # substitution here which will only have an effect on
-                        # the mac paths.
-                        vcom0_path_standarized = vcom0_path.replace(
-                            "/dev/tty.usbmodem", "/dev/cu.usbmodem"
-                        )
-
-                        # Update list of ports to just the one we found for
-                        # VCOM0.
-                        ports = [p for p in ports if vcom0_path_standarized in p.device]
-                        index = 0
-                        logging.info(
-                            'Discovered "{}" as nRF52840dk VCOM0.'.format(
-                                vcom0_path_standarized
-                            )
-                        )
-
-                    # Must close this to end the underlying pynrfjprog process.
-                    # Otherwise on my machine it sits at 100% CPU.
-                    api.close()
-                except:
-                    # Any error with nrfjprog we just don't use this
-                    # optimization.
-                    pass
+                # And if the above fails, try this same lookup with the
+                # `nrfjprog` CLI tool:
+                if index is None:
+                    index = _find_nrf_vcom0_nrfjprogcli(jlink_cdc_ports)
 
             # Continue searching if our special-case discovery did not find
             # anything.

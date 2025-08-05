@@ -1,3 +1,4 @@
+appdirs==1.4.4
 argcomplete==3.6.1
 colorama==0.4.6
 crcmod==1.7
@@ -10,4 +11,3 @@ setuptools==78.1.1
 siphash==0.0.1
 toml==0.10.2
 tqdm==4.67.1
-xdg-base-dirs==6.0.2

@@ -7,7 +7,7 @@ import atexit
 import logging
 import os
 
-import xdg_base_dirs
+import appdirs
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
@@ -19,9 +19,9 @@ class FlashFile(BoardInterface):
     """
 
     VIRTUAL_BOARD_NAME_PATH = os.path.join(
-        xdg_base_dirs.xdg_data_home(), "tockloader", "tockloader-virtual-board-v1"
+        appdirs.user_data_dir("tockloader", "Tock"), "tockloader-virtual-board-v1"
     )
-    VIRTUAL_BOARD_IMG_PATH = os.path.join(xdg_base_dirs.xdg_data_home(), "tockloader")
+    VIRTUAL_BOARD_IMG_PATH = appdirs.user_data_dir("tockloader", "Tock")
 
     def __init__(self, args):
         super().__init__(args)

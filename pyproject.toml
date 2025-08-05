@@ -11,6 +11,7 @@ license-files = ["LICENSE"]
 dynamic = ["version", "description"]
 requires-python = ">= 3.9"
 dependencies = [
+    "appdirs >= 1.4.4",
     "argcomplete >= 1.8.2",
     "colorama >= 0.3.7",
     "crcmod >= 1.7",
@@ -22,8 +23,7 @@ dependencies = [
     "six >= 1.9.0",
     "toml >= 0.10.2",
     "tqdm >= 4.45.0 ",
-    "questionary >= 1.10.0",
-    "xdg-base-dirs >= 6.0.2"
+    "questionary >= 1.10.0"
 ]
 
 [project.urls]

@@ -25,6 +25,7 @@ import argcomplete
 import crcmod
 
 from . import helpers
+from . import tockloader
 from .exceptions import TockLoaderException
 from .tab import TAB
 from .tickv import TicKV, TockTicKV
@@ -412,6 +413,22 @@ def command_inspect_tab(args):
                     textwrap.indent(helpers.print_flash(0, app.get_binary(0)), "    ")
                 )
         print("")
+
+
+def command_set_virtual_board(args):
+    board_name = args.board[0]
+
+    if tockloader.is_known_board(board_name):
+        pass
+    else:
+        logging.error(f"Board {board_name} is not a known board.")
+        logging.error(
+            "Use tockloader list-known-boards to see the list of known boards"
+        )
+        raise TockLoaderException("Unknown board.")
+
+    logging.status(f"Setting the default virtual board to '{board_name}'")
+    tockloader.set_virtual_board(board_name)
 
 
 def command_tbf_tlv_delete(args):
@@ -1235,6 +1252,14 @@ def main():
         "--tbf-binary", help="Dump the entire TBF binary", action="store_true"
     )
     inspect_tab.add_argument("tab", help="The TAB or TABs to inspect", nargs="*")
+
+    set_virtual_board = subparser.add_parser(
+        "set-virtual-board",
+        parents=[parent],
+        help="Define a default virtual (i.e., flash-file) board",
+    )
+    set_virtual_board.set_defaults(func=command_set_virtual_board)
+    set_virtual_board.add_argument("board", help="The known board name to use", nargs=1)
 
     #########
     ## TBF ##

@@ -126,6 +126,10 @@ Print which boards tockloader has default settings for built-in.
 
 Set the jump address the bootloader uses for the location of the kernel.
 
+#### `tockloader set-virtual-board [board]`
+
+Set the name of the board to use with a local binary file instead of hardware.
+
 #### `tockloader tbf tlv add|modify|delete [TLVNAME]`
 
 Interact with TLV structures within a TBF.
@@ -153,7 +157,8 @@ it tries several options:
    serial connection to a
    [tock-bootloader](https://github.com/tock/tock-bootloader/) on the board.
 
-2. Use `JLinkExe` and `OpenOCD` to discover known boards.
+2. Use `JLinkExe`, `OpenOCD`, `STLink`, or the default virtual board to discover
+   known boards.
 
 3. Use the `--board` command line flag and a list of known boards.
 
@@ -259,6 +264,14 @@ of a board. The file can then be loaded separately onto a board.
 
 - `filepath`: The file to use as the flash contents. Will be created if it
   doesn't exist.
+
+Tockloader can use a flash file by default. This is particularly helpful for
+virtual, QEMU-based boards. You can set the default virtual board to use:
+
+    tockloader set-virtual-board [board]
+
+Then, tockloader commands will use a virtual image file for all operations that
+interact with a board.
 
 
 Example Usage

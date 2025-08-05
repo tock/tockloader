@@ -7,6 +7,8 @@ import atexit
 import logging
 import os
 
+import xdg_base_dirs
+
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
 
@@ -16,10 +18,16 @@ class FlashFile(BoardInterface):
     Implementation of `BoardInterface` for flash files.
     """
 
+    VIRTUAL_BOARD_NAME_PATH = os.path.join(
+        xdg_base_dirs.xdg_data_home(), "tockloader", "tockloader-virtual-board-v1"
+    )
+    VIRTUAL_BOARD_IMG_PATH = os.path.join(xdg_base_dirs.xdg_data_home(), "tockloader")
+
     def __init__(self, args):
         super().__init__(args)
 
-        # Store the passed filepath
+        # Store the passed filepath. If we are auto-discovering the board from
+        # a know location on the user's filesystem, then this will be None.
         self.filepath = args.flash_file
 
         # Boards should limit the file size to match their flash. However, we
@@ -27,6 +35,25 @@ class FlashFile(BoardInterface):
         # `--flash-file` flag, so we set a cap at 128 MB. If a future Tock board
         # needs more than that...well we can revisit this then.
         self.max_size = 0x8000000
+
+    def attached_board_exists(self):
+        # For the flash file we are looking for a file with the
+        # name "tockloader-virtual-board-v1". If that file exists then we use
+        # the name of the board stored in the file as the "attached board".
+        return os.path.exists(self.VIRTUAL_BOARD_NAME_PATH)
+
+    def open_link_to_board(self):
+        """
+        Open a link to the board by opening the flash file for reading and
+        writing.
+        """
+        if self.filepath == None:
+            board = ""
+            with open(self.VIRTUAL_BOARD_NAME_PATH, "r") as f:
+                board = f.read()
+
+            self.board = board
+            self.filepath = os.path.join(self.VIRTUAL_BOARD_IMG_PATH, f"{board}.bin")
 
         # Load custom settings for the flash-file from the board definition.
         if self.board and self.board in self.KNOWN_BOARDS:
@@ -38,15 +65,12 @@ class FlashFile(BoardInterface):
                 self.max_size = flash_file_opts["max_size"]
 
         # Log the most important, finalized settings to the user
-        logging.info('Operating on flash file "{}".'.format(self.filepath))
+        if self.filepath != None:
+            logging.info('Operating on flash file "{}".'.format(self.filepath))
         if self.max_size != None:
             logging.info("Limiting flash size to {:#x} bytes.".format(self.max_size))
+        self._configure_from_known_boards()
 
-    def open_link_to_board(self):
-        """
-        Open a link to the board by opening the flash file for reading and
-        writing.
-        """
         try:
             # We want to preserve the flash contents in the file.
             self.file_handle = open(self.filepath, "r+b")
@@ -94,3 +118,13 @@ class FlashFile(BoardInterface):
         # flash, it's fine to just set the single byte at the specified address
         # to zero.
         self.flash_binary(address, bytes([0]))
+
+
+def set_virtual_board(board):
+    p = FlashFile.VIRTUAL_BOARD_NAME_PATH
+
+    # Make directory if needed
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+
+    with open(p, "w") as f:
+        f.write(board)

@@ -19,6 +19,7 @@ import time
 
 from . import helpers
 from . import display
+from . import flash_file
 from .app_installed import InstalledApp
 from .app_padding import PaddingApp
 from .app_padding import InstalledPaddingApp
@@ -246,6 +247,12 @@ class TockLoader:
                 if serial_channel.attached_board_exists():
                     self.channel = serial_channel
                     logging.info("Using serial channel to communicate with the board.")
+                    break
+
+                flash_file_channel = FlashFile(self.args)
+                if flash_file_channel.attached_board_exists():
+                    self.channel = flash_file_channel
+                    logging.info("Using flash-file to communicate with the board.")
                     break
 
                 # If we get here we were unable to connect to a board and a
@@ -1874,3 +1881,11 @@ class TockLoader:
         else:
             # In quiet mode just show the names.
             print(" ".join([app.get_name() for app in apps]))
+
+
+def is_known_board(board):
+    return BoardInterface.is_known_board(board)
+
+
+def set_virtual_board(board):
+    flash_file.set_virtual_board(board)

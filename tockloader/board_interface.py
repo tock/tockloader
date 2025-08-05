@@ -370,6 +370,12 @@ class BoardInterface:
         # methods need. There may be flags specific to a particular
         # communication interface.
 
+    def is_known_board(board):
+        """
+        Check if the board name is a known board.
+        """
+        return board in BoardInterface.KNOWN_BOARDS.keys()
+
     def translate_address(self, address):
         """
         Translate an address from MCU address space to the address required for

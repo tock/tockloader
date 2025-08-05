@@ -71,6 +71,7 @@ class TockLoader:
     #
     # Options
     # -------
+    # - `flash_address`:   The absolute address in flash where flash starts.
     # - `start_address`:   The absolute address in flash where apps start and
     #                      must be loaded.
     # - `order`:           How apps should be sorted when flashed onto the board.
@@ -124,7 +125,10 @@ class TockLoader:
             },
             "nucleof4": {"start_address": 0x08040000},
             "microbit_v2": {"start_address": 0x00040000},
-            "qemu_rv32_virt": {"start_address": 0x80100000},
+            "qemu_rv32_virt": {
+                "flash_address": 0x80000000,
+                "start_address": 0x80100000,
+            },
             "stm32f3discovery": {"start_address": 0x08020000},
             "stm32f4discovery": {
                 "start_address": 0x08040000,
@@ -1007,7 +1011,7 @@ class TockLoader:
         # Otherwise check for the bootloader flag in the flash.
 
         # Constants for the bootloader flag
-        address = 0x400
+        address = self._get_flash_start_address() + 0x400
         length = 14
         flag = self.channel.read_range(address, length)
         flag_str = flag.decode("utf-8", "ignore")
@@ -1097,6 +1101,18 @@ class TockLoader:
         # Lastly we default to what was configured using the
         # `TOCKLOADER_APP_SETTINGS` variable.
         return self.app_settings["start_address"]
+
+    def _get_flash_start_address(self):
+        """
+        Return the address where flash starts.
+        """
+
+        # Check if the board set this address to a particular value.
+        if self.app_settings["start_address"]:
+            return self.app_settings["start_address"]
+
+        # In the default case flash starts at address 0.
+        return 0
 
     def _get_memory_start_address(self):
         """

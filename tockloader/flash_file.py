@@ -29,7 +29,7 @@ class FlashFile(BoardInterface):
 
         # Store the passed filepath. If we are auto-discovering the board from
         # a know location on the user's filesystem, then this will be None.
-        self.filepath = args.flash_file
+        self.filepath = getattr(args, "flash_file", None)
 
         # Boards should limit the file size to match their flash. However, we
         # don't want users to accidentally create gigantic files using the
@@ -86,6 +86,9 @@ class FlashFile(BoardInterface):
                 self.file_handle.close()
 
         atexit.register(file_handle_cleanup)
+
+    def get_local_board_path(self):
+        return self.filepath
 
     def translate_address(self, address):
         # For the flash file, we start the flash file at the beginning of flash

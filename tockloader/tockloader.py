@@ -1898,3 +1898,12 @@ def set_local_board(board, arch=None, app_address=None, flash_address=None):
 
 def unset_local_board():
     flash_file.unset_local_board()
+
+
+def get_local_board_path():
+    flash_file_channel = FlashFile(None)
+    if flash_file_channel.attached_board_exists():
+        flash_file_channel.open_link_to_board()
+        return flash_file_channel.get_local_board_path()
+    else:
+        return ""

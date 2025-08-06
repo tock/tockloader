@@ -415,7 +415,7 @@ def command_inspect_tab(args):
         print("")
 
 
-def command_set_local_board(args):
+def command_local_board_set(args):
     board_name = args.board[0]
 
     if tockloader.is_known_board(board_name):
@@ -444,9 +444,15 @@ def command_set_local_board(args):
     )
 
 
-def command_unset_local_board(args):
+def command_local_board_unset(args):
     logging.status("Unsetting any defined local board")
     tockloader.unset_local_board()
+
+
+def command_local_board_path(args):
+    # Disable logging for this command
+    logging.getLogger("").setLevel(1000)
+    print(tockloader.get_local_board_path())
 
 
 def command_tbf_tlv_delete(args):
@@ -1271,35 +1277,60 @@ def main():
     )
     inspect_tab.add_argument("tab", help="The TAB or TABs to inspect", nargs="*")
 
-    set_local_board = subparser.add_parser(
-        "set-local-board",
+    #################
+    ## LOCAL BOARD ##
+    #################
+
+    local_board = subparser.add_parser(
+        "local-board",
+        help="Commands for interacting with local files as board flash",
+    )
+    local_board_subparser = local_board.add_subparsers(
+        title="Commands", metavar="            ", dest="subcommand"
+    )
+
+    ## SET
+
+    local_board_set = local_board_subparser.add_parser(
+        "set",
         parents=[parent],
         help="Define a default local (i.e., flash-file) board",
     )
-    set_local_board.set_defaults(func=command_set_local_board)
-    set_local_board.add_argument("board", help="The board name to use", nargs=1)
-    set_local_board.add_argument(
+    local_board_set.set_defaults(func=command_local_board_set)
+    local_board_set.add_argument("board", help="The board name to use", nargs=1)
+    local_board_set.add_argument(
         "--arch",
         default=None,
         help="Architecture of the target board.",
     )
-    set_local_board.add_argument(
+    local_board_set.add_argument(
         "--app-address",
         help="Address where apps are located",
         type=lambda x: int(x, 0),
     )
-    set_local_board.add_argument(
+    local_board_set.add_argument(
         "--flash-address",
         help="Address where flash starts",
         type=lambda x: int(x, 0),
     )
 
-    unset_local_board = subparser.add_parser(
-        "unset-local-board",
+    ## UNSET
+
+    local_board_unset = local_board_subparser.add_parser(
+        "unset",
         parents=[parent],
         help="Undefine a default local (i.e., flash-file) board",
     )
-    unset_local_board.set_defaults(func=command_unset_local_board)
+    local_board_unset.set_defaults(func=command_local_board_unset)
+
+    # PATH
+
+    local_board_path = local_board_subparser.add_parser(
+        "path",
+        parents=[parent],
+        help="Get the path to the local (i.e., flash-file) board's binary",
+    )
+    local_board_path.set_defaults(func=command_local_board_path)
 
     #########
     ## TBF ##

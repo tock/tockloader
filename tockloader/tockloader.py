@@ -72,7 +72,6 @@ class TockLoader:
     #
     # Options
     # -------
-    # - `flash_address`:   The absolute address in flash where flash starts.
     # - `start_address`:   The absolute address in flash where apps start and
     #                      must be loaded.
     # - `order`:           How apps should be sorted when flashed onto the board.
@@ -127,7 +126,6 @@ class TockLoader:
             "nucleof4": {"start_address": 0x08040000},
             "microbit_v2": {"start_address": 0x00040000},
             "qemu_rv32_virt": {
-                "flash_address": 0x80000000,
                 "start_address": 0x80100000,
             },
             "stm32f3discovery": {"start_address": 0x08020000},
@@ -1018,7 +1016,7 @@ class TockLoader:
         # Otherwise check for the bootloader flag in the flash.
 
         # Constants for the bootloader flag
-        address = self._get_flash_start_address() + 0x400
+        address = self._convert_offset_to_absolute_flash_address(0x400)
         length = 14
         flag = self.channel.read_range(address, length)
         flag_str = flag.decode("utf-8", "ignore")
@@ -1097,13 +1095,12 @@ class TockLoader:
             self.apps_start_address = cmdline_app_address
             return cmdline_app_address
 
-        # Next we check if the attached board has an attribute that can tell us.
+        # Next we check if the attached board can tell us.
         if self.channel:
-            attributes = self.channel.get_all_attributes()
-            for attribute in attributes:
-                if attribute and attribute["key"] == "appaddr":
-                    self.apps_start_address = int(attribute["value"], 0)
-                    return self.apps_start_address
+            channel_apps_start_address = self.channel.get_apps_start_address()
+            if channel_apps_start_address:
+                self.apps_start_address = channel_apps_start_address
+                return channel_apps_start_address
 
         # Lastly we default to what was configured using the
         # `TOCKLOADER_APP_SETTINGS` variable.
@@ -1114,9 +1111,11 @@ class TockLoader:
         Return the address where flash starts.
         """
 
-        # Check if the board set this address to a particular value.
-        if self.app_settings["start_address"]:
-            return self.app_settings["start_address"]
+        # Check if the attached board can tell us.
+        if self.channel:
+            channel_flash_address = self.channel.get_flash_address()
+            if channel_flash_address:
+                return channel_flash_address
 
         # In the default case flash starts at address 0.
         return 0
@@ -1150,6 +1149,12 @@ class TockLoader:
             return self.app_settings["app_ram_address"]
         else:
             return None
+
+    def _convert_offset_to_absolute_flash_address(self, offset):
+        """
+        Compute the absolute flash address for an offset for the attached board.
+        """
+        return self._get_flash_start_address() + offset
 
     ############################################################################
     ## Helper Functions for Shared Code
@@ -1887,5 +1892,5 @@ def is_known_board(board):
     return BoardInterface.is_known_board(board)
 
 
-def set_virtual_board(board):
-    flash_file.set_virtual_board(board)
+def set_local_board(board, arch=None, app_address=None, flash_address=None):
+    flash_file.set_local_board(board, arch, app_address, flash_address)

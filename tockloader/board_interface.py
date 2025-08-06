@@ -140,11 +140,7 @@ class BoardInterface:
         "litex_arty": {
             "description": "LiteX SoC running on an Arty-A7 board",
             "arch": "rv32imc",
-            # Tockloader is currently only supported through the flash file
-            # board interface. The file being operated on is loaded into RAM by
-            # the LiteX bootloader into the main SDRAM. This does the address
-            # translation to the memory-mapped SDRAM bus address.
-            "address_translator": lambda addr: addr - 0x40000000,
+            "flash_address": 0x40000000,
             "no_attribute_table": True,
             "flash_file": {
                 # Set to the maximum RAM size, as the LiteX bootloader will
@@ -166,13 +162,12 @@ class BoardInterface:
             "description": "VeeR EL2 running on Verilated simulation",
             "arch": "rv32imc",
             "no_attribute_table": True,
-            "address_translator": lambda addr: addr - 0x20000000,
+            "flash_address": 0x20000000,
         },
         "qemu_rv32_virt": {
             "description": "QEMU RISC-V 32 bit virt Platform",
             "arch": "rv32imac",
-            # The QEMU-provided binary will be loaded at address 0x80000000
-            "address_translator": lambda addr: addr - 0x80000000,
+            "flash_address": 0x80000000,
             "no_attribute_table": True,
             "flash_file": {
                 # Size of the ROM and PROG region combined, where the resulting
@@ -291,7 +286,7 @@ class BoardInterface:
             "arch": "rv32imc",
             "page_size": 512,
             "no_attribute_table": True,
-            "address_translator": lambda addr: addr - 0x20000000,
+            "flash_address": 0x20000000,
             "flash_file": {
                 # Set to the maximum flash size.
                 "max_size": 0x00100000,
@@ -302,7 +297,7 @@ class BoardInterface:
             "arch": "rv32imc",
             "page_size": 512,
             "no_attribute_table": True,
-            "address_translator": lambda addr: addr - 0x20010000,
+            "flash_address": 0x20010000,
             "flash_file": {
                 # Set to the half of maximum flash size, to keep image sizes smaller
                 # (also ensures room for data at end of flash).
@@ -336,6 +331,7 @@ class BoardInterface:
         # Set defaults.
         self.no_attribute_table = False  # We assume this is a full tock board.
         self.address_translator = None
+        self.flash_address = None
 
         # Next try to use `KNOWN_BOARDS`.
         self._configure_from_known_boards()
@@ -365,6 +361,8 @@ class BoardInterface:
                 self.no_attribute_table = board["no_attribute_table"]
             if self.address_translator == None and "address_translator" in board:
                 self.address_translator = board["address_translator"]
+            if self.flash_address == None and "flash_address" in board:
+                self.flash_address = board["flash_address"]
 
         # This init only includes the generic settings that all communication
         # methods need. There may be flags specific to a particular
@@ -511,6 +509,29 @@ class BoardInterface:
         # This is only valid if there is a bootloader and this function is
         # re-implemented.
         raise TockLoaderException("No bootloader, cannot set start address.")
+
+    def get_apps_start_address(self):
+        """
+        Return the address in flash where apps start.
+        """
+        if hasattr(self, "app_address") and self.app_address:
+            return self.app_address
+        else:
+            attributes = self.get_all_attributes()
+            for attribute in attributes:
+                if attribute and attribute["key"] == "appaddr":
+                    return int(attribute["value"], 0)
+
+        # Or, if we don't know, return None
+        return None
+
+    def get_flash_address(self):
+        """
+        Return the address where flash starts.
+        """
+        if self.flash_address:
+            return self.flash_address
+        return None
 
     def _decode_attribute(self, raw):
         try:

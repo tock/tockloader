@@ -126,7 +126,7 @@ Print which boards tockloader has default settings for built-in.
 
 Set the jump address the bootloader uses for the location of the kernel.
 
-#### `tockloader set-virtual-board [board]`
+#### `tockloader set-local-board [board]`
 
 Set the name of the board to use with a local binary file instead of hardware.
 
@@ -266,9 +266,20 @@ of a board. The file can then be loaded separately onto a board.
   doesn't exist.
 
 Tockloader can use a flash file by default. This is particularly helpful for
-virtual, QEMU-based boards. You can set the default virtual board to use:
+virtual, QEMU-based boards, or other boards that do not support fine-grained
+reading and writing. You can set the default local board to use:
 
-    tockloader set-virtual-board [board]
+    tockloader set-local-board [board]
+
+If the board you are using is new or not a known board in tockloader, you can
+manually specifying the necessary parameters:
+
+    tockloader set-local-board [board] --arch [arch] --app-address [address] --flash-address [address]
+
+- `board`: Name of the board you want to use.
+- `arch`: Name of the architecture the board uses.
+- `app-address`: The flash address where apps start.
+- `flash-address`: The address where flash starts.
 
 Then, tockloader commands will use a virtual image file for all operations that
 interact with a board.

@@ -415,20 +415,33 @@ def command_inspect_tab(args):
         print("")
 
 
-def command_set_virtual_board(args):
+def command_set_local_board(args):
     board_name = args.board[0]
 
     if tockloader.is_known_board(board_name):
         pass
     else:
-        logging.error(f"Board {board_name} is not a known board.")
-        logging.error(
-            "Use tockloader list-known-boards to see the list of known boards"
-        )
-        raise TockLoaderException("Unknown board.")
+        # If this is not a known board we must have the necessary values to
+        # understand how to create the local file.
+        if args.arch == None or args.app_address == None or args.flash_address == None:
+            logging.error(f"Board {board_name} is not a known board.")
+            logging.error("You must include --arch, --app-address, and --flash-address")
+            logging.error(
+                "Or, use tockloader list-known-boards to see the list of known boards"
+            )
+            raise TockLoaderException("Unknown board.")
 
-    logging.status(f"Setting the default virtual board to '{board_name}'")
-    tockloader.set_virtual_board(board_name)
+    logging.status(f"Setting the default local board to '{board_name}'")
+    if args.arch:
+        logging.status(f"  Using arch {args.arch}")
+    if args.app_address:
+        logging.status(f"  Using app_address {args.app_address:#02x}")
+    if args.flash_address:
+        logging.status(f"  Using flash_address {args.flash_address:#02x}")
+
+    tockloader.set_local_board(
+        board_name, args.arch, args.app_address, args.flash_address
+    )
 
 
 def command_tbf_tlv_delete(args):
@@ -1253,13 +1266,28 @@ def main():
     )
     inspect_tab.add_argument("tab", help="The TAB or TABs to inspect", nargs="*")
 
-    set_virtual_board = subparser.add_parser(
-        "set-virtual-board",
+    set_local_board = subparser.add_parser(
+        "set-local-board",
         parents=[parent],
-        help="Define a default virtual (i.e., flash-file) board",
+        help="Define a default local (i.e., flash-file) board",
     )
-    set_virtual_board.set_defaults(func=command_set_virtual_board)
-    set_virtual_board.add_argument("board", help="The known board name to use", nargs=1)
+    set_local_board.set_defaults(func=command_set_local_board)
+    set_local_board.add_argument("board", help="The board name to use", nargs=1)
+    set_local_board.add_argument(
+        "--arch",
+        default=None,
+        help="Architecture of the target board.",
+    )
+    set_local_board.add_argument(
+        "--app-address",
+        help="Address where apps are located",
+        type=lambda x: int(x, 0),
+    )
+    set_local_board.add_argument(
+        "--flash-address",
+        help="Address where flash starts",
+        type=lambda x: int(x, 0),
+    )
 
     #########
     ## TBF ##

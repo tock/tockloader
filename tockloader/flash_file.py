@@ -4,6 +4,7 @@ proper board, but can be used to manipulate a board's flash dump.
 """
 
 import atexit
+import json
 import logging
 import os
 
@@ -18,10 +19,10 @@ class FlashFile(BoardInterface):
     Implementation of `BoardInterface` for flash files.
     """
 
-    VIRTUAL_BOARD_NAME_PATH = os.path.join(
-        appdirs.user_data_dir("tockloader", "Tock"), "tockloader-virtual-board-v1"
+    LOCAL_BOARD_NAME_PATH = os.path.join(
+        appdirs.user_data_dir("tockloader", "Tock"), "tockloader-local-board-v1"
     )
-    VIRTUAL_BOARD_IMG_PATH = appdirs.user_data_dir("tockloader", "Tock")
+    LOCAL_BOARD_IMG_PATH = appdirs.user_data_dir("tockloader", "Tock")
 
     def __init__(self, args):
         super().__init__(args)
@@ -38,9 +39,9 @@ class FlashFile(BoardInterface):
 
     def attached_board_exists(self):
         # For the flash file we are looking for a file with the
-        # name "tockloader-virtual-board-v1". If that file exists then we use
+        # name "tockloader-local-board-v1". If that file exists then we use
         # the name of the board stored in the file as the "attached board".
-        return os.path.exists(self.VIRTUAL_BOARD_NAME_PATH)
+        return os.path.exists(self.LOCAL_BOARD_NAME_PATH)
 
     def open_link_to_board(self):
         """
@@ -48,12 +49,14 @@ class FlashFile(BoardInterface):
         writing.
         """
         if self.filepath == None:
-            board = ""
-            with open(self.VIRTUAL_BOARD_NAME_PATH, "r") as f:
-                board = f.read()
+            with open(self.LOCAL_BOARD_NAME_PATH, "r") as f:
+                local_board = json.load(f)
 
-            self.board = board
-            self.filepath = os.path.join(self.VIRTUAL_BOARD_IMG_PATH, f"{board}.bin")
+            for k, v in local_board.items():
+                if k == "filepath":
+                    self.filepath = os.path.join(self.LOCAL_BOARD_IMG_PATH, v)
+                else:
+                    setattr(self, k, v)
 
         # Load custom settings for the flash-file from the board definition.
         if self.board and self.board in self.KNOWN_BOARDS:
@@ -83,6 +86,16 @@ class FlashFile(BoardInterface):
                 self.file_handle.close()
 
         atexit.register(file_handle_cleanup)
+
+    def translate_address(self, address):
+        # For the flash file, we start the flash file at the beginning of flash
+        # and continue as needed. The argument `address` is an absolute address,
+        # so we need to convert it to an offset from the beginning of the file.
+        flash_address = self.get_flash_address()
+        if flash_address == None:
+            logging.info("Assuming flash_address is 0x0.")
+            flash_address = 0
+        return address - flash_address
 
     def flash_binary(self, address, binary):
         # Write the passed binary data to the given address. This will
@@ -120,11 +133,19 @@ class FlashFile(BoardInterface):
         self.flash_binary(address, bytes([0]))
 
 
-def set_virtual_board(board):
-    p = FlashFile.VIRTUAL_BOARD_NAME_PATH
+def set_local_board(board, arch=None, app_address=None, flash_address=None):
+    p = FlashFile.LOCAL_BOARD_NAME_PATH
 
     # Make directory if needed
     os.makedirs(os.path.dirname(p), exist_ok=True)
 
+    local_board = {"board": board, "filepath": f"{board}.bin"}
+    if arch:
+        local_board["arch"] = arch
+    if app_address:
+        local_board["app_address"] = app_address
+    if flash_address:
+        local_board["flash_address"] = flash_address
+
     with open(p, "w") as f:
-        f.write(board)
+        json.dump(local_board, f)

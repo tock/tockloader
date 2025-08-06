@@ -444,6 +444,11 @@ def command_set_local_board(args):
     )
 
 
+def command_unset_local_board(args):
+    logging.status("Unsetting any defined local board")
+    tockloader.unset_local_board()
+
+
 def command_tbf_tlv_delete(args):
     tabs = collect_tabs(args)
 
@@ -1288,6 +1293,13 @@ def main():
         help="Address where flash starts",
         type=lambda x: int(x, 0),
     )
+
+    unset_local_board = subparser.add_parser(
+        "unset-local-board",
+        parents=[parent],
+        help="Undefine a default local (i.e., flash-file) board",
+    )
+    unset_local_board.set_defaults(func=command_unset_local_board)
 
     #########
     ## TBF ##

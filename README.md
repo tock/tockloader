@@ -130,6 +130,10 @@ Set the jump address the bootloader uses for the location of the kernel.
 
 Set the name of the board to use with a local binary file instead of hardware.
 
+#### `tockloader unset-local-board`
+
+Remove the board to use with a local binary file instead of hardware.
+
 #### `tockloader tbf tlv add|modify|delete [TLVNAME]`
 
 Interact with TLV structures within a TBF.
@@ -284,6 +288,9 @@ manually specifying the necessary parameters:
 Then, tockloader commands will use a virtual image file for all operations that
 interact with a board.
 
+You can reverse this with:
+
+    tockloader unset-local-board
 
 Example Usage
 -------------

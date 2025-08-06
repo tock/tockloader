@@ -149,3 +149,8 @@ def set_local_board(board, arch=None, app_address=None, flash_address=None):
 
     with open(p, "w") as f:
         json.dump(local_board, f)
+
+
+def unset_local_board():
+    p = FlashFile.LOCAL_BOARD_NAME_PATH
+    os.remove(p)

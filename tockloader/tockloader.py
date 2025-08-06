@@ -1894,3 +1894,7 @@ def is_known_board(board):
 
 def set_local_board(board, arch=None, app_address=None, flash_address=None):
     flash_file.set_local_board(board, arch, app_address, flash_address)
+
+
+def unset_local_board():
+    flash_file.unset_local_board()

@@ -857,6 +857,12 @@ def main():
         "--stlink", action="store_true", help="Use ST-Link tools to flash."
     )
     parent_channel.add_argument(
+        "--probers", action="store_true", help="Use probe-rs to flash."
+    )
+    parent_channel.add_argument(
+        "--local-board", action="store_true", help="Use a local binary file to flash."
+    )
+    parent_channel.add_argument(
         "--jtag-device",
         default="cortex-m0",
         help="The device type to pass to JLinkExe. Useful for initial commissioning. Deprecated. Use --jlink-device instead.",
@@ -908,6 +914,15 @@ def main():
     )
     parent_channel.add_argument(
         "--stflash-cmd", default="st-flash", help="The st-flash binary to invoke."
+    )
+    parent_channel.add_argument("--probers-board", help="The --chip for probe-rs.")
+    parent_channel.add_argument(
+        "--probers-cmd", default="probe-rs", help="The probe-rs binary to invoke."
+    )
+    parent_channel.add_argument(
+        "--probers-probe",
+        default=None,
+        help="Specify a specific probe when using probe-rs.",
     )
     parent_channel.add_argument(
         "--flash-file",

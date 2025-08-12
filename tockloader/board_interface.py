@@ -304,6 +304,16 @@ class BoardInterface:
                 "max_size": 0x00070000,
             },
         },
+        "cy8cproto_62_4343_w": {
+            "description": "Infineon board based on the PSoC 62xA SoC",
+            "arch": "cortex-m0",
+            "flash_address": 0x10000000,
+            "no_attribute_table": True,
+            "probers": {"chip": "CY8C624AAZI-S2D44"},
+            "flash_file": {
+                "flush_command": "probe-rs download {binary} --binary-format bin --base-address 0x10000000 --chip CY8C624AAZI-S2D44",
+            },
+        },
     }
 
     def __init__(self, args):

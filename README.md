@@ -134,6 +134,10 @@ Set the name of the board to use with a local binary file instead of hardware.
 
 Remove the board to use with a local binary file instead of hardware.
 
+#### `tockloader local-board flush`
+
+Write the local binary file to the hardware board.
+
 #### `tockloader tbf tlv add|modify|delete [TLVNAME]`
 
 Interact with TLV structures within a TBF.
@@ -278,12 +282,14 @@ reading and writing. You can set the default local board to use:
 If the board you are using is new or not a known board in tockloader, you can
 manually specifying the necessary parameters:
 
-    tockloader local-board set [board] --arch [arch] --app-address [address] --flash-address [address]
+    tockloader local-board set [board] --arch [arch] --app-address [address] --flash-address [address] --flush-command [command]
 
 - `board`: Name of the board you want to use.
 - `arch`: Name of the architecture the board uses.
 - `app-address`: The flash address where apps start.
 - `flash-address`: The address where flash starts.
+- `flush-command`: The command to write the file to the board. Use `{binary}` to
+  specify where the file path should go in the command.
 
 Then, tockloader commands will use a virtual image file for all operations that
 interact with a board.

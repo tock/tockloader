@@ -75,6 +75,8 @@ class FlashFile(BoardInterface):
 
             if "max_size" in flash_file_opts:
                 self.max_size = flash_file_opts["max_size"]
+            if "flush_command" in flash_file_opts:
+                self.flush_command = flash_file_opts["flush_command"]
 
         # Log the most important, finalized settings to the user
         if self.filepath != None:
@@ -153,6 +155,8 @@ class FlashFile(BoardInterface):
             if subp.stderr and debug:
                 logging.debug(subp.stderr.decode("utf-8"))
 
+        logging.debug(f'Running command "{command}"')
+
         p = subprocess.run(
             shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
@@ -168,7 +172,7 @@ class FlashFile(BoardInterface):
     def flush(self):
         # Write the local board binary file to the board.
         file_path_arg = f"'{self.filepath}'"
-        flush_command = self.flush_command.format(bin=file_path_arg)
+        flush_command = self.flush_command.format(binary=file_path_arg)
         self._run_flush_command(flush_command)
 
 

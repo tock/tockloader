@@ -438,9 +438,11 @@ def command_local_board_set(args):
         logging.status(f"  Using app_address {args.app_address:#02x}")
     if args.flash_address:
         logging.status(f"  Using flash_address {args.flash_address:#02x}")
+    if args.flush_command:
+        logging.status(f'  Using flush_command "{args.flush_command}"')
 
     tockloader.set_local_board(
-        board_name, args.arch, args.app_address, args.flash_address
+        board_name, args.arch, args.app_address, args.flash_address, args.flush_command
     )
 
 
@@ -453,6 +455,11 @@ def command_local_board_path(args):
     # Disable logging for this command
     logging.getLogger("").setLevel(1000)
     print(tockloader.get_local_board_path())
+
+
+def command_local_board_flush(args):
+    logging.status(f"Flushing the local board binary file to the actual board")
+    tockloader.flush_local_board(args)
 
 
 def command_tbf_tlv_delete(args):
@@ -1313,6 +1320,10 @@ def main():
         help="Address where flash starts",
         type=lambda x: int(x, 0),
     )
+    local_board_set.add_argument(
+        "--flush-command",
+        help="Command to run to load the local file to the board",
+    )
 
     ## UNSET
 
@@ -1331,6 +1342,15 @@ def main():
         help="Get the path to the local (i.e., flash-file) board's binary",
     )
     local_board_path.set_defaults(func=command_local_board_path)
+
+    ## FLUSH
+
+    local_board_flush = local_board_subparser.add_parser(
+        "flush",
+        parents=[parent],
+        help="Flush the local board binary file to the hardware board",
+    )
+    local_board_flush.set_defaults(func=command_local_board_flush)
 
     #########
     ## TBF ##

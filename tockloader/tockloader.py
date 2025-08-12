@@ -1434,6 +1434,9 @@ class TockLoader:
                         )
                         continue
 
+                    logging.debug(
+                        f"Considering App {app.get_name()} (flash:{starting_address:#02x} size:{size:#02x})"
+                    )
                     app_slices.append([starting_address, size, i])
                 slices.append(app_slices)
 
@@ -1892,8 +1895,10 @@ def is_known_board(board):
     return BoardInterface.is_known_board(board)
 
 
-def set_local_board(board, arch=None, app_address=None, flash_address=None):
-    flash_file.set_local_board(board, arch, app_address, flash_address)
+def set_local_board(
+    board, arch=None, app_address=None, flash_address=None, flush_command=None
+):
+    flash_file.set_local_board(board, arch, app_address, flash_address, flush_command)
 
 
 def unset_local_board():
@@ -1907,3 +1912,9 @@ def get_local_board_path():
         return flash_file_channel.get_local_board_path()
     else:
         return ""
+
+
+def flush_local_board(args):
+    flash_file_channel = FlashFile(args)
+    flash_file_channel.open_link_to_board()
+    flash_file_channel.flush()

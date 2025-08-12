@@ -4,11 +4,13 @@ proper board, but can be used to manipulate a board's flash dump.
 """
 
 import atexit
-import json
 import logging
 import os
+import shlex
+import subprocess
 
 import appdirs
+import toml
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
@@ -37,6 +39,13 @@ class FlashFile(BoardInterface):
         # needs more than that...well we can revisit this then.
         self.max_size = 0x8000000
 
+        # Flash files almost certainly do not have bootloaders with an attribute
+        # table. They could, but we don't really need to query the parameters
+        # from that table because we should know it ourselves, since we would
+        # also be what wrote the bootloader and attribute table to the flash
+        # file.
+        self.no_attribute_table = True
+
     def attached_board_exists(self):
         # For the flash file we are looking for a file with the
         # name "tockloader-local-board-v1". If that file exists then we use
@@ -50,7 +59,7 @@ class FlashFile(BoardInterface):
         """
         if self.filepath == None:
             with open(self.LOCAL_BOARD_NAME_PATH, "r") as f:
-                local_board = json.load(f)
+                local_board = toml.load(f)
 
             for k, v in local_board.items():
                 if k == "filepath":
@@ -135,8 +144,37 @@ class FlashFile(BoardInterface):
         # to zero.
         self.flash_binary(address, bytes([0]))
 
+    def _run_flush_command(self, command):
+        # Try to execute the flush command for the user.
 
-def set_local_board(board, arch=None, app_address=None, flash_address=None):
+        def print_output(subp, debug):
+            if subp.stdout:
+                logging.info(subp.stdout.decode("utf-8"))
+            if subp.stderr and debug:
+                logging.debug(subp.stderr.decode("utf-8"))
+
+        p = subprocess.run(
+            shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        if p.returncode != 0:
+            logging.error(
+                "ERROR: Flush command returned with error code " + str(p.returncode)
+            )
+            print_output(p, logging.info)
+            raise TockLoaderException("Flush command error")
+        else:
+            print_output(p, self.args.debug)
+
+    def flush(self):
+        # Write the local board binary file to the board.
+        file_path_arg = f"'{self.filepath}'"
+        flush_command = self.flush_command.format(bin=file_path_arg)
+        self._run_flush_command(flush_command)
+
+
+def set_local_board(
+    board, arch=None, app_address=None, flash_address=None, flush_command=None
+):
     p = FlashFile.LOCAL_BOARD_NAME_PATH
 
     # Make directory if needed
@@ -149,9 +187,11 @@ def set_local_board(board, arch=None, app_address=None, flash_address=None):
         local_board["app_address"] = app_address
     if flash_address:
         local_board["flash_address"] = flash_address
+    if flush_command:
+        local_board["flush_command"] = flush_command
 
     with open(p, "w") as f:
-        json.dump(local_board, f)
+        toml.dump(local_board, f)
 
 
 def unset_local_board():

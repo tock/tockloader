@@ -55,6 +55,56 @@ class ProbeRs(BoardInterface):
                 "Unknown probe-rs board name. You must pass --probers-board."
             )
 
+    def _list_probes(self):
+        """
+        Return a list of board names that are attached to the host.
+        """
+        probers_command = f"{self.probers_cmd} --list"
+
+        # These are the magic strings in the output of probe-rs we are looking
+        # for.
+        magic_strings_boards = [
+            ("J-Link OB-SAM3U128-V2-NordicSemi", "nrf52dk"),
+            ("J-Link OB-nRF5340-NordicSemi", "nrf52dk"),
+        ]
+
+        probes = []
+
+        def print_output(subp):
+            response = ""
+            if subp.stdout:
+                response += subp.stdout.decode("utf-8")
+            if subp.stderr:
+                response += subp.stderr.decode("utf-8")
+            logging.info(response)
+            return response
+
+        try:
+            logging.debug('Running "{}".'.format(probers_command))
+            p = subprocess.run(
+                shlex.split(probers_command),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if self.args.debug:
+                print_output(p)
+
+            # Parse all output to look for a device.
+            stdouterr = p.stdout.decode("utf-8") + p.stderr.decode("utf-8")
+
+            for magic_string, board in magic_strings_boards:
+                if magic_string in stdouterr:
+                    probes.append(board)
+        except FileNotFoundError as e:
+            if self.args.debug:
+                logging.debug("probe-rs does not seem to exist.")
+                logging.debug(e)
+        except:
+            # Any other error just ignore...this is only for convenience.
+            pass
+
+        return probes
+
     def _gather_probers_cmdline(self, command, binary, write=True):
         """
         - `commands`: List of probe-rs commands. Use {binary} for where the name
@@ -103,29 +153,27 @@ class ProbeRs(BoardInterface):
 
         logging.debug('Running "{}".'.format(probers_command.replace("$", "\\$")))
 
-        def print_output(subp):
-            response = ""
-            if subp.stdout:
-                response += subp.stdout.decode("utf-8")
-            if subp.stderr:
-                response += subp.stderr.decode("utf-8")
-            logging.info(response)
-            return response
+        stderr = ""
+        with subprocess.Popen(
+            shlex.split(probers_command),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=1,
+            universal_newlines=True,
+        ) as p:
+            for line in p.stdout:
+                print(line, end="")
+            for line in p.stderr:
+                stderr += line
 
-        p = subprocess.run(
-            shlex.split(probers_command), stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
         if p.returncode != 0:
             logging.error(
                 "ERROR: probe-rs returned with error code " + str(p.returncode)
             )
-            out = print_output(p)
+            logging.info(stderr)
             raise TockLoaderException("probe-rs error")
         elif self.args.debug:
-            print_output(p)
-
-        # check that there was a JTAG programmer and that it found a device
-        stdout = p.stdout.decode("utf-8")
+            logging.debug(stderr)
 
         if write == False:
             # Wanted to read binary, so lets pull that

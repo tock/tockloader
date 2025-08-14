@@ -73,6 +73,8 @@ class FlashFile(BoardInterface):
             board = self.KNOWN_BOARDS[self.board]
             flash_file_opts = board["flash_file"] if "flash_file" in board else {}
 
+            if "flash_address" in flash_file_opts:
+                self.flash_address = flash_file_opts["flash_address"]
             if "max_size" in flash_file_opts:
                 self.max_size = flash_file_opts["max_size"]
             if "flush_command" in flash_file_opts:
@@ -110,6 +112,11 @@ class FlashFile(BoardInterface):
             logging.info("Assuming flash_address is 0x0.")
             flash_address = 0
         return address - flash_address
+
+    def get_flash_address(self):
+        if self.flash_address:
+            return self.flash_address
+        return None
 
     def flash_binary(self, address, binary):
         # Write the passed binary data to the given address. This will

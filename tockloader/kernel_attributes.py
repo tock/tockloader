@@ -8,6 +8,7 @@ import struct
 class KATLV:
     TYPE_APP_MEMORY = 0x0101
     TYPE_KERNEL_BINARY = 0x0102
+    TYPE_KERNEL_VERSION = 0x0103
 
     def get_tlvid(self):
         return self.TLVID
@@ -98,13 +99,67 @@ class KATLVKernelBinary(KATLV):
         }
 
 
+class KATLVKernelVersion(KATLV):
+    TLVID = KATLV.TYPE_KERNEL_VERSION
+    SIZE = 8
+
+    def __init__(self, buffer):
+        self.valid = False
+
+        if len(buffer) == 8:
+            base = struct.unpack("<HHhH", buffer)
+            self.kernel_version_major = base[0]
+            self.kernel_version_minor = base[1]
+            self.kernel_version_micro = base[2]
+            self.valid = True
+
+    def pack(self):
+        return struct.pack(
+            "<HHhHHH",
+            self.kernel_version_major,
+            self.kernel_version_minor,
+            self.kernel_version_micro,
+            0,
+            self.TLVID,
+            6,
+        )
+
+    def __str__(self):
+        out = "KATLV: Kernel Version ({:#x})\n".format(self.TLVID)
+
+        if self.kernel_version_micro >= 0:
+            end = f".{self.kernel_version_micro}"
+        else:
+            labels = ["", "-dev", "-alpha", "-beta"]
+            idx = self.kernel_version_micro * -1
+            if idx > 3:
+                end = f"-pre-release{idx}"
+            else:
+                end = labels[idx]
+
+        out += "  {:<20}: {}.{}{}".format(
+            "kernel_version", self.kernel_version_major, self.kernel_version_minor, end
+        )
+
+        return out
+
+    def object(self):
+        return {
+            "type": "kernel_version",
+            "id": self.TLVID,
+            "kernel_version_major": self.kernel_version_major,
+            "kernel_version_minor": self.kernel_version_minor,
+            "kernel_version_micro": self.kernel_version_micro,
+        }
+
+
 class KernelAttributes:
     """
     Represent attributes stored at the end of the kernel image that contain metadata
     about the installed kernel.
     """
 
-    KATLV_TYPES = [KATLVAppMemory, KATLVKernelBinary]
+    KATLV_TYPES = [KATLVAppMemory, KATLVKernelBinary, KATLVKernelVersion]
 
     def __init__(self, buffer, address):
         self.tlvs = []

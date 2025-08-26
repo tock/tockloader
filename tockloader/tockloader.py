@@ -1907,9 +1907,16 @@ def is_known_board(board):
 
 
 def set_local_board(
-    board, arch=None, app_address=None, flash_address=None, flush_command=None
+    board,
+    arch=None,
+    app_address=None,
+    flash_address=None,
+    flush_command=None,
+    binary_path=None,
 ):
-    flash_file.set_local_board(board, arch, app_address, flash_address, flush_command)
+    flash_file.set_local_board(
+        board, arch, app_address, flash_address, flush_command, binary_path
+    )
 
 
 def unset_local_board():

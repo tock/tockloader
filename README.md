@@ -282,7 +282,7 @@ reading and writing. You can set the default local board to use:
 If the board you are using is new or not a known board in tockloader, you can
 manually specifying the necessary parameters:
 
-    tockloader local-board set [board] --arch [arch] --app-address [address] --flash-address [address] --flush-command [command]
+    tockloader local-board set [board] --arch [arch] --app-address [address] --flash-address [address] --flush-command [command] --binary-path [path]
 
 - `board`: Name of the board you want to use.
 - `arch`: Name of the architecture the board uses.
@@ -290,6 +290,9 @@ manually specifying the necessary parameters:
 - `flash-address`: The address where flash starts.
 - `flush-command`: The command to write the file to the board. Use `{binary}` to
   specify where the file path should go in the command.
+- `binary-path`: Where the actual flash-file binary should be located. Optional.
+  If not provided defaults to a suitable tockloader application data
+  directory.
 
 Then, tockloader commands will use a virtual image file for all operations that
 interact with a board.

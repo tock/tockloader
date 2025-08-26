@@ -184,14 +184,25 @@ class FlashFile(BoardInterface):
 
 
 def set_local_board(
-    board, arch=None, app_address=None, flash_address=None, flush_command=None
+    board,
+    arch=None,
+    app_address=None,
+    flash_address=None,
+    flush_command=None,
+    binary_path=None,
 ):
     p = FlashFile.LOCAL_BOARD_NAME_PATH
 
     # Make directory if needed
     os.makedirs(os.path.dirname(p), exist_ok=True)
 
-    local_board = {"board": board, "filepath": f"{board}.bin"}
+    # We default to a binary file in the same appdir unless the user specified
+    # something else.
+    filepath = f"{board}.bin"
+    if binary_path:
+        filepath = os.path.abspath(binary_path)
+
+    local_board = {"board": board, "filepath": filepath}
     if arch:
         local_board["arch"] = arch
     if app_address:

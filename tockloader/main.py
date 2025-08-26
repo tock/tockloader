@@ -440,9 +440,16 @@ def command_local_board_set(args):
         logging.status(f"  Using flash_address {args.flash_address:#02x}")
     if args.flush_command:
         logging.status(f'  Using flush_command "{args.flush_command}"')
+    if args.binary_path:
+        logging.status(f'  Storing flash-file at "{args.binary_path}"')
 
     tockloader.set_local_board(
-        board_name, args.arch, args.app_address, args.flash_address, args.flush_command
+        board_name,
+        args.arch,
+        args.app_address,
+        args.flash_address,
+        args.flush_command,
+        args.binary_path,
     )
 
 
@@ -1320,6 +1327,11 @@ def main():
     )
     local_board_set.set_defaults(func=command_local_board_set)
     local_board_set.add_argument("board", help="The board name to use", nargs=1)
+    local_board_set.add_argument(
+        "--binary-path",
+        default=None,
+        help="Path to where the flash-file is stored.",
+    )
     local_board_set.add_argument(
         "--arch",
         default=None,

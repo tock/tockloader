@@ -79,6 +79,12 @@ in pkgs.python3Packages.buildPythonPackage rec {
     in elemAt (match pattern (readFile ./tockloader/_version.py)) 0;
   name = "${pname}-${version}";
 
+  pyproject = true;
+
+  nativeBuildInputs = with python3Packages; [
+    flit
+  ];
+
   propagatedBuildInputs = with python3Packages; [
     argcomplete
     colorama
@@ -98,8 +104,8 @@ in pkgs.python3Packages.buildPythonPackage rec {
   doCheck = withUnfreePkgs;
 
   # Make other dependencies explicitly available as passthru attributes
-  passthru = {
+  passthru = if withUnfreePkgs then {
     inherit nrf-command-line-tools;
     pynrfjprog = python3Packages.pynrfjprog;
-  };
+  } else { };
 }

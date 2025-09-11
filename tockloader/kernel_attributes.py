@@ -107,38 +107,39 @@ class KATLVKernelVersion(KATLV):
         self.valid = False
 
         if len(buffer) == 8:
-            base = struct.unpack("<HHhH", buffer)
+            base = struct.unpack("<HHHH", buffer)
             self.kernel_version_major = base[0]
             self.kernel_version_minor = base[1]
-            self.kernel_version_micro = base[2]
+            self.kernel_version_patch = base[2]
+            self.kernel_version_prerelease = base[3]
             self.valid = True
 
     def pack(self):
         return struct.pack(
-            "<HHhHHH",
+            "<HHHHHH",
             self.kernel_version_major,
             self.kernel_version_minor,
-            self.kernel_version_micro,
-            0,
+            self.kernel_version_patch,
+            self.kernel_version_prerelease,
             self.TLVID,
-            6,
+            8,
         )
 
     def __str__(self):
         out = "KATLV: Kernel Version ({:#x})\n".format(self.TLVID)
 
-        if self.kernel_version_micro >= 0:
-            end = f".{self.kernel_version_micro}"
+        labels = ["", "-dev", "-alpha", "-beta"]
+        if self.kernel_version_prerelease > 3:
+            end = f"-pre-release{self.kernel_version_prerelease}"
         else:
-            labels = ["", "-dev", "-alpha", "-beta"]
-            idx = self.kernel_version_micro * -1
-            if idx > 3:
-                end = f"-pre-release{idx}"
-            else:
-                end = labels[idx]
+            end = labels[self.kernel_version_prerelease]
 
-        out += "  {:<20}: {}.{}{}".format(
-            "kernel_version", self.kernel_version_major, self.kernel_version_minor, end
+        out += "  {:<20}: {}.{}.{}{}".format(
+            "kernel_version",
+            self.kernel_version_major,
+            self.kernel_version_minor,
+            self.kernel_version_patch,
+            end,
         )
 
         return out
@@ -149,7 +150,8 @@ class KATLVKernelVersion(KATLV):
             "id": self.TLVID,
             "kernel_version_major": self.kernel_version_major,
             "kernel_version_minor": self.kernel_version_minor,
-            "kernel_version_micro": self.kernel_version_micro,
+            "kernel_version_patch": self.kernel_version_patch,
+            "kernel_version_prerelease": self.kernel_version_prerelease,
         }
 
 

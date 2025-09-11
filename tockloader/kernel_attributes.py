@@ -265,3 +265,9 @@ class KernelAttributes:
             out += "\n".join(lines)
 
         return out
+
+    def object(self):
+        out = {"version": self.version, "attributes": []}
+        for tlv in self.tlvs:
+            out["attributes"].append(tlv.object())
+        return out

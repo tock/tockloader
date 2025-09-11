@@ -330,5 +330,8 @@ class JSONDisplay(Display):
     def bootloader_version(self, version):
         self.object["bootloader_version"] = version
 
+    def kernel_attributes(self, kern_attrs):
+        self.object["kernel_attributes"] = kern_attrs.object()
+
     def get(self):
         return json.dumps(self.object, indent=2)

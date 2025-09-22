@@ -116,6 +116,15 @@ def flash_binary(self, address, binary)
 Write a binary to the address given.
 
 
+### flush
+```py
+
+def flush(self)
+
+```
+
+
+
 ### get\_all\_attributes
 ```py
 
@@ -126,6 +135,18 @@ def get_all_attributes(self)
 
 
 Get all attributes on a board. Returns an array of attribute dicts.
+
+
+### get\_apps\_start\_address
+```py
+
+def get_apps_start_address(self)
+
+```
+
+
+
+Return the address in flash where apps start.
 
 
 ### get\_attribute
@@ -177,6 +198,18 @@ Return the version string of the bootloader. Should return a value
 like `0.5.0`, or `None` if it is unknown.
 
 
+### get\_flash\_address
+```py
+
+def get_flash_address(self)
+
+```
+
+
+
+Return the address where flash starts.
+
+
 ### get\_kernel\_version
 ```py
 
@@ -190,6 +223,15 @@ Return the kernel ABI version installed on the board. If the version
 cannot be determined, return `None`.
 
 
+### get\_local\_board\_path
+```py
+
+def get_local_board_path(self)
+
+```
+
+
+
 ### get\_page\_size
 ```py
 
@@ -200,6 +242,18 @@ def get_page_size(self)
 
 
 Return the size of the page in bytes for the connected board.
+
+
+### is\_known\_board
+```py
+
+def is_known_board(board)
+
+```
+
+
+
+Check if the board name is a known board.
 
 
 ### open\_link\_to\_board
@@ -334,5 +388,32 @@ def _decode_attribute(self, raw)
 ```
 
 
+
+### \_run\_flush\_command
+```py
+
+def _run_flush_command(self, command)
+
+```
+
+
+
+
+
+### set\_local\_board
+```py
+
+def set_local_board(board, arch=None, app_address=None, flash_address=None, flush_command=None, binary_path=None)
+
+```
+
+
+
+### unset\_local\_board
+```py
+
+def unset_local_board()
+
+```
 
 

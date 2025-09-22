@@ -368,6 +368,18 @@ Check if a bootloader exists on this board. It is specified by the
 string "TOCKBOOTLOADER" being at address 0x400.
 
 
+### \_convert\_offset\_to\_absolute\_flash\_address
+```py
+
+def _convert_offset_to_absolute_flash_address(self, offset)
+
+```
+
+
+
+Compute the absolute flash address for an offset for the attached board.
+
+
 ### \_extract\_all\_app\_headers
 ```py
 
@@ -410,6 +422,18 @@ def _get_apps_start_address(self)
 Return the address in flash where applications start on this platform.
 This might be set on the board itself, in the command line arguments
 to Tockloader, or just be the default.
+
+
+### \_get\_flash\_start\_address
+```py
+
+def _get_flash_start_address(self)
+
+```
+
+
+
+Return the address where flash starts.
 
 
 ### \_get\_memory\_start\_address
@@ -543,5 +567,50 @@ This uses the name of the board to update any hard-coded options about
 how Tockloader should function. This is a convenience mechanism, as it
 prevents users from having to pass them in through command line arguments.
 
+
+
+
+### flush\_local\_board
+```py
+
+def flush_local_board(args)
+
+```
+
+
+
+### get\_local\_board\_path
+```py
+
+def get_local_board_path()
+
+```
+
+
+
+### is\_known\_board
+```py
+
+def is_known_board(board)
+
+```
+
+
+
+### set\_local\_board
+```py
+
+def set_local_board(board, arch=None, app_address=None, flash_address=None, flush_command=None, binary_path=None)
+
+```
+
+
+
+### unset\_local\_board
+```py
+
+def unset_local_board()
+
+```
 
 

@@ -142,6 +142,42 @@ def command_listen(args)
 
 
 
+### command\_local\_board\_flush
+```py
+
+def command_local_board_flush(args)
+
+```
+
+
+
+### command\_local\_board\_path
+```py
+
+def command_local_board_path(args)
+
+```
+
+
+
+### command\_local\_board\_set
+```py
+
+def command_local_board_set(args)
+
+```
+
+
+
+### command\_local\_board\_unset
+```py
+
+def command_local_board_unset(args)
+
+```
+
+
+
 ### command\_read
 ```py
 

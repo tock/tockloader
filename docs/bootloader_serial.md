@@ -139,6 +139,18 @@ def get_all_attributes(self)
 Get all attributes on a board. Returns an array of attribute dicts.
 
 
+### get\_apps\_start\_address
+```py
+
+def get_apps_start_address(self)
+
+```
+
+
+
+Return the address in flash where apps start.
+
+
 ### get\_attribute
 ```py
 
@@ -188,6 +200,18 @@ Return the version string of the bootloader. Should return a value
 like `0.5.0`, or `None` if it is unknown.
 
 
+### get\_flash\_address
+```py
+
+def get_flash_address(self)
+
+```
+
+
+
+Return the address where flash starts.
+
+
 ### get\_kernel\_version
 ```py
 
@@ -211,6 +235,18 @@ def get_page_size(self)
 
 
 Return the size of the page in bytes for the connected board.
+
+
+### is\_known\_board
+```py
+
+def is_known_board(board)
+
+```
+
+
+
+Check if the board name is a known board.
 
 
 ### open\_link\_to\_board

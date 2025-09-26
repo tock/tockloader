@@ -175,10 +175,38 @@ class BootloaderSerial(BoardInterface):
         else:
             # Just find any port. If one, use that. If multiple, ask user.
             ports = list(serial.tools.list_ports.comports())
-            # Macs will report Bluetooth devices with serial, which is
-            # almost certainly never what you want, so drop those.
-            ports = [p for p in ports if "Bluetooth-Incoming-Port" not in p.device]
-            ports = [p for p in ports if "cu.BLTH" not in p.device]
+
+            # New and improved in September 2025!
+            #
+            # A couple things have changed over time since tockloader started:
+            #
+            # 1. Many fewer boards use the serial tock-bootloader for
+            #    programming. There are a couple, e.g., hail, imix, wm1110dev.
+            #    However, these are not widely used.
+            # 2. We now have many different ways to program boards, e.g.,
+            #    openocd, jlink, probe-rs, stlink, and via a flash-file binary.
+            # 3. Most users of this file (bootloader_serial) are using
+            #    `tockloader listen`.
+            # 4. More users are using windows.
+            #
+            # This means that tockloader's standard practice of trying to
+            # default to using a serial port is increasingly not useful. To try
+            # to balance utility with backwards compatibility, we are switching
+            # to a new mechanism for determining when to use a serial port. This
+            # has two parts:
+            #
+            # 1. We look for serial ports that match boards we recognize.
+            # 2. We ignore all serial ports that don't look like physical
+            #    hardware.
+            #
+            # The hope is this means tockloader still works for existing use
+            # cases, while not always trying to use miscellaneous serial ports
+            # present on a machine that are not actual boards.
+
+            # Drop all serial ports that do not have a PID and VID. This should
+            # ignore miscellaneous serial ports that are not actual boards.
+            ports = [p for p in ports if not p.vid == None]
+            ports = [p for p in ports if not p.pid == None]
             index = None
 
             if len(ports) == 0:
@@ -255,6 +283,30 @@ class BootloaderSerial(BoardInterface):
                     # Any error with nrfjprog we just don't use this
                     # optimization.
                     pass
+
+            # Attempt to find other known boards based on their serial port
+            # characteristics
+
+            # The wm1110dev board has an onboard USB-to-Serial adapter we use
+            # with the tock-bootloader. We don't have it re-programmed to
+            # include "tock" in the description, so we find it based on the
+            # description, VID, and PID.
+            wm1110dev_ports = [
+                p
+                for p in ports
+                if "USB Serial" in p.description and p.vid == 0x1A86 and p.pid == 0x7523
+            ]
+            if len(wm1110dev_ports) > 0:
+                logging.info("Found serial ports matching the wm1110dev board.")
+                if len(wm1110dev_ports) == 1:
+                    index = 0
+                else:
+                    # If multiple matches then ask the user to choose.
+                    index = helpers.menu(
+                        wm1110dev_ports,
+                        return_type="index",
+                        title="Multiple matching serial port options found. Which would you like to use?",
+                    )
 
             # Continue searching if our special-case discovery did not find
             # anything.

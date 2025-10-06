@@ -140,13 +140,15 @@ class ProbeRs(BoardInterface):
         else:
             temp_bin = None
 
-        specific_probe = ""
-
         # Add a specific probe if provided
+        specific_probe = ""
         if hasattr(self, "probers_probe") and self.probers_probe:
             specific_probe = "--probe {};".format(self.probers_probe)
 
-        return (f"{self.probers_cmd} {command} {specific_probe}", temp_bin)
+        return (
+            f"{self.probers_cmd} {command} --chip {self.probers_board} {specific_probe}",
+            temp_bin,
+        )
 
     def _run_probers_commands(self, command, binary, write=True):
         probers_command, temp_bin = self._gather_probers_cmdline(command, binary, write)

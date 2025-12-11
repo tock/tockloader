@@ -5,10 +5,9 @@ import struct
 import traceback
 
 import Crypto
-from Crypto.Signature import pkcs1_15
-from Crypto.PublicKey import RSA
+from Crypto.Signature import pkcs1_15, DSS
+from Crypto.PublicKey import RSA, ECC
 from Crypto.Hash import SHA512, SHA256, HMAC
-import ecdsa
 
 from .exceptions import TockLoaderException
 
@@ -1712,9 +1711,9 @@ class TBFFooterTLVCredentials(TBFTLV):
             # verify this credential one way or another.
             for i, key in enumerate(keys):
                 try:
-                    signature = key.verify(
-                        signature, integrity_blob, hashfunc=hashlib.sha256
-                    )
+                    hash = Crypto.Hash.SHA256.new(integrity_blob)
+                    Crypto.Signature.DSS.new(key, 'fips-186-3').verify(hash, signature)
+                    # Signature verified!
                     self.verified = "yes"
                 except Exception as e:
                     print(e)
@@ -1911,9 +1910,10 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
             self.verified = "yes"
         elif self.credentials_type == self.CREDENTIALS_TYPE_ECDSAP256:
             # Load the private key from the .pem file.
-            pri_key = ecdsa.SigningKey.from_pem(private_key)
+            pri_key = Crypto.PublicKey.ECC.import_key(private_key, curve_name="p256")
             # Compute the signature.
-            signature = pri_key.sign(integrity_blob, hashfunc=hashlib.sha256)
+            hash = Crypto.Hash.SHA256.new(integrity_blob)
+            signature = Crypto.Signature.DSS.new(pri_key, 'fips-186-3').sign(hash)
             # Store the signature.
             self.buffer = signature
         elif self.credentials_type == self.CREDENTIALS_TYPE_HMACSHA256:
@@ -2134,7 +2134,7 @@ class TBFFooter:
                 except:
                     pass
                 try:
-                    key = ecdsa.VerifyingKey.from_pem(public_key)
+                    key = Crypto.PublicKey.ECC.import_key(public_key)
                     keys.append(key)
                 except:
                     pass

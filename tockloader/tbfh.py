@@ -1712,7 +1712,7 @@ class TBFFooterTLVCredentials(TBFTLV):
             for i, key in enumerate(keys):
                 try:
                     hash = Crypto.Hash.SHA256.new(integrity_blob)
-                    Crypto.Signature.DSS.new(key, 'fips-186-3').verify(hash, signature)
+                    Crypto.Signature.DSS.new(key, "fips-186-3").verify(hash, signature)
                     # Signature verified!
                     self.verified = "yes"
                 except Exception as e:
@@ -1913,7 +1913,7 @@ class TBFFooterTLVCredentialsConstructor(TBFFooterTLVCredentials):
             pri_key = Crypto.PublicKey.ECC.import_key(private_key, curve_name="p256")
             # Compute the signature.
             hash = Crypto.Hash.SHA256.new(integrity_blob)
-            signature = Crypto.Signature.DSS.new(pri_key, 'fips-186-3').sign(hash)
+            signature = Crypto.Signature.DSS.new(pri_key, "fips-186-3").sign(hash)
             # Store the signature.
             self.buffer = signature
         elif self.credentials_type == self.CREDENTIALS_TYPE_HMACSHA256:

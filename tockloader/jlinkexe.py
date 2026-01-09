@@ -470,7 +470,7 @@ class JLinkExe(BoardInterface):
             jlink_serial_number_str = ("-USB {}").format(self.jlink_serial_number)
 
         jtag_p = subprocess.Popen(
-            "{} -device {} -if {} -speed {} -autoconnect 1 {} --jtagconf -1,-1".format(
+            "{} -device {} -if {} -speed {} -autoconnect 1 {} -jtagconf -1,-1".format(
                 self.jlink_cmd,
                 self.jlink_device,
                 self.jlink_if,

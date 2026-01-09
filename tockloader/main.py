@@ -1035,6 +1035,11 @@ def main():
         help="The interface type to pass to JLinkExe. Only used with --rtt.",
     )
     listen.add_argument(
+        "--jlink-serial-number",
+        default=None,
+        help="Specify a specific JLink via serial number. Only used with --rtt.",
+    )
+    listen.add_argument(
         "--openocd-board",
         help="The cfg file in OpenOCD `board` folder. Only used with --rtt.",
     )

@@ -15,7 +15,6 @@ dependencies = [
     "argcomplete >= 1.8.2",
     "colorama >= 0.3.7",
     "crcmod >= 1.7",
-    "ecdsa >= 0.19.1",
     "pycryptodome >= 3.15.0",
     "pynrfjprog == 10.19.0",
     "pyserial >= 3.0.1",

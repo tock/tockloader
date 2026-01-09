@@ -469,14 +469,19 @@ class JLinkExe(BoardInterface):
         if self.jlink_serial_number:
             jlink_serial_number_str = ("-USB {}").format(self.jlink_serial_number)
 
-        jtag_p = subprocess.Popen(
+        jtag_process_str = (
             "{} -device {} -if {} -speed {} -autoconnect 1 {} -jtagconf -1,-1".format(
                 self.jlink_cmd,
                 self.jlink_device,
                 self.jlink_if,
                 self.jlink_speed,
                 jlink_serial_number_str,
-            ).split(),
+            )
+        )
+        logging.debug(f'Running "{jtag_process_str}"')
+
+        jtag_p = subprocess.Popen(
+            jtag_process_str.split(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -498,5 +503,6 @@ class JLinkExe(BoardInterface):
         )
         for stdout_line in iter(p.stdout.readline, ""):
             l = stdout_line.decode("utf-8")
+            # Hide the Segger header
             if not l.startswith("###RTT Client: *"):
                 print(l, end="")

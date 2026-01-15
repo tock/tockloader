@@ -76,7 +76,7 @@ class TockLoader:
     # - `start_address`:   The absolute address in flash where apps start and
     #                      must be loaded.
     # - `order`:           How apps should be sorted when flashed onto the board.
-    #                      Supported values: size_descending, None
+    #                      Supported values: size_descending, size_ascending, None
     # - `size_constraint`: Valid sizes for the entire application.
     #                      Supported values: powers_of_two, (multiple, value),
     #                                        None
@@ -94,7 +94,7 @@ class TockLoader:
         },
         "arch": {
             "cortex-m": {
-                "order": "size_descending",
+                "order": "size_ascending",
                 "size_constraint": "powers_of_two",
                 "alignment_constraint": "size",
             }
@@ -1560,6 +1560,8 @@ class TockLoader:
             # We use the order the apps were given to us.
             pass
         elif self.app_settings["order"] == "size_descending":
+            apps.sort(key=lambda app: app.get_size(), reverse=True)
+        elif self.app_settings["order"] == "size_ascending":
             apps.sort(key=lambda app: app.get_size())
         elif self.app_settings["order"] == None:
             # Any order is fine.

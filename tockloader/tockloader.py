@@ -1560,7 +1560,7 @@ class TockLoader:
             # We use the order the apps were given to us.
             pass
         elif self.app_settings["order"] == "size_descending":
-            apps.sort(key=lambda app: app.get_size(), reverse=True)
+            apps.sort(key=lambda app: app.get_size())
         elif self.app_settings["order"] == None:
             # Any order is fine.
             pass

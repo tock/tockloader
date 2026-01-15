@@ -267,7 +267,7 @@ You may need to update OpenOCD to the version in latest git master."
             ("(mfg: 0x049 (Xilinx), part: 0x3631, ver: 0x1)", "arty"),
             ("SWD DPIDR 0x2ba01477", "microbit_v2"),
             ("stm32f4x.cpu", "stm32f4discovery"),
-            ("stm32wlx.cpu", "stm32wle5jc")
+            ("stm32wlx.cpu", "stm32wle5jc"),
         ]
 
         emulators = []

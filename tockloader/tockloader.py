@@ -145,6 +145,9 @@ class TockLoader:
             "cy8cproto_62_4343_w": {
                 "start_address": 0x10100000,
             },
+            "stm32wle5jc": {
+                "start_address": 0x8018000,
+            },
         },
     }
 
@@ -1669,14 +1672,25 @@ class TockLoader:
                 optional_binary = app.get_binary(app_address)
                 if optional_binary:
                     logging.info("Flashing app {} binary to board.".format(app))
-                    self.channel.flash_binary(app_address, optional_binary)
+                    try:
+                        self.channel.flash_binary(app_address, optional_binary)
+                    except ChannelAddressErrorException:
+                        logging.info(
+                            "Failed to find space to flash app {}.".format(app)
+                        )
+                        pass
                 app_address = app_address + app.get_size()
 
             # Then erase the next page if we have not already rewritten all
             # existing apps. This ensures that flash is clean at the end of the
             # installed apps and makes sure the kernel will find the correct end
             # of applications.
-            self.channel.clear_bytes(app_address)
+            try:
+                self.channel.clear_bytes(app_address)
+            except ChannelAddressErrorException:
+                # We are at the end of flash and there are no bytes
+                # left to clear.
+                pass
 
     def _replace_with_padding(self, app):
         """
@@ -1717,7 +1731,10 @@ class TockLoader:
             logging.debug(
                 "Reading for app header @{:#x}, {} bytes".format(address, header_length)
             )
-            flash = self.channel.read_range(address, header_length)
+            try:
+                flash = self.channel.read_range(address, header_length)
+            except ChannelAddressErrorException:
+                break
 
             # if there was an error, the binary array will be empty
             if len(flash) < header_length:

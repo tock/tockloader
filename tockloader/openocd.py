@@ -17,7 +17,7 @@ import tempfile
 import time
 
 from .board_interface import BoardInterface
-from .exceptions import TockLoaderException
+from .exceptions import TockLoaderException, ChannelAddressErrorException
 
 # global static variable for collecting temp files for Windows
 collect_temp_files = []
@@ -33,6 +33,7 @@ class OpenOCD(BoardInterface):
 
         # Store the serial number if provided
         self.openocd_serial_number = getattr(self.args, "openocd_serial_number")
+        self.address_maximum = None
 
     def attached_board_exists(self):
         # Get a list of attached devices, check if that list has at least
@@ -84,6 +85,8 @@ class OpenOCD(BoardInterface):
                 self.openocd_prefix = board["openocd"]["prefix"]
             if self.openocd_commands == {} and "commands" in board["openocd"]:
                 self.openocd_commands = board["openocd"]["commands"]
+            if self.address_maximum == None and "address_maximum" in board["openocd"]:
+                self.address_maximum = board["openocd"]["address_maximum"]
 
             # And we may need to setup other common board settings.
             self._configure_from_known_boards()
@@ -248,6 +251,11 @@ You may need to update OpenOCD to the version in latest git master."
                 openocd_cmd=self.openocd_cmd
             )
         )
+        openocd_commands.append(
+            '{openocd_cmd} -c "source [find interface/stlink.cfg]; transport select hla_swd; source [find target/stm32wlx.cfg]; init; exit;"'.format(
+                openocd_cmd=self.openocd_cmd
+            )
+        )
 
         # These are the magic strings in the output of openocd we are looking
         # for. If there is a better way to do this then we should change. But,
@@ -259,6 +267,7 @@ You may need to update OpenOCD to the version in latest git master."
             ("(mfg: 0x049 (Xilinx), part: 0x3631, ver: 0x1)", "arty"),
             ("SWD DPIDR 0x2ba01477", "microbit_v2"),
             ("stm32f4x.cpu", "stm32f4discovery"),
+            ("stm32wlx.cpu", "stm32wle5jc"),
         ]
 
         emulators = []
@@ -306,6 +315,9 @@ You may need to update OpenOCD to the version in latest git master."
         # The "normal" flash command uses `program`.
         command = "program {{binary}} verify {address:#x}; reset;"
 
+        if self.address_maximum and address + len(binary) > self.address_maximum:
+            raise ChannelAddressErrorException()
+
         # Check if the configuration wants to override the default program command.
         if "program" in self.openocd_commands:
             command = self.openocd_commands["program"]
@@ -329,6 +341,9 @@ You may need to update OpenOCD to the version in latest git master."
         self._run_openocd_commands(command, binary)
 
     def read_range(self, address, length):
+        if self.address_maximum and address + length > self.address_maximum:
+            raise ChannelAddressErrorException()
+
         # The normal read command uses `dump_image`.
         command = "dump_image {{binary}} {address:#x} {length};"
 
@@ -360,6 +375,9 @@ You may need to update OpenOCD to the version in latest git master."
         return read
 
     def clear_bytes(self, address):
+        if self.address_maximum and address >= self.address_maximum:
+            raise ChannelAddressErrorException()
+
         logging.debug("Clearing bytes starting at {:#0x}".format(address))
 
         binary = bytes([0xFF] * 8)

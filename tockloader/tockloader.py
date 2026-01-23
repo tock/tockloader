@@ -145,6 +145,9 @@ class TockLoader:
             "cy8cproto_62_4343_w": {
                 "start_address": 0x10100000,
             },
+            "samv71": {
+                "start_address": 0x00480000,
+            },
         },
     }
 

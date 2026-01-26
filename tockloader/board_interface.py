@@ -263,6 +263,17 @@ class BoardInterface:
                            source [find target/rp2040.cfg];",
             },
         },
+        "raspberry_pi_pico_2": {
+            "description": "Raspberry Pi Pico 2",
+            "arch": "cortex-m33",
+            "page_size": 4096,
+            "no_attribute_table": True,
+            "openocd": {
+                "prefix": "source [find interface/cmsis-dap.cfg]; \
+                           source [find target/rp2350.cfg]; \
+                           adapter speed 5000;",
+            },
+        },
         "sma_q3": {
             "description": "SMA Q3 smart watch (Bangle.js 2, Jazda)",
             "arch": "cortex-m4",

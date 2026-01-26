@@ -374,8 +374,8 @@ class BootloaderSerial(BoardInterface):
         self.sp.timeout = 0.5
         # Try to set initial conditions, but not all platforms support them.
         # https://github.com/pyserial/pyserial/issues/124#issuecomment-227235402
-        self.sp.dtr = 0
-        self.sp.rts = 0
+        self.sp.dtr = 1
+        self.sp.rts = 1
 
     def _open_serial_port(self):
         """

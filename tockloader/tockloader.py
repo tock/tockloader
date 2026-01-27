@@ -135,6 +135,7 @@ class TockLoader:
                 "cmd_flags": {"bundle_apps": True},
             },
             "raspberry_pi_pico": {"start_address": 0x10020000},
+            "raspberry_pi_pico_2": {"start_address": 0x10040000},
             "tickv": {
                 "tickv": {
                     "region_size": 4096,

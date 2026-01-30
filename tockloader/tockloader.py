@@ -31,6 +31,7 @@ from .kernel_attributes import KernelAttributes
 from .tbfh import TBFHeader
 from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
+from .nrfutil import NrfUtil
 from .openocd import OpenOCD, collect_temp_files
 from .probers import ProbeRs
 from .stlink import STLink
@@ -175,6 +176,7 @@ class TockLoader:
                         lambda a: a != False,
                         [
                             getattr(self.args, "jlink", False),
+                            getattr(self.args, "nrfutil", False),
                             getattr(self.args, "openocd", False),
                             getattr(self.args, "stlink", False),
                             getattr(self.args, "flash_file") != None,
@@ -186,13 +188,16 @@ class TockLoader:
             > 1
         ):
             raise TockLoaderException(
-                "Can only use one of --jlink, --openocd, --stlink, --flash-file or --serial options"
+                "Can only use one of --jlink, --openocd, --stlink, --nrfutil, --flash-file or --serial options"
             )
 
         # Get an object that allows talking to the board.
         if hasattr(self.args, "jlink") and self.args.jlink:
             # User passed `--jlink`. Force the jlink channel.
             self.channel = JLinkExe(self.args)
+        elif hasattr(self.args, "nrfutil") and self.args.nrfutil:
+            # User passed `--nrfutil`. Force the nrfutil channel.
+            self.channel = NrfUtil(self.args)
         elif hasattr(self.args, "openocd") and self.args.openocd:
             # User passed `--openocd`. Force the OpenOCD channel.
             self.channel = OpenOCD(self.args)
@@ -231,6 +236,16 @@ class TockLoader:
                 if jlink_channel.attached_board_exists():
                     self.channel = jlink_channel
                     logging.info("Using jlink channel to communicate with the board.")
+                    break
+
+                # Next try nrfutil.
+                nrfutil_channel = NrfUtil(self.args)
+                if (
+                    nrfutil_channel.nrfutil_installed()
+                    and nrfutil_channel.attached_board_exists()
+                ):
+                    self.channel = nrfutil_channel
+                    logging.info("Using nrfutil channel to communicate with the board.")
                     break
 
                 # Next try openocd.

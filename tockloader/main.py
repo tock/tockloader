@@ -858,6 +858,9 @@ def main():
         "--jlink", action="store_true", help="Use JLinkExe to flash."
     )
     parent_channel.add_argument(
+        "--nrfutil", action="store_true", help="Use nrfutil to flash."
+    )
+    parent_channel.add_argument(
         "--openocd", action="store_true", help="Use OpenOCD to flash."
     )
     parent_channel.add_argument(
@@ -891,6 +894,12 @@ def main():
         default=None,
         help="Specify a specific JLink via serial number. Useful when multiple JLinks are connected to the same machine.",
     )
+    parent_channel.add_argument(
+        "--nrfutil-serial-number",
+        default=None,
+        help="Specify a specific board via serial number when using nrfutil. Useful when multiple boards are connected.",
+    )
+    parent_channel.add_argument("--nrfutil-cmd", help="The nrfutil binary to invoke.")
     parent_channel.add_argument(
         "--openocd-serial-number",
         default=None,

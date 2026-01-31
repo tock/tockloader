@@ -150,6 +150,9 @@ class TockLoader:
             "lpc55s69": {
                 "start_address": 0x20000,
             },
+            "stm32wle5jc": {
+                "start_address": 0x8018000,
+            },
         },
     }
 

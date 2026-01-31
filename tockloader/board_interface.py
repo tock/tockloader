@@ -431,7 +431,8 @@ class BoardInterface:
         """
         return
 
-    def flash_binary(self, address, binary):
+    # TODO: document the `pad` argument
+    def flash_binary(self, address, binary, pad=False):
         """
         Write a binary to the address given.
         """

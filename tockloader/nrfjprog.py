@@ -5,9 +5,6 @@ Interface for boards using nrfjprog.
 import logging
 import struct
 
-import pynrfjprog
-from pynrfjprog import LowLevel, Parameters
-
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
 
@@ -18,6 +15,17 @@ class nrfjprog(BoardInterface):
         super().__init__(args)
 
     def open_link_to_board(self):
+        try:
+            import pynrfjprog
+            from pynrfjprog import LowLevel, Parameters
+        except ImportError:
+            raise TockLoaderException(
+                "pynrfjprog Python module not found. Please install it by "
+                + "enabling the `nrfjprog` feature on Tockloader to use this "
+                + "backend (such as by running `pip install"
+                + "tockloader[nrfjprog]`)."
+            )
+
         qspi_size = 0
         self.qspi_address = 0
 

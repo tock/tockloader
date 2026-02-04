@@ -15,14 +15,19 @@ dependencies = [
     "argcomplete >= 1.8.2",
     "colorama >= 0.3.7",
     "crcmod >= 1.7",
+    "intelhex >= 2.3.0",
     "pycryptodome >= 3.15.0",
-    "pynrfjprog == 10.19.0",
     "pyserial >= 3.0.1",
     "siphash >= 0.0.1",
     "six >= 1.9.0",
     "toml >= 0.10.2",
     "tqdm >= 4.45.0 ",
     "questionary >= 2.1.1"
+]
+
+[project.optional-dependencies]
+nrfjprog = [
+    "pynrfjprog == 10.19.0",
 ]
 
 [project.urls]

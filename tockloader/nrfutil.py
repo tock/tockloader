@@ -65,39 +65,31 @@ class NrfUtil(BoardInterface):
             self._ensure_nrfutil_installed()
 
         cmd = [self._nrfutil_path] + args
-        logging.debug(
-            "Running: {}".format(
-                " ".join(
-                    map(
-                        lambda arg: (
-                            arg
-                            if type(arg) == str
-                            else arg.decode("utf-8", errors="replace")
-                        ),
-                        cmd,
-                    )
-                )
+        cmd_str = " ".join(
+            map(
+                lambda arg: (
+                    arg if type(arg) == str else arg.decode("utf-8", errors="replace")
+                ),
+                cmd,
             )
         )
+        logging.debug(f"Running: {cmd_str}")
 
         try:
             cmd = subprocess.run(cmd, capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
-            raise TockLoaderException(
+            stdout = e.stdout.decode("utf-8", errors="replace")
+            stderr = e.stderr.decode("utf-8", errors="replace")
+            logging.debug(
                 (
-                    "nrfutil command failed.\n"
-                    + "    Command:\n{}\n"
-                    + "    Stdout:\n{}\n"
-                    + "    Stderr:\n{}"
-                ).format(
-                    " ".join(cmd),
-                    textwrap.indent(
-                        e.stdout.decode("utf-8", errors="replace"), "      > "
-                    ),
-                    textwrap.indent(
-                        e.stderr.decode("utf-8", errors="replace"), "      > "
-                    ),
+                    f"nrfutil command failed.\n"
+                    + f"    Command:\n{cmd_str}\n"
+                    + f"    Stdout:\n{stdout}\n"
+                    + f"    Stderr:\n{stderr}"
                 )
+            )
+            raise TockLoaderException(
+                "nrfutil command failed. You may need to updated nrfutil."
             )
 
         if as_json:

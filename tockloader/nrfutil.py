@@ -10,9 +10,9 @@ import shutil
 import subprocess
 import tempfile
 import textwrap
-from pathlib import Path
+import pathlib
 
-from intelhex import IntelHex
+import intelhex
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
@@ -358,7 +358,7 @@ class NrfUtil(BoardInterface):
         with tempfile.TemporaryDirectory(
             prefix="tockloader_nrfutil_", delete=False
         ) as tmpdir:
-            output_file = Path(tmpdir) / "read.hex"
+            output_file = pathlib.Path(tmpdir) / "read.hex"
 
             # Using 'device memory read' based on online docs
             self._run_nrfutil(
@@ -382,7 +382,7 @@ class NrfUtil(BoardInterface):
                 ]
             )
 
-            ih = IntelHex()
+            ih = intelhex.IntelHex()
             ih.loadhex(output_file)
             return bytes(ih.tobinarray())
 
@@ -447,7 +447,7 @@ class NrfUtil(BoardInterface):
             delete_on_close=False,
         ) as input_file:
             # Dump `binary` to a hex file:
-            ih = IntelHex()
+            ih = intelhex.IntelHex()
             ih.frombytes(binary, offset=address)
             ih.write_hex_file(input_file)
             input_file.close()

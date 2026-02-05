@@ -1,11 +1,11 @@
-# Package tockloader.flash_file Documentation
+# Package tockloader.nrfutil Documentation
 
 
-Interface to a board's flash file. This module does not directly interface to a
-proper board, but can be used to manipulate a board's flash dump.
+Interface for boards using nrfutil.
 
-## Class FlashFile
-Implementation of `BoardInterface` for flash files.
+## Class NrfUtil
+Base class for interacting with hardware boards. All of the class functions
+should be overridden to support a new method of interacting with a board.
 ### \_\_init\_\_
 ```py
 
@@ -54,17 +54,7 @@ def clear_bytes(self, address)
 
 
 
-Clear at least one byte starting at `address`.
-
-This API is designed to support "ending the linked list of apps", or
-clearing flash enough so that the flash after the last valid app will
-not parse as a valid TBF header.
-
-Different chips with different mechanisms for writing/erasing flash make
-implementing specific erase behavior difficult. Instead, we provide this
-rough API, which is sufficient for the task of ending the linked list,
-but doesn't guarantee exactly how many bytes after address will be
-cleared, or how they will be cleared.
+Clear bytes by writing 0xFFs.
 
 
 ### determine\_current\_board
@@ -107,30 +97,13 @@ Get out of bootloader mode and go back to running main code.
 ### flash\_binary
 ```py
 
-def flash_binary(self, address, binary)
+def flash_binary(self, address, binary, pad=False)
 
 ```
 
 
 
-Write a binary to the address given.
-
-`pad` is a bool indicating whether it is ok for the writing interface to
-pad the binary to be written to meet any size requirements. If `True`,
-the writing interface can add values (e.g., `0xFF`s) to the binary to
-meet writing size constraints. If `False`, the writing interface must
-not simply add values like 0xFFs, and instead must read what is already
-written to do any needed padding when needing to meet size
-requirements.
-
-
-### flush
-```py
-
-def flush(self)
-
-```
-
+Write using nrfutil.
 
 
 ### get\_all\_attributes
@@ -231,15 +204,6 @@ Return the kernel ABI version installed on the board. If the version
 cannot be determined, return `None`.
 
 
-### get\_local\_board\_path
-```py
-
-def get_local_board_path(self)
-
-```
-
-
-
 ### get\_page\_size
 ```py
 
@@ -264,6 +228,15 @@ def is_known_board(board)
 Check if the board name is a known board.
 
 
+### nrfutil\_installed
+```py
+
+def nrfutil_installed(self)
+
+```
+
+
+
 ### open\_link\_to\_board
 ```py
 
@@ -273,8 +246,7 @@ def open_link_to_board(self)
 
 
 
-Open a link to the board by opening the flash file for reading and
-writing.
+Open a connection to the board.
 
 
 ### print\_known\_boards
@@ -298,9 +270,7 @@ def read_range(self, address, length)
 
 
 
-Read a specific range of flash.
-
-If this fails for some reason this should return an empty binary array.
+Read using nrfutil.
 
 
 ### run\_terminal
@@ -352,6 +322,15 @@ the MCU address space. This method must be called from the board
 interface implementation prior to memory accesses.
 
 
+### vcom0\_device
+```py
+
+def vcom0_device(self)
+
+```
+
+
+
 ### \_align\_and\_stretch\_to\_page
 ```py
 
@@ -397,31 +376,52 @@ def _decode_attribute(self, raw)
 
 
 
-### \_run\_flush\_command
+### \_ensure\_board\_link\_open
 ```py
 
-def _run_flush_command(self, command)
+def _ensure_board_link_open(self)
 
 ```
 
 
 
-
-
-### set\_local\_board
+### \_ensure\_nrfutil\_installed
 ```py
 
-def set_local_board(board, arch=None, app_address=None, flash_address=None, flush_command=None, binary_path=None)
+def _ensure_nrfutil_installed(self)
 
 ```
 
 
 
-### unset\_local\_board
+### \_first\_attached\_board\_serial
 ```py
 
-def unset_local_board()
+def _first_attached_board_serial(self)
 
 ```
+
+
+
+Check if an nRF device is attached.
+
+
+### \_get\_nrfutil\_json\_msg
+```py
+
+def _get_nrfutil_json_msg(self, json_messages, message_type)
+
+```
+
+
+
+### \_run\_nrfutil
+```py
+
+def _run_nrfutil(self, args, as_json=False, custom_error=None, init=False)
+
+```
+
+
 
 

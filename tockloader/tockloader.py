@@ -240,10 +240,7 @@ class TockLoader:
 
                 # Next try nrfutil.
                 nrfutil_channel = NrfUtil(self.args)
-                if (
-                    nrfutil_channel.nrfutil_installed()
-                    and nrfutil_channel.attached_board_exists()
-                ):
+                if nrfutil_channel.attached_board_exists():
                     self.channel = nrfutil_channel
                     logging.info("Using nrfutil channel to communicate with the board.")
                     break

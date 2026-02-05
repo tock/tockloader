@@ -173,7 +173,10 @@ class NrfUtil(BoardInterface):
             return False
 
     def attached_board_exists(self):
-        return self._first_attached_board_serial() != None
+        if self.nrfutil_installed():
+            return self._first_attached_board_serial() != None
+        else:
+            return False
 
     def open_link_to_board(self):
         # Refuse if we already have another link "opened":

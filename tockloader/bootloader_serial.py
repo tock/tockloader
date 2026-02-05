@@ -231,10 +231,7 @@ class BootloaderSerial(BoardInterface):
 
                 # First try nrfutil
                 nrfutil_channel = NrfUtil(self.args)
-                if (
-                    nrfutil_channel.nrfutil_installed()
-                    and nrfutil_channel.attached_board_exists()
-                ):
+                if nrfutil_channel.attached_board_exists():
                     nrfutil_channel.open_link_to_board()
                     vcom0_path = nrfutil_channel.vcom0_device()
 

@@ -223,16 +223,8 @@ class BootloaderSerial(BoardInterface):
             # has a nRF52840dk plugged in. We check that by looking for two
             # devices that both have "J-Link - CDC" in the name.
             #
-            # If we find that, we use the `nrfjprog --com` command which lists
-            # attached ports and their VCOM indices. We want VCOM0. We use the
-            # pynrfjprog to run the same operation as `--com`. `nrfjprog --com`
-            # has output that looks like:
-            #
-            # ```
-            # $ nrfjprog --com
-            # 1050288520    /dev/tty.usbmodem0010502885201    VCOM0
-            # 1050288520    /dev/tty.usbmodem0010502885203    VCOM1
-            # ```
+            # If we find that, we determine the vcom0 port based on what the
+            # nrfutil channel determined with connecting to the board.
             jlink_cdc_ports = [p for p in ports if "J-Link - CDC" in p.description]
             if len(jlink_cdc_ports) == 2:
                 # It looks like the user has the nRF52840dk connected.
@@ -246,37 +238,8 @@ class BootloaderSerial(BoardInterface):
                     nrfutil_channel.open_link_to_board()
                     vcom0_path = nrfutil_channel.vcom0_device()
 
-                # Fallback to pynrfjprog if nrfutil didn't work
-                if vcom0_path is None:
-                    try:
-                        import pynrfjprog
-                        from pynrfjprog import LowLevel
-
-                        api = pynrfjprog.LowLevel.API()
-                        if not api.is_open():
-                            api.open()
-
-                        vcom0_path = None
-                        jtag_emulators = api.enum_emu_con_info()
-                        for jtag_emulator in jtag_emulators:
-                            jtag_emulator_ports = api.enum_emu_com_ports(
-                                jtag_emulator.serial_number
-                            )
-                            for jtag_emulator_port in jtag_emulator_ports:
-                                # We want to see VCOM == 0
-                                if jtag_emulator_port.vcom == 0:
-                                    vcom0_path = jtag_emulator_port.path
-                                    break
-                            # Only support one connected nRF52840dk for now.
-                            break
-
-                    except:
-                        # Any error with nrfjprog we just don't use this
-                        # optimization.
-                        pass
-
                 if vcom0_path != None:
-                    # On mac, the nrfjprog tool uses the /dev/tty* paths,
+                    # On mac, the nrfutil tool uses the /dev/tty* paths,
                     # and we need the /dev/cu* paths. We just hack in a
                     # substitution here which will only have an effect on
                     # the mac paths.

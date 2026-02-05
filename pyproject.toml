@@ -25,11 +25,6 @@ dependencies = [
     "questionary >= 2.1.1"
 ]
 
-[project.optional-dependencies]
-nrfjprog = [
-    "pynrfjprog == 10.19.0",
-]
-
 [project.urls]
 Home = "https://github.com/tock/tockloader"
 

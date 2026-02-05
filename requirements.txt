@@ -4,7 +4,6 @@ colorama==0.4.6
 crcmod==1.7
 ecdsa==0.19.1
 pycryptodome==3.22.0
-pynrfjprog==10.19.0
 pyserial==3.5
 questionary==2.1.0
 setuptools==78.1.1

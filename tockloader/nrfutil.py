@@ -397,7 +397,7 @@ class NrfUtil(BoardInterface):
             return bytes(ih.tobinarray())
 
     # TODO: this method is not well specified, we're just doing what
-    # `nrfjprog` does...
+    # other channels do...
     def clear_bytes(self, address):
         """
         Clear bytes by writing 0xFFs.

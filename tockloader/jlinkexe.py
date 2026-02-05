@@ -19,7 +19,7 @@ import tempfile
 import time
 
 from .board_interface import BoardInterface
-from .exceptions import TockLoaderException, ChannelAddressErrorException
+from .exceptions import TockLoaderException
 
 
 class JLinkExe(BoardInterface):
@@ -38,12 +38,6 @@ class JLinkExe(BoardInterface):
 
         # Obtain serial number if --jlink-serial-number argument provided
         self.jlink_serial_number = getattr(self.args, "jlink_serial_number")
-
-        # By default we assume that jlinkexe can be used to read any address on
-        # this board, so we set `address_maximum` to None. In some cases,
-        # however, particularly with external flash chips, jlinkexe may not be
-        # able to read all flash addresses tockloader needs to access.
-        self.address_maximum = None
 
     def attached_board_exists(self):
         # Get a list of attached jlink devices, check if that list has at least
@@ -132,8 +126,6 @@ class JLinkExe(BoardInterface):
                 self.jlink_if = board["jlink"]["if"]
             if self.jlink_speed == None and "speed" in board["jlink"]:
                 self.jlink_speed = board["jlink"]["speed"]
-            if self.address_maximum == None and "address_maximum" in board["jlink"]:
-                self.address_maximum = board["jlink"]["address_maximum"]
 
             # And we may need to setup other common board settings.
             self._configure_from_known_boards()
@@ -341,8 +333,6 @@ class JLinkExe(BoardInterface):
         """
         Write using JTAG
         """
-        if self.address_maximum and address > self.address_maximum:
-            raise ChannelAddressErrorException()
 
         # Make sure we respect page boundaries in case the chip and jlink
         # implementation will only work correctly when writing entire pages.
@@ -358,9 +348,6 @@ class JLinkExe(BoardInterface):
         self._run_jtag_commands(commands, binary)
 
     def read_range(self, address, length):
-        if self.address_maximum and address > self.address_maximum:
-            raise ChannelAddressErrorException()
-
         commands = []
         if self.jlink_device == "cortex-m0":
             # We are in generic mode, trying to read attributes.
@@ -398,9 +385,6 @@ class JLinkExe(BoardInterface):
         return read
 
     def clear_bytes(self, address):
-        if self.address_maximum and address > self.address_maximum:
-            raise ChannelAddressErrorException()
-
         logging.debug("Clearing 512 bytes starting at address {:#0x}".format(address))
 
         # Write 512 bytes of 0xFF as that seems to work.

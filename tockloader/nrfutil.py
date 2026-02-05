@@ -10,9 +10,9 @@ import shutil
 import subprocess
 import tempfile
 import textwrap
-from pathlib import Path
+import pathlib
 
-from intelhex import IntelHex
+import intelhex
 
 from .board_interface import BoardInterface
 from .exceptions import TockLoaderException
@@ -50,54 +50,61 @@ class NrfUtil(BoardInterface):
         assert info_msg["data"]["name"] == "nrfutil"
 
         # Ensure that the `device` command is installed:
-        out = self._run_nrfutil(
-            ["device", "--version", "--json"],
-            init=True,
-            as_json=True,
-            custom_error=lambda cmd, output, exception: "It looks like the `nrfutil device` command is not installed. "
-            + "Install it by running `nrfutil install device`.",
-        )
-        info_msg = self._get_nrfutil_json_msg(out, "info")
-        assert info_msg["data"]["name"] == "nrfutil-device"
+        try:
+            out = self._run_nrfutil(
+                ["device", "--version", "--json"],
+                init=True,
+                as_json=True,
+            )
+            info_msg = self._get_nrfutil_json_msg(out, "info")
+            assert info_msg["data"]["name"] == "nrfutil-device"
+        except:
+            logging.error("The `nrfutil device` command is not installed.")
+            logging.error("Install it by running `nrfutil install device`.")
+            raise TockLoaderException("nrfutil device not installed")
+
+        # Ensure that the `device` command is new enough. Older versions did not
+        # have a `read` command.
+        try:
+            out = self._run_nrfutil(
+                ["device", "read", "--help"],
+                init=True,
+            )
+        except:
+            logging.error("The `nrfutil device` command is too old.")
+            logging.error("Update it by running `nrfutil install device --force`.")
+            raise TockLoaderException("nrfutil device out of date")
 
     def _run_nrfutil(self, args, as_json=False, custom_error=None, init=False):
         if not init:
             self._ensure_nrfutil_installed()
 
         cmd = [self._nrfutil_path] + args
-        logging.debug(
-            "Running: {}".format(
-                " ".join(
-                    map(
-                        lambda arg: (
-                            arg
-                            if type(arg) == str
-                            else arg.decode("utf-8", errors="replace")
-                        ),
-                        cmd,
-                    )
-                )
+        cmd_str = " ".join(
+            map(
+                lambda arg: (
+                    arg if type(arg) == str else arg.decode("utf-8", errors="replace")
+                ),
+                cmd,
             )
         )
+        logging.debug(f"Running: {cmd_str}")
 
         try:
             cmd = subprocess.run(cmd, capture_output=True, check=True)
         except subprocess.CalledProcessError as e:
-            raise TockLoaderException(
+            stdout = e.stdout.decode("utf-8", errors="replace")
+            stderr = e.stderr.decode("utf-8", errors="replace")
+            logging.debug(
                 (
-                    "nrfutil command failed.\n"
-                    + "    Command:\n{}\n"
-                    + "    Stdout:\n{}\n"
-                    + "    Stderr:\n{}"
-                ).format(
-                    " ".join(cmd),
-                    textwrap.indent(
-                        e.stdout.decode("utf-8", errors="replace"), "      > "
-                    ),
-                    textwrap.indent(
-                        e.stderr.decode("utf-8", errors="replace"), "      > "
-                    ),
+                    f"nrfutil command failed.\n"
+                    + f"    Command:\n{cmd_str}\n"
+                    + f"    Stdout:\n{stdout}\n"
+                    + f"    Stderr:\n{stderr}"
                 )
+            )
+            raise TockLoaderException(
+                "nrfutil command failed. You may need to update nrfutil."
             )
 
         if as_json:
@@ -173,7 +180,10 @@ class NrfUtil(BoardInterface):
             return False
 
     def attached_board_exists(self):
-        return self._first_attached_board_serial() != None
+        if self.nrfutil_installed():
+            return self._first_attached_board_serial() != None
+        else:
+            return False
 
     def open_link_to_board(self):
         # Refuse if we already have another link "opened":
@@ -358,7 +368,7 @@ class NrfUtil(BoardInterface):
         with tempfile.TemporaryDirectory(
             prefix="tockloader_nrfutil_", delete=False
         ) as tmpdir:
-            output_file = Path(tmpdir) / "read.hex"
+            output_file = pathlib.Path(tmpdir) / "read.hex"
 
             # Using 'device memory read' based on online docs
             self._run_nrfutil(
@@ -382,12 +392,12 @@ class NrfUtil(BoardInterface):
                 ]
             )
 
-            ih = IntelHex()
+            ih = intelhex.IntelHex()
             ih.loadhex(output_file)
             return bytes(ih.tobinarray())
 
     # TODO: this method is not well specified, we're just doing what
-    # `nrfjprog` does...
+    # other channels do...
     def clear_bytes(self, address):
         """
         Clear bytes by writing 0xFFs.
@@ -447,7 +457,7 @@ class NrfUtil(BoardInterface):
             delete_on_close=False,
         ) as input_file:
             # Dump `binary` to a hex file:
-            ih = IntelHex()
+            ih = intelhex.IntelHex()
             ih.frombytes(binary, offset=address)
             ih.write_hex_file(input_file)
             input_file.close()

@@ -26,7 +26,7 @@ from .app_padding import InstalledPaddingApp
 from .app_tab import TabApp
 from .board_interface import BoardInterface
 from .bootloader_serial import BootloaderSerial
-from .exceptions import TockLoaderException, ChannelAddressErrorException
+from .exceptions import TockLoaderException
 from .kernel_attributes import KernelAttributes
 from .tbfh import TBFHeader
 from .tbfh import TBFFooter
@@ -229,23 +229,26 @@ class TockLoader:
                 # One issue is that JTAG connections often expose both a JTAG
                 # and a serial port. So, if we try to use the serial port first
                 # we will incorrectly detect that serial port. So, we start with
-                # the less likely jtag channel. We start with jlinkexe because
-                # it has been in tockloader longer. Let me know if this is the
-                # wrong decision.
+                # the less likely jtag channel.
+                #
+                # We start with nrfutil because it has more functionality than
+                # JlinkExe itself for nRF5x boards. Since Tock extensively uses
+                # the nRF5x boards, we try that first.
+                #
+                # Then we move to JlinkExe before OpenOCD because it has been in
+                # tockloader longer. Let me know if this is the wrong decision.
+
+                nrfutil_channel = NrfUtil(self.args)
+                if nrfutil_channel.attached_board_exists():
+                    self.channel = nrfutil_channel
+                    logging.info("Using nrfutil channel to communicate with the board.")
+                    break
+
+                # Next try jlink.
                 jlink_channel = JLinkExe(self.args)
                 if jlink_channel.attached_board_exists():
                     self.channel = jlink_channel
                     logging.info("Using jlink channel to communicate with the board.")
-                    break
-
-                # Next try nrfutil.
-                nrfutil_channel = NrfUtil(self.args)
-                if (
-                    nrfutil_channel.nrfutil_installed()
-                    and nrfutil_channel.attached_board_exists()
-                ):
-                    self.channel = nrfutil_channel
-                    logging.info("Using nrfutil channel to communicate with the board.")
                     break
 
                 # Next try openocd.
@@ -817,22 +820,7 @@ class TockLoader:
             page_size = self.channel.get_page_size()
             address = page_size * page_num
             print("Page number: {} ({:#08x})".format(page_num, address))
-
-            try:
-                flash = self.channel.read_range(address, page_size)
-            except ChannelAddressErrorException:
-                try:
-                    from .nrfjprog import nrfjprog
-                except:
-                    logging.error("Unable to use backup nrfjprog channel")
-                    logging.error("You may need to `pip install pynrfjprog`")
-                    raise TockLoaderException("Unable to use nrfjprog backup channel")
-
-                self.args.board = self.channel.get_board_name()
-                backup_channel = nrfjprog(self.args)
-                backup_channel.open_link_to_board()
-                flash = backup_channel.read_range(address, page_size)
-
+            flash = self.channel.read_range(address, page_size)
             print(helpers.print_flash(address, flash))
 
     def read_flash(self, address, length):
@@ -840,21 +828,7 @@ class TockLoader:
         Print some flash contents.
         """
         with self._start_communication_with_board():
-            try:
-                flash = self.channel.read_range(address, length)
-            except ChannelAddressErrorException:
-                try:
-                    from .nrfjprog import nrfjprog
-                except:
-                    logging.error("Unable to use backup nrfjprog channel")
-                    logging.error("You may need to `pip install pynrfjprog`")
-                    raise TockLoaderException("Unable to use nrfjprog backup channel")
-
-                self.args.board = self.channel.get_board_name()
-                backup_channel = nrfjprog(self.args)
-                backup_channel.open_link_to_board()
-                flash = backup_channel.read_range(address, length)
-
+            flash = self.channel.read_range(address, length)
             print(helpers.print_flash(address, flash))
 
     def write_flash(self, address, length, value):
@@ -864,20 +838,7 @@ class TockLoader:
         with self._start_communication_with_board():
             to_write = bytes([value] * length)
 
-            try:
-                self.channel.flash_binary(address, to_write, pad=False)
-            except ChannelAddressErrorException:
-                try:
-                    from .nrfjprog import nrfjprog
-                except:
-                    logging.error("Unable to use backup nrfjprog channel")
-                    logging.error("You may need to `pip install pynrfjprog`")
-                    raise TockLoaderException("Unable to use nrfjprog backup channel")
-
-                self.args.board = self.channel.get_board_name()
-                backup_channel = nrfjprog(self.args)
-                backup_channel.open_link_to_board()
-                backup_channel.flash_binary(address, to_write, pad=False)
+            self.channel.flash_binary(address, to_write, pad=False)
 
     def tickv_get(self, key):
         """
@@ -1277,22 +1238,7 @@ class TockLoader:
                 number_regions = self.app_settings["tickv"]["number_regions"]
 
         tickv_size = region_size * number_regions
-
-        try:
-            tickv_db = self.channel.read_range(tickv_address, tickv_size)
-        except ChannelAddressErrorException:
-            try:
-                from .nrfjprog import nrfjprog
-            except:
-                logging.error("Unable to use backup nrfjprog channel")
-                logging.error("You may need to `pip install pynrfjprog`")
-                raise TockLoaderException("Unable to use nrfjprog backup channel")
-
-            self.args.board = self.channel.get_board_name()
-            backup_channel = nrfjprog(self.args)
-            backup_channel.open_link_to_board()
-            tickv_db = backup_channel.read_range(tickv_address, tickv_size)
-
+        tickv_db = self.channel.read_range(tickv_address, tickv_size)
         return TockTicKV(tickv_db, region_size)
 
     def _tickv_write_database(self, tickv_db):
@@ -1309,21 +1255,8 @@ class TockLoader:
 
             tickv_address = self.app_settings["tickv"]["start_address"]
 
-        try:
-            logging.info("Writing TicKV database back to flash")
-            tickv_db = self.channel.flash_binary(tickv_address, tickv_db.get_binary())
-        except ChannelAddressErrorException:
-            try:
-                from .nrfjprog import nrfjprog
-            except:
-                logging.error("Unable to use backup nrfjprog channel")
-                logging.error("You may need to `pip install pynrfjprog`")
-                raise TockLoaderException("Unable to use nrfjprog backup channel")
-
-            self.args.board = self.channel.get_board_name()
-            backup_channel = nrfjprog(self.args)
-            backup_channel.open_link_to_board()
-            tickv_db = backup_channel.flash_binary(tickv_address, tickv_db.get_binary())
+        logging.info("Writing TicKV database back to flash")
+        tickv_db = self.channel.flash_binary(tickv_address, tickv_db.get_binary())
 
     ############################################################################
     ## Helper Functions for Manipulating Binaries and TBF

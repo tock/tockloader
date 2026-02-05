@@ -229,20 +229,26 @@ class TockLoader:
                 # One issue is that JTAG connections often expose both a JTAG
                 # and a serial port. So, if we try to use the serial port first
                 # we will incorrectly detect that serial port. So, we start with
-                # the less likely jtag channel. We start with jlinkexe because
-                # it has been in tockloader longer. Let me know if this is the
-                # wrong decision.
-                jlink_channel = JLinkExe(self.args)
-                if jlink_channel.attached_board_exists():
-                    self.channel = jlink_channel
-                    logging.info("Using jlink channel to communicate with the board.")
-                    break
+                # the less likely jtag channel.
+                #
+                # We start with nrfutil because it has more functionality than
+                # JlinkExe itself for nRF5x boards. Since Tock extensively uses
+                # the nRF5x boards, we try that first.
+                #
+                # Then we move to JlinkExe before OpenOCD because it has been in
+                # tockloader longer. Let me know if this is the wrong decision.
 
-                # Next try nrfutil.
                 nrfutil_channel = NrfUtil(self.args)
                 if nrfutil_channel.attached_board_exists():
                     self.channel = nrfutil_channel
                     logging.info("Using nrfutil channel to communicate with the board.")
+                    break
+
+                # Next try jlink.
+                jlink_channel = JLinkExe(self.args)
+                if jlink_channel.attached_board_exists():
+                    self.channel = jlink_channel
+                    logging.info("Using jlink channel to communicate with the board.")
                     break
 
                 # Next try openocd.

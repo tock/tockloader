@@ -50,15 +50,30 @@ class NrfUtil(BoardInterface):
         assert info_msg["data"]["name"] == "nrfutil"
 
         # Ensure that the `device` command is installed:
-        out = self._run_nrfutil(
-            ["device", "--version", "--json"],
-            init=True,
-            as_json=True,
-            custom_error=lambda cmd, output, exception: "It looks like the `nrfutil device` command is not installed. "
-            + "Install it by running `nrfutil install device`.",
-        )
-        info_msg = self._get_nrfutil_json_msg(out, "info")
-        assert info_msg["data"]["name"] == "nrfutil-device"
+        try:
+            out = self._run_nrfutil(
+                ["device", "--version", "--json"],
+                init=True,
+                as_json=True,
+            )
+            info_msg = self._get_nrfutil_json_msg(out, "info")
+            assert info_msg["data"]["name"] == "nrfutil-device"
+        except:
+            logging.error("The `nrfutil device` command is not installed.")
+            logging.error("Install it by running `nrfutil install device`.")
+            raise TockLoaderException("nrfutil device not installed")
+
+        # Ensure that the `device` command is new enough. Older versions did not
+        # have a `read` command.
+        try:
+            out = self._run_nrfutil(
+                ["device", "read", "--help"],
+                init=True,
+            )
+        except:
+            logging.error("The `nrfutil device` command is too old.")
+            logging.error("Update it by running `nrfutil install device --force`.")
+            raise TockLoaderException("nrfutil device out of date")
 
     def _run_nrfutil(self, args, as_json=False, custom_error=None, init=False):
         if not init:
@@ -89,7 +104,7 @@ class NrfUtil(BoardInterface):
                 )
             )
             raise TockLoaderException(
-                "nrfutil command failed. You may need to updated nrfutil."
+                "nrfutil command failed. You may need to update nrfutil."
             )
 
         if as_json:

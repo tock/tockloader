@@ -2,11 +2,11 @@ appdirs==1.4.4
 argcomplete==3.6.1
 colorama==0.4.6
 crcmod==1.7
-ecdsa==0.19.1
+intelhex==2.3.0
 pycryptodome==3.22.0
 pyserial==3.5
 questionary==2.1.0
-setuptools==78.1.1
 siphash==0.0.1
+six==1.17.0
 toml==0.10.2
 tqdm==4.67.1

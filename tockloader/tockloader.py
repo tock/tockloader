@@ -146,6 +146,9 @@ class TockLoader:
             "cy8cproto_62_4343_w": {
                 "start_address": 0x10100000,
             },
+            "stm32wle5jc": {
+                "start_address": 0x8018000,
+            },
         },
     }
 

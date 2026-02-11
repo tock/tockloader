@@ -310,6 +310,17 @@ class BoardInterface:
                 "flush_command": "probe-rs download {binary} --binary-format bin --base-address 0x10000000 --chip CY8C624AAZI-S2D44",
             },
         },
+        "samv71": {
+            "description": "Microchip SAM V71 Xplained Ultra evaluation kit",
+            "arch": "cortex-m7",
+            "page_size": 16384,
+            "openocd": {
+                "prefix": "source [find interface/cmsis-dap.cfg]; \
+                           transport select swd; \
+                           set CHIPNAME samv71; \
+                           source [find target/atsamv.cfg];",
+            },
+        },
     }
 
     def __init__(self, args):

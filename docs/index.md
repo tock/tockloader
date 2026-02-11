@@ -265,6 +265,19 @@ interface with the boards, so there are not many flags.
 - `stinfo_cmd`: The st-info executable to invoke. Defaults to `st-info`.
 - `stflash_cmd`: The st-flash executable to invoke. Defaults to `st-flash`.
 
+For nRF5x boards, Tockloader supports
+[nrfutil](https://www.nordicsemi.com/Products/Development-tools/nRF-Util). This
+tool uses JLink to program Nordic's nRF5x development boards.
+
+    tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
+                         --nrfutil \
+                         --nrfutil-cmd [nrfutil_cmd]
+                         --nrfutil-serial-number [serial_number]
+
+- `nrfutil_cmd`: The nrfutil executable to invoke. Defaults to `nrfutil`.
+- `serial_number`: The serial number of a particular board to flash. Defaults to
+  the first board discovered.
+
 Finally, Tockloader can treat a local file as though it were the flash contents
 of a board. The file can then be loaded separately onto a board.
 

@@ -115,6 +115,14 @@ def flash_binary(self, address, binary)
 
 Write a binary to the address given.
 
+`pad` is a bool indicating whether it is ok for the writing interface to
+pad the binary to be written to meet any size requirements. If `True`,
+the writing interface can add values (e.g., `0xFF`s) to the binary to
+meet writing size constraints. If `False`, the writing interface must
+not simply add values like 0xFFs, and instead must read what is already
+written to do any needed padding when needing to meet size
+requirements.
+
 
 ### flush
 ```py

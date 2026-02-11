@@ -1,9 +1,9 @@
-# Package tockloader.nrfjprog Documentation
+# Package tockloader.nrfutil Documentation
 
 
-Interface for boards using nrfjprog.
+Interface for boards using nrfutil.
 
-## Class nrfjprog
+## Class NrfUtil
 Base class for interacting with hardware boards. All of the class functions
 should be overridden to support a new method of interacting with a board.
 ### \_\_init\_\_
@@ -54,17 +54,7 @@ def clear_bytes(self, address)
 
 
 
-Clear at least one byte starting at `address`.
-
-This API is designed to support "ending the linked list of apps", or
-clearing flash enough so that the flash after the last valid app will
-not parse as a valid TBF header.
-
-Different chips with different mechanisms for writing/erasing flash make
-implementing specific erase behavior difficult. Instead, we provide this
-rough API, which is sufficient for the task of ending the linked list,
-but doesn't guarantee exactly how many bytes after address will be
-cleared, or how they will be cleared.
+Clear bytes by writing 0xFFs.
 
 
 ### determine\_current\_board
@@ -113,7 +103,7 @@ def flash_binary(self, address, binary, pad=False)
 
 
 
-Write using nrfjprog.
+Write using nrfutil.
 
 
 ### get\_all\_attributes
@@ -238,6 +228,15 @@ def is_known_board(board)
 Check if the board name is a known board.
 
 
+### nrfutil\_installed
+```py
+
+def nrfutil_installed(self)
+
+```
+
+
+
 ### open\_link\_to\_board
 ```py
 
@@ -271,7 +270,7 @@ def read_range(self, address, length)
 
 
 
-Read using nrfjprog.
+Read using nrfutil.
 
 
 ### run\_terminal
@@ -323,6 +322,15 @@ the MCU address space. This method must be called from the board
 interface implementation prior to memory accesses.
 
 
+### vcom0\_device
+```py
+
+def vcom0_device(self)
+
+```
+
+
+
 ### \_align\_and\_stretch\_to\_page
 ```py
 
@@ -363,6 +371,54 @@ rest.
 ```py
 
 def _decode_attribute(self, raw)
+
+```
+
+
+
+### \_ensure\_board\_link\_open
+```py
+
+def _ensure_board_link_open(self)
+
+```
+
+
+
+### \_ensure\_nrfutil\_installed
+```py
+
+def _ensure_nrfutil_installed(self)
+
+```
+
+
+
+### \_first\_attached\_board\_serial
+```py
+
+def _first_attached_board_serial(self)
+
+```
+
+
+
+Check if an nRF device is attached.
+
+
+### \_get\_nrfutil\_json\_msg
+```py
+
+def _get_nrfutil_json_msg(self, json_messages, message_type)
+
+```
+
+
+
+### \_run\_nrfutil
+```py
+
+def _run_nrfutil(self, args, as_json=False, custom_error=None, init=False)
 
 ```
 

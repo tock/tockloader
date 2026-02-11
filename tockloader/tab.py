@@ -236,10 +236,9 @@ class TAB:
                 # be longer than the amount of reserved space (`total_size`
                 # in the TBF header) for the app.
                 raise TockLoaderException(
-                    "Invalid TAB, the app binary length ({} bytes) is longer \
-than its defined total_size ({} bytes)".format(
-                        len(binary), tbfh.get_app_size()
-                    )
+                    f"Invalid TAB, the app binary length ({len(binary)} bytes) "
+                    + "is longer than its defined total_size "
+                    + f"({tbfh.get_app_size()} bytes)"
                 )
 
             # Get indices into the TBF file binary on where elements are

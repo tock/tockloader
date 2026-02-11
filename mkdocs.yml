@@ -10,7 +10,7 @@ pages:
     - Bootloader Serial: bootloader_serial.md
     - JLinkExe: jlinkexe.md
     - OpenOCD: openocd.md
-    - nrfjprog: nrfjprog.md
+    - nrfutil: nrfutil.md
     - Flash File: flash_file.md
   - App:
       - Installed Apps: app_installed.md

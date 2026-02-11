@@ -311,7 +311,7 @@ class BoardInterface:
             },
         },
         "samv71": {
-            "description": "Microchip SAMV71 Xplained Ultra development board",
+            "description": "Microchip SAM V71 Xplained Ultra evaluation kit",
             "arch": "cortex-m7",
             "page_size": 16384,
             "openocd": {

@@ -278,6 +278,22 @@ tool uses JLink to program Nordic's nRF5x development boards.
 - `serial_number`: The serial number of a particular board to flash. Defaults to
   the first board discovered.
 
+For NXP boards, Tockloader supports
+[LinkServer](https://www.nxp.com/design/design-center/software/development-software/mcuxpresso-software-and-tools-/linkserver-for-microcontrollers:LINKERSERVER).
+This tool uses LinkServer to program NXP boards.
+
+    tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
+                         --linkserver \
+                         --linkserver-cmd [linkserver_cmd]
+                         --linkserver-device [linkserver_device]
+                         --linkserver-probe [linkserver_probe]
+
+- `linkserver_cmd`: The LinkServer executable to invoke. Defaults to
+  `LinkServer`.
+- `linkserver_device`: The LinkServer device name to use with the `flash`
+  command.
+- `linkserver_probe`: The probe index or serial number to use.
+
 Finally, Tockloader can treat a local file as though it were the flash contents
 of a board. The file can then be loaded separately onto a board.
 

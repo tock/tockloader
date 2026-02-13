@@ -310,6 +310,13 @@ class BoardInterface:
                 "flush_command": "probe-rs download {binary} --binary-format bin --base-address 0x10000000 --chip CY8C624AAZI-S2D44",
             },
         },
+        "lpc55s69": {
+            "description": "NXP LPC55S69-based board",
+            "arch": "cortex-m4",
+            "page_size": 512,
+            "no_attribute_table": True,
+            "linkserver": {"device": "LPC55S69"},
+        },
     }
 
     def __init__(self, args):

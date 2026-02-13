@@ -870,6 +870,9 @@ def main():
         "--probers", action="store_true", help="Use probe-rs to flash."
     )
     parent_channel.add_argument(
+        "--linkserver", action="store_true", help="Use NXP LinkServer to flash."
+    )
+    parent_channel.add_argument(
         "--local-board", action="store_true", help="Use a local binary file to flash."
     )
     parent_channel.add_argument(
@@ -939,6 +942,19 @@ def main():
         "--probers-probe",
         default=None,
         help="Specify a specific probe when using probe-rs.",
+    )
+    parent_channel.add_argument(
+        "--linkserver-device", help="The device for LinkServer."
+    )
+    parent_channel.add_argument(
+        "--linkserver-cmd",
+        default="LinkServer",
+        help="The LinkServer binary to invoke.",
+    )
+    parent_channel.add_argument(
+        "--linkserver-probe",
+        default=None,
+        help="Specify a specific probe when using LinkServer.",
     )
     parent_channel.add_argument(
         "--flash-file",

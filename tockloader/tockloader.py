@@ -35,6 +35,7 @@ from .nrfutil import NrfUtil
 from .openocd import OpenOCD, collect_temp_files
 from .probers import ProbeRs
 from .stlink import STLink
+from .linkserver import LinkServer
 from .flash_file import FlashFile
 from .tickv import TockTicKV
 
@@ -146,6 +147,9 @@ class TockLoader:
             "cy8cproto_62_4343_w": {
                 "start_address": 0x10100000,
             },
+            "lpc55s69": {
+                "start_address": 0x20000,
+            },
         },
     }
 
@@ -207,6 +211,9 @@ class TockLoader:
         elif hasattr(self.args, "probers") and self.args.probers:
             # User passed `--probers`. Force the probe-rs channel.
             self.channel = ProbeRs(self.args)
+        elif hasattr(self.args, "linkserver") and self.args.linkserver:
+            # User passed `--linkserver`. Force the LinkServer channel.
+            self.channel = LinkServer(self.args)
         elif hasattr(self.args, "serial") and self.args.serial:
             # User passed `--serial`. Force the serial bootloader channel.
             self.channel = BootloaderSerial(self.args)
@@ -263,6 +270,13 @@ class TockLoader:
                 if stlink_channel.attached_board_exists():
                     self.channel = stlink_channel
                     logging.info("Using stlink channel to communicate with the board.")
+                    break
+
+                # Next try LinkServer.
+                linkserver_channel = LinkServer(self.args)
+                if linkserver_channel.attached_board_exists():
+                    self.channel = linkserver_channel
+                    logging.info("Using LinkServer channel to comm. with the board.")
                     break
 
                 # Try using the serial bootloader. Traditionally, we have

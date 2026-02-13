@@ -99,7 +99,7 @@ class STLink(BoardInterface):
     def _run_stlink_command(self, command, binary, write=True):
         stlink_command, temp_bin = self._gather_stlink_cmdline(command, binary, write)
 
-        logging.debug('Running "{}".'.format(stlink_command.replace("$", "\$")))
+        logging.debug('Running "{}".'.format(stlink_command.replace("$", "\\$")))
 
         def print_output(subp):
             response = ""

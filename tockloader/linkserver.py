@@ -109,7 +109,7 @@ class LinkServer(BoardInterface):
     def _run_linkserver_command(self, command, binary, write=True):
         command, temp_bin = self._gather_linkserver_cmdline(command, binary, write)
 
-        logging.debug('Running "{}".'.format(command.replace("$", "\$")))
+        logging.debug('Running "{}".'.format(command.replace("$", "\\$")))
 
         def print_output(subp):
             response = ""

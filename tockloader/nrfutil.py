@@ -59,8 +59,8 @@ class NrfUtil(BoardInterface):
             info_msg = self._get_nrfutil_json_msg(out, "info")
             assert info_msg["data"]["name"] == "nrfutil-device"
         except:
-            logging.error("The `nrfutil device` command is not installed.")
-            logging.error("Install it by running `nrfutil install device`.")
+            logging.debug("The `nrfutil device` command is not installed.")
+            logging.debug("Install it by running `nrfutil install device`.")
             raise TockLoaderException("nrfutil device not installed")
 
         # Ensure that the `device` command is new enough. Older versions did not
@@ -71,8 +71,8 @@ class NrfUtil(BoardInterface):
                 init=True,
             )
         except:
-            logging.error("The `nrfutil device` command is too old.")
-            logging.error("Update it by running `nrfutil install device --force`.")
+            logging.debug("The `nrfutil device` command is too old.")
+            logging.debug("Update it by running `nrfutil install device --force`.")
             raise TockLoaderException("nrfutil device out of date")
 
     def _run_nrfutil(self, args, as_json=False, custom_error=None, init=False):

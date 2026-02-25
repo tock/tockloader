@@ -469,9 +469,12 @@ directory:
 
 ### Build Docs
 
-    pip3 install mkdocs
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -e .
+    pip install mkdocs
     cd docs
-    ./generate_docs.py
+    generate_docs.py
     cd ..
     mkdocs serve --dev-addr=0.0.0.0:8001
 

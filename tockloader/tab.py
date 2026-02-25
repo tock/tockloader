@@ -33,7 +33,11 @@ class TAB:
         else:
             try:
                 # Otherwise download it as a URL.
-                with urllib.request.urlopen(tab_path) as response:
+                request = urllib.request.Request(
+                    tab_path,
+                    headers={"User-Agent": "tockloader"},
+                )
+                with urllib.request.urlopen(request) as response:
                     tmp_file = tempfile.TemporaryFile()
                     # Copy the downloaded response to our temporary file.
                     shutil.copyfileobj(response, tmp_file)

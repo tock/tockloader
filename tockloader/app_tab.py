@@ -1,4 +1,5 @@
 import logging
+import math
 import struct
 import textwrap
 
@@ -166,16 +167,40 @@ class TabApp:
             # Make sure the total app size is a power of two.
             for tbf in self._get_tbfs():
                 current_size = tbf.tbfh.get_app_size()
+                original_app_size = current_size
                 if (current_size & (current_size - 1)) != 0:
                     # This is not a power of two, but should be.
                     count = 0
                     while current_size != 0:
                         current_size >>= 1
                         count += 1
-                    tbf.tbfh.set_app_size(1 << count)
-                    logging.debug(
-                        "Rounding app up to ^2 size ({} bytes)".format(1 << count)
-                    )
+
+                    # Use 64kB as a heuristic for packing. Use the next power
+                    # of two for sizes less than 64kB. Otherwise we use the
+                    # the following to reduce wasted space:
+                    # (X - 1) * (NextPowerOfTwo / 8) < size < X * (NextPowerOfTwo)
+                    if original_app_size < (1024 * 64):
+                        logging.debug(
+                            "Rounding app up to ^2 size ({} bytes)".format(1 << count)
+                        )
+                        tbf.tbfh.set_app_size(1 << count)
+                    else:
+                        next_power2 = 1 << count
+                        # Arm cortex-m v7 has 8 subregions for each MPU region
+                        # of equal size, so we can enable X subregions of size
+                        # 2^N / 8.
+                        multiple = next_power2 / 8
+                        number_of_unmasked_subregions = math.ceil(
+                            original_app_size / multiple
+                        )
+                        new_size = int(number_of_unmasked_subregions * multiple)
+                        logging.debug(
+                            "Rounding app up to (X - 1) * (NextPowerOfTwo / 8) \
+                                < size < X * (NextPowerOfTwo) ({} bytes)".format(
+                                new_size
+                            )
+                        )
+                        tbf.tbfh.set_app_size(new_size)
 
         elif type(constraint) is tuple:
             if constraint[0] == "multiple":

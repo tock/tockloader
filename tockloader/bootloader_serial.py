@@ -241,7 +241,6 @@ class BootloaderSerial(BoardInterface):
                     nrfutil_channel.open_link_to_board()
                     vcom0_path = nrfutil_channel.vcom0_device()
 
-                if vcom0_path != None:
                     # On mac, the nrfutil tool uses the /dev/tty* paths,
                     # and we need the /dev/cu* paths. We just hack in a
                     # substitution here which will only have an effect on

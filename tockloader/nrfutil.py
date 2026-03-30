@@ -27,7 +27,18 @@ class NrfUtil(BoardInterface):
         self._opened_board_code_page_size = None
         self._opened_board_vcom0_device = None
 
+        # Cache once we check that nrfutil is installed so we don't keep
+        # re-checking.
+        self._nrfutil_installed = False
+
+        # Cache device list --json to avoid multiple calls.
+        self._device_list_json = None
+
     def _ensure_nrfutil_installed(self):
+        # Fast out if we already checked.
+        if self._nrfutil_installed:
+            return
+
         # This argument may not be installed on all commands that instantiate
         # `NrfUtil`. For instance, it is not present when running `tockloader
         # listen`, which will nonetheless instantiate this object for
@@ -43,6 +54,23 @@ class NrfUtil(BoardInterface):
             raise TockLoaderException(
                 "Cannot find nrfutil executable, please install it."
             )
+
+        # Assume we are all good check the full command first.
+        #
+        # This check also ensures that the `device` command is new enough.
+        # Older versions did not have a `read` command.
+        try:
+            out = self._run_nrfutil(
+                ["device", "read", "--help"],
+                init=True,
+            )
+            # All good. Return now.
+            self._nrfutil_installed = True
+            return
+        except:
+            # Didn't work. Try one at a time to figure out what is wrong
+            # with the local nrfutil install.
+            pass
 
         # Try executing nrfutil and ensure that it is callable:
         out = self._run_nrfutil(["--version", "--json"], init=True, as_json=True)
@@ -63,17 +91,11 @@ class NrfUtil(BoardInterface):
             logging.debug("Install it by running `nrfutil install device`.")
             raise TockLoaderException("nrfutil device not installed")
 
-        # Ensure that the `device` command is new enough. Older versions did not
-        # have a `read` command.
-        try:
-            out = self._run_nrfutil(
-                ["device", "read", "--help"],
-                init=True,
-            )
-        except:
-            logging.debug("The `nrfutil device` command is too old.")
-            logging.debug("Update it by running `nrfutil install device --force`.")
-            raise TockLoaderException("nrfutil device out of date")
+        # If we get here then nrfutil did not work, and our best guess is the
+        # install is too old (and doesn't support read).
+        logging.debug("The `nrfutil device` command is too old.")
+        logging.debug("Update it by running `nrfutil install device --force`.")
+        raise TockLoaderException("nrfutil device out of date")
 
     def _run_nrfutil(self, args, as_json=False, custom_error=None, init=False):
         if not init:
@@ -106,6 +128,11 @@ class NrfUtil(BoardInterface):
             raise TockLoaderException(
                 "nrfutil command failed. You may need to update nrfutil."
             )
+        except FileNotFoundError:
+            logging.debug(
+                f"nrfutil command '{self._nrfutil_path}' failed. Check this is the correct nrfutil."
+            )
+            raise TockLoaderException(f"nrfutil command '{self._nrfutil_path}' failed.")
 
         if as_json:
             # We expect the output to be lines of valid JSON, where each message
@@ -132,6 +159,15 @@ class NrfUtil(BoardInterface):
         else:
             return cmd.stdout
 
+    def _get_nrfutil_device_json(self):
+        """
+        Use cached copy or run `nrfutil device list --json` the first time.
+        """
+        if self._device_list_json == None:
+            out = self._run_nrfutil(["device", "list", "--json"], as_json=True)
+            self._device_list_json = out
+        return self._device_list_json
+
     def _get_nrfutil_json_msg(self, json_messages, message_type):
         try:
             msg = next((msg for msg in json_messages if msg["type"] == message_type))
@@ -147,7 +183,7 @@ class NrfUtil(BoardInterface):
         Check if an nRF device is attached.
         """
         # list devices and check output
-        out = self._run_nrfutil(["device", "list", "--json"], as_json=True)
+        out = self._get_nrfutil_device_json()
         info_msg = self._get_nrfutil_json_msg(out, "info")
 
         # Sanity check the output:
@@ -163,7 +199,10 @@ class NrfUtil(BoardInterface):
 
         # If we have at least one device attached, return its serial number:
         if len(info_msg["data"]["devices"]) > 0:
-            return info_msg["data"]["devices"][0]["serialNumber"]
+            self._first_attached_board_serial_number = info_msg["data"]["devices"][0][
+                "serialNumber"
+            ]
+            return self._first_attached_board_serial_number
 
     def _ensure_board_link_open(self):
         if self._opened_board_serial is None:
@@ -216,7 +255,7 @@ class NrfUtil(BoardInterface):
         # Determine the device's VCOM0 serial port path. Currently, the only way
         # to get this information through a "list", which we then search for our
         # board's serial number:
-        out = self._run_nrfutil(["device", "list", "--json"], as_json=True)
+        out = self._get_nrfutil_device_json()
         info_msg = self._get_nrfutil_json_msg(out, "info")
 
         # Sanity check the output:

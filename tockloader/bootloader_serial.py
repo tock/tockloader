@@ -215,6 +215,12 @@ class BootloaderSerial(BoardInterface):
                     "No serial ports found. Is the board connected?"
                 )
 
+            # Debug output to list what tockloader is seeing.
+            if self.args.debug:
+                logging.debug("Considering ports:")
+                for p in ports:
+                    logging.debug(f"- {p.name} ({p.description})")
+
             # Attempt to workaround the issue with the nRF52840dk (PCA10056),
             # particularly newer revisions of that board, that open two serial
             # ports by detecting which one is the correct port.

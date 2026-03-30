@@ -231,7 +231,7 @@ class BootloaderSerial(BoardInterface):
             #
             # If we find that, we determine the vcom0 port based on what the
             # nrfutil channel determined with connecting to the board.
-            jlink_cdc_ports = [p for p in ports if "J-Link - CDC" in p.description]
+            jlink_cdc_ports = [p for p in ports if "J-Link" in p.description]
             if len(jlink_cdc_ports) == 2:
                 # It looks like the user has the nRF52840dk connected.
 

@@ -1,6 +1,6 @@
 site_name: Tockloader
 theme: readthedocs
-pages:
+nav:
 - Home: 'index.md'
 - API Documentation:
   - Main: main.md

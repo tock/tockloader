@@ -1087,6 +1087,7 @@ def main():
         help='Directly specify which OpenOCD commands to use for "program", "read", or "erase" actions. Example: "program=flash write_image erase {{binary}} {address:#x};verify_image {{binary}} {address:#x};" Only used with --rtt.',
         nargs="*",
     )
+    listen.add_argument("--nrfutil-cmd", help="The nrfutil binary to invoke.")
     listen.set_defaults(func=command_listen)
 
     install = subparser.add_parser(

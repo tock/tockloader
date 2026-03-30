@@ -267,7 +267,9 @@ interface with the boards, so there are not many flags.
 
 For nRF5x boards, Tockloader supports
 [nrfutil](https://www.nordicsemi.com/Products/Development-tools/nRF-Util). This
-tool uses JLink to program Nordic's nRF5x development boards.
+tool uses JLink to program Nordic's nRF5x development boards. After installing
+`nrfutil`, be sure to run `nrfutil install device` to be able to flash
+hardware.
 
     tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
                          --nrfutil \

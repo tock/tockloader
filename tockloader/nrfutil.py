@@ -511,6 +511,6 @@ class NrfUtil(BoardInterface):
                     "--firmware",
                     input_file.name,
                     "--options",
-                    "chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE",
+                    "chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE,ext_mem_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE",
                 ]
             )

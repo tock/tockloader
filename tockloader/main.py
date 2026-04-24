@@ -27,6 +27,7 @@ import crcmod
 from . import helpers
 from . import tockloader
 from .exceptions import TockLoaderException
+from .kernel import Kernel
 from .tab import TAB
 from .tickv import TicKV, TockTicKV
 from .tockloader import TockLoader
@@ -413,6 +414,27 @@ def command_inspect_tab(args):
                     textwrap.indent(helpers.print_flash(0, app.get_binary(0)), "    ")
                 )
         print("")
+
+
+def command_inspect_kernel(args):
+    kernel_names = args.kernel
+
+    # Concatenate the binaries.
+    kernels = []
+    for kernel_name in kernel_names:
+        try:
+            kernels.append(Kernel(kernel_name, args))
+        except Exception as e:
+            if args.debug:
+                logging.debug("Exception: {}".format(e))
+            logging.error('Error opening and reading "{}"'.format(kernel_name))
+
+    if len(kernels) == 0:
+        raise TockLoaderException("No valid kernel to use.")
+
+    logging.status("Inspecting kernels...")
+    for kernel in kernels:
+        kernel.get_attributes()
 
 
 def command_local_board_set(args):
@@ -1336,6 +1358,21 @@ def main():
         "--tbf-binary", help="Dump the entire TBF binary", action="store_true"
     )
     inspect_tab.add_argument("tab", help="The TAB or TABs to inspect", nargs="*")
+
+    inspect_kernel = subparser.add_parser(
+        "inspect-kernel",
+        parents=[parent],
+        help="Get details about a Tock kernel binary",
+    )
+    inspect_kernel.set_defaults(func=command_inspect_kernel)
+    # inspect_tab.add_argument(
+    #     "--verify-credentials",
+    #     help="Check credentials with a list of public keys",
+    #     nargs="+",
+    # )
+    inspect_kernel.add_argument(
+        "kernel", help="The kernel binary (.bin) to inspect", nargs="*"
+    )
 
     #################
     ## LOCAL BOARD ##

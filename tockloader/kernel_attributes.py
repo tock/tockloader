@@ -228,8 +228,8 @@ class KATLVPublicKey(KATLV):
     def pack(self):
         return self.public_key + struct.pack(
             "<HHHH",
-            self.public_key_algorithm,
             self.public_key_use,
+            self.public_key_algorithm,
             self.TLVID,
             4 + len(self.public_key),
         )

@@ -27,13 +27,19 @@ class Kernel:
         if os.path.exists(kernel_path):
             # Fetch it from the local filesystem.
             self.kernel = open(kernel_path, "rb")
+            self.binary = self.kernel.read()
+            self.attrs = KernelAttributes(self.binary, len(self.binary))
         else:
-            raise TockLoaderException("Could not download open kernel binary.")
+            raise TockLoaderException("Could not open kernel binary.")
+
+    def add_attribute(self, tlvname, parameters):
+        self.attrs.add_tlv(tlvname, parameters)
 
     def get_attributes(self):
         displayer = display.HumanReadableDisplay(show_headers=True)
         kernel_attr_binary = self.kernel.read()
         kernel_attrs = KernelAttributes(kernel_attr_binary, len(kernel_attr_binary))
+        kernel_attrs.add_public_key([])
         displayer.kernel_attributes(kernel_attrs)
 
         print(displayer.get())

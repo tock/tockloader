@@ -28,6 +28,7 @@ from . import helpers
 from . import tockloader
 from .exceptions import TockLoaderException
 from .kernel import Kernel
+from . import kernel_attributes
 from .tab import TAB
 from .tickv import TicKV, TockTicKV
 from .tockloader import TockLoader
@@ -489,6 +490,29 @@ def command_local_board_path(args):
 def command_local_board_flush(args):
     logging.status(f"Flushing the local board binary file to the actual board")
     tockloader.flush_local_board(args)
+
+
+def command_kernel_attrs_add(args):
+    kernel_names = args.kernel
+
+    # Concatenate the binaries.
+    kernels = []
+    for kernel_name in kernel_names:
+        try:
+            kernels.append(Kernel(kernel_name, args))
+        except Exception as e:
+            if args.debug:
+                logging.debug("Exception: {}".format(e))
+            logging.error('Error opening and reading "{}"'.format(kernel_name))
+
+    if len(kernels) == 0:
+        raise TockLoaderException("No valid kernel to use.")
+
+    tlvname = args.subsubsubcommand
+    parameters = args.parameters
+    logging.status("Adding Kernel Attribute TLV {}...".format(tlvname))
+    for kernel in kernels:
+        kernel.add_attribute(tlvname, parameters)
 
 
 def command_tbf_tlv_delete(args):
@@ -1446,6 +1470,57 @@ def main():
         help="Flush the local board binary file to the hardware board",
     )
     local_board_flush.set_defaults(func=command_local_board_flush)
+
+    ############
+    ## KERNEL ##
+    ############
+
+    kernel = subparser.add_parser(
+        "kernel",
+        help="Commands for interacting with Tock kernel binaries",
+    )
+
+    kernel_subparser = kernel.add_subparsers(
+        title="Commands", metavar="            ", dest="subcommand"
+    )
+
+    #######################
+    ## KERNEL ATTRIBUTES ##
+    #######################
+
+    kernel_attrs = kernel_subparser.add_parser(
+        "attrs",
+        help="Commands for interacting with kernel attributes in kernel binaries",
+    )
+
+    kernel_attrs_subparser = kernel_attrs.add_subparsers(
+        title="Commands", metavar="", dest="subsubcommand"
+    )
+
+    ## ADD
+
+    kernel_attrs_add = kernel_attrs_subparser.add_parser(
+        "add",
+        help="Add a TLV to the kernel attributes",
+    )
+    kernel_attrs_add_subparser = kernel_attrs_add.add_subparsers(
+        title="Commands", metavar="", dest="subsubsubcommand"
+    )
+
+    # Add subcommands for adding each TLV so we can specify number of arguments.
+    for tlvname, nargs, param_help in kernel_attributes.get_addable_tlvs():
+        kernel_attrs_add_attr = kernel_attrs_add_subparser.add_parser(
+            tlvname,
+            parents=[parent],
+            help="Add a {} kernel attribute to the kernel binary attributes".format(
+                tlvname
+            ),
+        )
+        kernel_attrs_add_attr.set_defaults(func=command_kernel_attrs_add)
+        kernel_attrs_add_attr.add_argument("parameters", help=param_help, nargs=nargs)
+        kernel_attrs_add_attr.add_argument(
+            "kernel", help="The kernel binary (.bin) to inspect", nargs="*"
+        )
 
     #########
     ## TBF ##

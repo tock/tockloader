@@ -24,6 +24,7 @@ import urllib.parse
 import argcomplete
 import crcmod
 
+from . import display
 from . import helpers
 from . import tockloader
 from .exceptions import TockLoaderException
@@ -433,9 +434,18 @@ def command_inspect_kernel(args):
     if len(kernels) == 0:
         raise TockLoaderException("No valid kernel to use.")
 
+    if args.output_format == "json":
+        displayer = display.JSONDisplay()
+    elif args.output_format == "visual":
+        displayer = display.VisualDisplay()
+    else:
+        displayer = display.HumanReadableDisplay(show_headers=True)
+
     logging.status("Inspecting kernels...")
     for kernel in kernels:
-        kernel.get_attributes()
+        attrs = kernel.get_attributes()
+        displayer.kernel_attributes(attrs)
+        print(displayer.get())
 
 
 def command_local_board_set(args):
@@ -513,6 +523,7 @@ def command_kernel_attrs_add(args):
     logging.status("Adding Kernel Attribute TLV {}...".format(tlvname))
     for kernel in kernels:
         kernel.add_attribute(tlvname, parameters)
+        kernel.update()
 
 
 def command_tbf_tlv_delete(args):
@@ -1385,15 +1396,10 @@ def main():
 
     inspect_kernel = subparser.add_parser(
         "inspect-kernel",
-        parents=[parent],
+        parents=[parent, parent_format],
         help="Get details about a Tock kernel binary",
     )
     inspect_kernel.set_defaults(func=command_inspect_kernel)
-    # inspect_tab.add_argument(
-    #     "--verify-credentials",
-    #     help="Check credentials with a list of public keys",
-    #     nargs="+",
-    # )
     inspect_kernel.add_argument(
         "kernel", help="The kernel binary (.bin) to inspect", nargs="*"
     )
@@ -1519,7 +1525,7 @@ def main():
         kernel_attrs_add_attr.set_defaults(func=command_kernel_attrs_add)
         kernel_attrs_add_attr.add_argument("parameters", help=param_help, nargs=nargs)
         kernel_attrs_add_attr.add_argument(
-            "kernel", help="The kernel binary (.bin) to inspect", nargs="*"
+            "kernel", help="The kernel binary (.bin) to inspect", nargs="+"
         )
 
     #########

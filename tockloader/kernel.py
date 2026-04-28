@@ -36,10 +36,25 @@ class Kernel:
         self.attrs.add_tlv(tlvname, parameters)
 
     def get_attributes(self):
-        displayer = display.HumanReadableDisplay(show_headers=True)
-        kernel_attr_binary = self.kernel.read()
-        kernel_attrs = KernelAttributes(kernel_attr_binary, len(kernel_attr_binary))
-        kernel_attrs.add_public_key([])
-        displayer.kernel_attributes(kernel_attrs)
+        return self.attrs
 
-        print(displayer.get())
+    def update(self):
+        """
+        Save an updated kernel binary.
+        """
+
+        # Close the kernel we have open since we need to re-open it for writing.
+        self.kernel.close()
+
+        # Now need to open kernel binary for writing.
+        k = open(self.kernel_path, "wb")
+
+        attrs = self.attrs.get_binary()
+        binary = self.binary[0 : -len(attrs)] + attrs
+        k.write(binary)
+
+        # Close the version for writing.
+        k.close()
+
+        # Re-open the read version
+        self.kernel = open(self.kernel_path, "rb")

@@ -5,6 +5,8 @@ Parse kernel attributes at the end of the kernel flash region.
 import logging
 import struct
 
+from .exceptions import TockLoaderException
+
 
 class KATLV:
     TYPE_APP_MEMORY = 0x0101
@@ -159,13 +161,12 @@ class KATLVKernelVersion(KATLV):
 
 class KATLVPublicKey(KATLV):
     TLVID = KATLV.TYPE_PUBLIC_KEY
-    SIZE = 8
     NUMBER_PARAMETERS = 3
     PARAMETER_HELP = "<algorithm name> <key use> <key file>"
 
     PUBLIC_KEY_TYPE_ECDSAP256 = 0x06
 
-    PUBLIC_KEY_TYPES = {0x6: CREDENTIALS_TYPE_ECDSAP256}
+    PUBLIC_KEY_TYPES = {0x6: PUBLIC_KEY_TYPE_ECDSAP256}
     PUBLIC_KEY_NAMES = {"ecdsap256": PUBLIC_KEY_TYPE_ECDSAP256}
 
     PUBLIC_KEY_USE_APPS = 0x1
@@ -186,7 +187,7 @@ class KATLVPublicKey(KATLV):
             self.public_key_use = base[1]
             buffer = buffer[:-4]
 
-            if self.public_key_algorithm == 0x6:
+            if self.public_key_algorithm == self.PUBLIC_KEY_TYPE_ECDSAP256:
                 if len(buffer) == 64:
                     self.public_key = buffer
                     self.valid = True
@@ -200,18 +201,33 @@ class KATLVPublicKey(KATLV):
                 self.public_key_algorithm = self.PUBLIC_KEY_NAMES[
                     public_key_algorithm_name
                 ]
-
-                self.public_key_algorithm = parameters[0]
-                self.public_key_use = parameters[1]
-                self.public_key = parameters[2]
-                self.valid = True
             else:
                 raise TockLoaderException("Unknown public key name")
 
+            # See if the use type matches a use we know about.
+            if public_key_use in self.PUBLIC_KEY_USE_NAMES:
+                self.public_key_use = self.PUBLIC_KEY_USE_NAMES[public_key_use]
+
+            else:
+                raise TockLoaderException("Unknown public key use type")
+
+            if self.public_key_algorithm == self.PUBLIC_KEY_TYPE_ECDSAP256:
+                import Crypto.PublicKey
+
+                # Load the public key from PEM file
+                try:
+                    with open(parameters[2], "r") as f:
+                        key = Crypto.PublicKey.ECC.import_key(f.read())
+                        public_key_bytes = key.export_key(format="raw")[-64:]
+                except:
+                    raise TockLoaderException("Could not open public key file")
+
+                self.public_key = public_key_bytes
+                self.valid = True
+
     def pack(self):
-        return struct.pack(
-            "<sHHHH",
-            self.public_key,
+        return self.public_key + struct.pack(
+            "<HHHH",
             self.public_key_algorithm,
             self.public_key_use,
             self.TLVID,
@@ -221,23 +237,43 @@ class KATLVPublicKey(KATLV):
     def __str__(self):
         out = "KATLV: Public Key ({:#x})\n".format(self.TLVID)
 
-        out += "  {:<20}: {} {}\n".format(
-            "public_key",
-            self.public_key_algorithm,
-            self.public_key_use,
+        out += "  {:<20}: {}\n".format(
+            "algorithm",
+            self._key_type_to_str(self.public_key_algorithm),
+        )
+        out += "  {:<20}: {}\n".format(
+            "use",
+            "app" if self.public_key_use == 1 else "service",
         )
 
         return out
 
-    # def object(self):
-    #     return {
-    #         "type": "kernel_version",
-    #         "id": self.TLVID,
-    #         "kernel_version_major": self.kernel_version_major,
-    #         "kernel_version_minor": self.kernel_version_minor,
-    #         "kernel_version_patch": self.kernel_version_patch,
-    #         "kernel_version_prerelease": self.kernel_version_prerelease,
-    #     }
+    def object(self):
+        return {
+            "type": "public_key",
+            "id": self.TLVID,
+            "public_key_algorithm": self.public_key_algorithm,
+            "public_key_use": self.public_key_use,
+            "public_key": self.public_key,
+        }
+
+    def _key_type_to_str(self, type):
+        names = [
+            "Reserved",
+            "RSA3072KEY",
+            "RSA4096KEY",
+            "SHA256",
+            "SHA384",
+            "SHA512",
+            "ECDSAP256",
+            "HMACSHA256",
+            "Unknown",
+            "Unknown",
+            "RSA2048",
+        ]
+
+        name = names[type] if type < len(names) else "Unknown"
+        return name
 
 
 TLV_MAPPINGS = {
@@ -312,11 +348,17 @@ class KernelAttributes:
 
                 for katlv_type in self.KATLV_TYPES:
                     if t == katlv_type.TLVID:
-                        katlv_len = katlv_type.SIZE
-                        if len(buffer) >= katlv_len and l == katlv_len:
-                            self.tlvs.append(katlv_type(buffer[-1 * katlv_len :]))
-                            buffer = buffer[: -1 * katlv_len]
+                        if hasattr(katlv_type, "SIZE"):
+                            katlv_len = katlv_type.SIZE
+                            if len(buffer) >= katlv_len and l == katlv_len:
+                                self.tlvs.append(katlv_type(buffer[-1 * katlv_len :]))
+                                buffer = buffer[: -1 * katlv_len]
+                        else:
+                            self.tlvs.append(katlv_type(buffer[-1 * l :]))
+                            buffer = buffer[: -1 * l]
+                        logging.debug(f"Found and parsed TLV ID {t}")
                         break
+
                 else:
                     break
 
@@ -350,103 +392,20 @@ class KernelAttributes:
 
         # Need to add an entirely new TLV.
         new_tlv = tlv_obj(b"", parameters)
-        size = len(new_tlv.pack())
         self.tlvs.append(new_tlv)
         self.modified = True
-
-    def add_public_key(
-        self,
-        public_key,
-    ):
-        key = bytearray(
-            [
-                0xE0,
-                0x13,
-                0x3A,
-                0x90,
-                0xA7,
-                0x4A,
-                0x35,
-                0x61,
-                0x51,
-                0x8E,
-                0xE1,
-                0x44,
-                0x09,
-                0xF1,
-                0x69,
-                0xC1,
-                0xCF,
-                0x6A,
-                0xDB,
-                0x7F,
-                0x7E,
-                0x52,
-                0xF8,
-                0xB7,
-                0x41,
-                0x79,
-                0xE2,
-                0x4D,
-                0x57,
-                0x41,
-                0x23,
-                0x52,
-                0x2E,
-                0xB6,
-                0x12,
-                0x03,
-                0xB3,
-                0x85,
-                0x10,
-                0xE5,
-                0xF3,
-                0x25,
-                0x07,
-                0x62,
-                0x8F,
-                0x54,
-                0x95,
-                0x82,
-                0x57,
-                0x45,
-                0x50,
-                0xBD,
-                0xA3,
-                0xE2,
-                0x17,
-                0xE8,
-                0x34,
-                0x30,
-                0x89,
-                0x26,
-                0x4C,
-                0x23,
-                0x62,
-                0xB1,
-            ]
-        )
-
-        attr = KATLVPublicKey([], [0x6, 0, key])
-
-        self.tlvs.append(attr)
-
-    def _get_tlv(self, tlvid):
-        """
-        Return the TLV from the self.tlvs array if it exists.
-        """
-        for tlv in self.tlvs:
-            if tlv.get_tlvid() == tlvid:
-                return tlv
-        return None
 
     def get_binary(self):
         """
         Get the kernel attributes in a bytes array.
         """
         buf = bytearray()
-        for tlv in self.tlvs:
+        for tlv in reversed(self.tlvs):
+            logging.debug(f"Packing TLV ID {tlv.TLVID}")
             buf += tlv.pack()
+
+        version = 1
+        buf += struct.pack(">BBBB4s", 0, 0, 0, version, b"TOCK")
 
         return buf
 
@@ -458,6 +417,15 @@ class KernelAttributes:
         for tlv in self.tlvs:
             kernel_attrs_size += tlv.get_size()
         return footkernel_attrs_sizeer_size
+
+    def _get_tlv(self, tlvid):
+        """
+        Return the TLV from the self.tlvs array if it exists.
+        """
+        for tlv in self.tlvs:
+            if tlv.get_tlvid() == tlvid:
+                return tlv
+        return None
 
     def __str__(self):
         return self.info()

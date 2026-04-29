@@ -317,6 +317,15 @@ class BoardInterface:
             "no_attribute_table": True,
             "linkserver": {"device": "LPC55S69"},
         },
+        "nucleo_u545re_q": {
+            "description": "STM32U545RE-based Nucleo development board",
+            "arch": "cortex-m4",
+            "page_size": 8192,
+            "no_attribute_table": True,
+            "openocd": {
+                "prefix": "source [find interface/stlink.cfg]; source [find target/stm32u5x.cfg];",
+            },
+        },
     }
 
     def __init__(self, args):

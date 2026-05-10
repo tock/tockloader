@@ -198,6 +198,24 @@ class BoardInterface:
                 "cfg": "st_nucleo_f4.cfg",
             },
         },
+        "nucleoh7cm4": {
+            "description": "STM32H74x_H75x based Nucleo development boards (Cortex M4)",
+            "arch": "cortex-m4",
+            "page_size": 2048,
+            "no_attribute_table": True,
+            "openocd": {
+                "cfg": "st_nucleo_f4.cfg",
+            },
+        },
+        "nucleoh7cm7": {
+            "description": "STM32H74x_H75x based Nucleo development boards (Cortex M7)",
+            "arch": "cortex-m7",
+            "page_size": 2048,
+            "no_attribute_table": True,
+            "openocd": {
+                "cfg": "st_nucleo_f4.cfg",
+            },
+        },
         "hifive1": {
             "description": "SiFive HiFive1 development board",
             "arch": "rv32imac",

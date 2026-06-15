@@ -197,12 +197,29 @@ class NrfUtil(BoardInterface):
                 + pprint.pformat(info_msg)
             )
 
-        # If we have at least one device attached, return its serial number:
+        # If we have at least one device attached, copy its serial number
         if len(info_msg["data"]["devices"]) > 0:
-            self._first_attached_board_serial_number = info_msg["data"]["devices"][0][
-                "serialNumber"
-            ]
+            serial_number = info_msg["data"]["devices"][0]["serialNumber"]
+
+            # Check for `device-info`. This will fail if this is not an nRF.
+            try:
+                out = self._run_nrfutil(
+                    [
+                        "device",
+                        "device-info",
+                        "--serial-number",
+                        serial_number,
+                        "--json",
+                    ],
+                    as_json=True,
+                )
+            except Exception as e:
+                return None
+
+            self._first_attached_board_serial_number = serial_number
             return self._first_attached_board_serial_number
+
+        return None
 
     def _ensure_board_link_open(self):
         if self._opened_board_serial is None:
@@ -308,16 +325,21 @@ class NrfUtil(BoardInterface):
         # "NRF52_FAMILY" and a `jlinkObFirmwareVersion` is set, we assume this
         # is a `nrf52dk` (which covers both the actual nRF52DK and the
         # nRF52840DK):
-        out = self._run_nrfutil(
-            [
-                "device",
-                "device-info",
-                "--serial-number",
-                self._opened_board_serial,
-                "--json",
-            ],
-            as_json=True,
-        )
+        try:
+            out = self._run_nrfutil(
+                [
+                    "device",
+                    "device-info",
+                    "--serial-number",
+                    self._opened_board_serial,
+                    "--json",
+                ],
+                as_json=True,
+            )
+        except:
+            # nrfutil will fail if this is not actually a nrfutil supported board.
+            raise TockLoaderException("nrfutil command failed. Not a nrfutil board.")
+
         info_msg = self._get_nrfutil_json_msg(out, "info")
 
         # Sanity check the output:

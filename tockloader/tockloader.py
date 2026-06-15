@@ -824,7 +824,7 @@ class TockLoader:
 
             # Try to show kernel attributes
             app_start_flash = self._get_apps_start_address()
-            kernel_attr_binary = self.channel.read_range(app_start_flash - 100, 100)
+            kernel_attr_binary = self.channel.read_range(app_start_flash - 1000, 1000)
             kernel_attrs = KernelAttributes(kernel_attr_binary, app_start_flash)
             displayer.kernel_attributes(kernel_attrs)
 
@@ -1141,7 +1141,7 @@ class TockLoader:
         # Next we check for kernel attributes.
         if self.channel:
             app_start_flash = self._get_apps_start_address()
-            kernel_attr_binary = self.channel.read_range(app_start_flash - 100, 100)
+            kernel_attr_binary = self.channel.read_range(app_start_flash - 1000, 1000)
             kernel_attrs = KernelAttributes(kernel_attr_binary, app_start_flash)
             app_ram = kernel_attrs.get_app_memory_region()
             if app_ram != None:

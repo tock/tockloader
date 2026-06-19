@@ -267,7 +267,9 @@ interface with the boards, so there are not many flags.
 
 For nRF5x boards, Tockloader supports
 [nrfutil](https://www.nordicsemi.com/Products/Development-tools/nRF-Util). This
-tool uses JLink to program Nordic's nRF5x development boards.
+tool uses JLink to program Nordic's nRF5x development boards. After installing
+`nrfutil`, be sure to run `nrfutil install device` to be able to flash
+hardware.
 
     tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
                          --nrfutil \
@@ -277,6 +279,22 @@ tool uses JLink to program Nordic's nRF5x development boards.
 - `nrfutil_cmd`: The nrfutil executable to invoke. Defaults to `nrfutil`.
 - `serial_number`: The serial number of a particular board to flash. Defaults to
   the first board discovered.
+
+For NXP boards, Tockloader supports
+[LinkServer](https://www.nxp.com/design/design-center/software/development-software/mcuxpresso-software-and-tools-/linkserver-for-microcontrollers:LINKERSERVER).
+This tool uses LinkServer to program NXP boards.
+
+    tockloader [command] --board [board] --arch [arch] --page-size [page_size] \
+                         --linkserver \
+                         --linkserver-cmd [linkserver_cmd]
+                         --linkserver-device [linkserver_device]
+                         --linkserver-probe [linkserver_probe]
+
+- `linkserver_cmd`: The LinkServer executable to invoke. Defaults to
+  `LinkServer`.
+- `linkserver_device`: The LinkServer device name to use with the `flash`
+  command.
+- `linkserver_probe`: The probe index or serial number to use.
 
 Finally, Tockloader can treat a local file as though it were the flash contents
 of a board. The file can then be loaded separately onto a board.
@@ -386,6 +404,24 @@ To add an RSA signature:
 To remove credentials:
 
     $ tockloader tbf credential delete sha256
+
+
+Kernel Attributes
+-----------------
+
+Tockloader supports reading and adding
+[kernel attributes](https://book.tockos.org/doc/kernel_attributes) included in
+a Tock kernel binary. These generally describe properties of the compiled
+kernel. They can also include public keys the kernel might use for verifying
+signatures, such as application credentials.
+
+To add a public key to a Tock kernel, you need the public key file for a known
+algorithm, and a compiled Tock kernel binary (.bin) file. The public key is
+included with metadata, which is just a single 32-bit number used to provide
+some context for what this key should be used for by the kernel. To insert
+the public key with metadata "5":
+
+    $ tockloader kernel attrs add public_key ecdsap256 5 ec-secp256r1-tutorial-key.public.pem tock/target/thumbv7em-none-eabi/release/nrf52840dk.bin
 
 
 Features

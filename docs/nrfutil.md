@@ -406,6 +406,18 @@ def _first_attached_board_serial(self)
 Check if an nRF device is attached.
 
 
+### \_get\_nrfutil\_device\_json
+```py
+
+def _get_nrfutil_device_json(self)
+
+```
+
+
+
+Use cached copy or run `nrfutil device list --json` the first time.
+
+
 ### \_get\_nrfutil\_json\_msg
 ```py
 

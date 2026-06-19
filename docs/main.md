@@ -88,6 +88,15 @@ def command_info(args)
 
 
 
+### command\_inspect\_kernel
+```py
+
+def command_inspect_kernel(args)
+
+```
+
+
+
 ### command\_inspect\_tab
 ```py
 
@@ -101,6 +110,15 @@ def command_inspect_tab(args)
 ```py
 
 def command_install(args)
+
+```
+
+
+
+### command\_kernel\_attrs\_add
+```py
+
+def command_kernel_attrs_add(args)
 
 ```
 

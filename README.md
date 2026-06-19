@@ -406,6 +406,24 @@ To remove credentials:
     $ tockloader tbf credential delete sha256
 
 
+Kernel Attributes
+-----------------
+
+Tockloader supports reading and adding
+[kernel attributes](https://book.tockos.org/doc/kernel_attributes) included in
+a Tock kernel binary. These generally describe properties of the compiled
+kernel. They can also include public keys the kernel might use for verifying
+signatures, such as application credentials.
+
+To add a public key to a Tock kernel, you need the public key file for a known
+algorithm, and a compiled Tock kernel binary (.bin) file. The public key is
+included with metadata, which is just a single 32-bit number used to provide
+some context for what this key should be used for by the kernel. To insert
+the public key with metadata "5":
+
+    $ tockloader kernel attrs add public_key ecdsap256 5 ec-secp256r1-tutorial-key.public.pem tock/target/thumbv7em-none-eabi/release/nrf52840dk.bin
+
+
 Features
 --------
 

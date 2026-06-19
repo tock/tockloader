@@ -171,6 +171,17 @@ class BoardInterface:
                 "max_size": 0x00200000,
             },
         },
+        "qemu_rv64_virt": {
+            "description": "QEMU RISC-V 64 bit virt Platform",
+            "arch": "rv64imac",
+            "no_attribute_table": True,
+            "flash_file": {
+                "flash_address": 0x80000000,
+                # Size of the ROM and PROG region combined, where the resulting
+                # binary will be loaded into by QEMU:
+                "max_size": 0x00200000,
+            },
+        },
         "stm32f3discovery": {
             "description": "STM32F3-based Discovery Boards",
             "arch": "cortex-m4",

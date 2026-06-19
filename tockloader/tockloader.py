@@ -131,6 +131,9 @@ class TockLoader:
             "qemu_rv32_virt": {
                 "start_address": 0x80100000,
             },
+            "qemu_rv64_virt": {
+                "start_address": 0x80100000,
+            },
             "stm32f3discovery": {"start_address": 0x08020000},
             "stm32f4discovery": {
                 "start_address": 0x08040000,

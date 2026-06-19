@@ -150,6 +150,10 @@ Add and remove credentials in the TBF footer.
 
 Convert a TBF to a different format.
 
+#### `tockloader kernel attrs add [attr_type] [attr_args] [kernel binary]`
+
+Interact with kernel attributes.
+
 #### `tockloader tickv get|append|invalidate|dump|cleanup|reset [key] [value]`
 
 Interact with a TicKV key-value database.

@@ -171,6 +171,17 @@ class BoardInterface:
                 "max_size": 0x00200000,
             },
         },
+        "qemu_rv64_virt": {
+            "description": "QEMU RISC-V 64 bit virt Platform",
+            "arch": "rv64imac",
+            "no_attribute_table": True,
+            "flash_file": {
+                "flash_address": 0x80000000,
+                # Size of the ROM and PROG region combined, where the resulting
+                # binary will be loaded into by QEMU:
+                "max_size": 0x00200000,
+            },
+        },
         "stm32f3discovery": {
             "description": "STM32F3-based Discovery Boards",
             "arch": "cortex-m4",
@@ -326,6 +337,15 @@ class BoardInterface:
                 "prefix": "source [find interface/stlink.cfg]; \
                            transport select hla_swd; \
                            source [find target/stm32wlx.cfg];",
+            },
+        },
+        "nucleo_u545re_q": {
+            "description": "STM32U545RE-based Nucleo development board",
+            "arch": "cortex-m4",
+            "page_size": 8192,
+            "no_attribute_table": True,
+            "openocd": {
+                "prefix": "source [find interface/stlink.cfg]; source [find target/stm32u5x.cfg];",
             },
         },
     }

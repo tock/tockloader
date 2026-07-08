@@ -2,13 +2,17 @@
 Parse kernel attributes at the end of the kernel flash region.
 """
 
+import logging
 import struct
+
+from .exceptions import TockLoaderException
 
 
 class KATLV:
     TYPE_APP_MEMORY = 0x0101
     TYPE_KERNEL_BINARY = 0x0102
     TYPE_KERNEL_VERSION = 0x0103
+    TYPE_PUBLIC_KEY = 0x0104
 
     def get_tlvid(self):
         return self.TLVID
@@ -134,7 +138,7 @@ class KATLVKernelVersion(KATLV):
         else:
             end = labels[self.kernel_version_prerelease]
 
-        out += "  {:<20}: {}.{}.{}{}".format(
+        out += "  {:<20}: {}.{}.{}{}\n".format(
             "kernel_version",
             self.kernel_version_major,
             self.kernel_version_minor,
@@ -155,17 +159,179 @@ class KATLVKernelVersion(KATLV):
         }
 
 
+class KATLVPublicKey(KATLV):
+    TLVID = KATLV.TYPE_PUBLIC_KEY
+    NUMBER_PARAMETERS = 3
+    PARAMETER_HELP = "<algorithm name> <key metadata> <key file>"
+
+    PUBLIC_KEY_TYPE_ECDSAP256 = 0x06
+
+    PUBLIC_KEY_TYPES = {0x6: PUBLIC_KEY_TYPE_ECDSAP256}
+    PUBLIC_KEY_NAMES = {"ecdsap256": PUBLIC_KEY_TYPE_ECDSAP256}
+
+    def __init__(self, buffer, parameters=[]):
+        self.valid = False
+
+        if len(buffer) > 8:
+            base = struct.unpack("<IHH", buffer[-8:])
+            self.public_key_algorithm = base[2]
+            self.public_key_metadata = base[0]
+            buffer = buffer[:-8]
+
+            if self.public_key_algorithm == self.PUBLIC_KEY_TYPE_ECDSAP256:
+                logging.debug(
+                    "KATLVPublicKey: type PUBLIC_KEY_TYPE_ECDSAP256 {}".format(
+                        len(buffer)
+                    )
+                )
+                if len(buffer) == 64:
+                    logging.debug("KATLVPublicKey: buffer len 64")
+                    self.public_key = buffer
+                    self.valid = True
+        else:
+            public_key_algorithm_name = parameters[0]
+            public_key_metadata = parameters[1]
+            public_key_path = parameters[2]
+
+            # See if the name matches a public key type we know about.
+            if public_key_algorithm_name in self.PUBLIC_KEY_NAMES:
+                self.public_key_algorithm = self.PUBLIC_KEY_NAMES[
+                    public_key_algorithm_name
+                ]
+            else:
+                raise TockLoaderException("Unknown public key name")
+
+            # See if the metadata is a u32
+            try:
+                public_key_metadata = int(public_key_metadata)
+                if 0 <= public_key_metadata <= 0xFFFFFFFF:
+                    self.public_key_metadata = public_key_metadata
+                else:
+                    raise TockLoaderException("Invalid key metadata")
+            except:
+                raise TockLoaderException("Invalid key metadata")
+
+            if self.public_key_algorithm == self.PUBLIC_KEY_TYPE_ECDSAP256:
+                import Crypto.PublicKey
+
+                # Load the public key from PEM file
+                try:
+                    with open(parameters[2], "r") as f:
+                        key = Crypto.PublicKey.ECC.import_key(f.read())
+                        public_key_bytes = key.export_key(format="raw")[-64:]
+                except:
+                    raise TockLoaderException("Could not open public key file")
+
+                self.public_key = public_key_bytes
+                self.valid = True
+            else:
+                raise TockLoaderException(
+                    "Unknown public key algorithm, tockloader bug"
+                )
+
+    def pack(self):
+        return self.public_key + struct.pack(
+            "<IHHHH",
+            self.public_key_metadata,
+            0,
+            self.public_key_algorithm,
+            self.TLVID,
+            8 + len(self.public_key),
+        )
+
+    def __str__(self):
+        out = "KATLV: Public Key ({:#x})\n".format(self.TLVID)
+
+        out += "  {:<20}: {}\n".format(
+            "algorithm",
+            self._key_type_to_str(self.public_key_algorithm),
+        )
+        out += "  {:<20}: {}\n".format(
+            "metadata",
+            self.public_key_metadata,
+        )
+        out += "  {:<20}: {}\n".format(
+            "key len",
+            len(self.public_key),
+        )
+
+        return out
+
+    def object(self):
+        return {
+            "type": "public_key",
+            "id": self.TLVID,
+            "public_key_algorithm": self.public_key_algorithm,
+            "public_key_metadata": self.public_key_metadata,
+            "public_key": self.public_key,
+        }
+
+    def _key_type_to_str(self, type):
+        names = [
+            "Reserved",
+            "RSA3072KEY",
+            "RSA4096KEY",
+            "SHA256",
+            "SHA384",
+            "SHA512",
+            "ECDSAP256",
+            "HMACSHA256",
+            "Unknown",
+            "Unknown",
+            "RSA2048",
+        ]
+
+        name = names[type] if type < len(names) else "Unknown"
+        return name
+
+
+TLV_MAPPINGS = {
+    "public_key": KATLVPublicKey,
+}
+
+
+def get_tlv_names():
+    """
+    Return a list of all TLV names.
+    """
+    return list(TLV_MAPPINGS.keys())
+
+
+def get_addable_tlvs():
+    """
+    Return a list of (tlv_name, #parameters) tuples for all TLV types that
+    tockloader can add.
+    """
+    addable_tlvs = []
+    for k, v in TLV_MAPPINGS.items():
+        try:
+            addable_tlvs.append((k, v.NUMBER_PARAMETERS, v.PARAMETER_HELP))
+        except:
+            pass
+    return addable_tlvs
+
+
+def get_tlvid_from_name(tlvname):
+    return TLV_MAPPINGS[tlvname].TLVID
+
+
 class KernelAttributes:
     """
     Represent attributes stored at the end of the kernel image that contain metadata
     about the installed kernel.
     """
 
-    KATLV_TYPES = [KATLVAppMemory, KATLVKernelBinary, KATLVKernelVersion]
+    KATLV_TYPES = [
+        KATLVAppMemory,
+        KATLVKernelBinary,
+        KATLVKernelVersion,
+        KATLVPublicKey,
+    ]
 
     def __init__(self, buffer, address):
         self.tlvs = []
         self.address = address
+        self.modified = False
 
         # Check for sentinel at the end. It should be "TOCK".
         sentinel_bytes = buffer[-4:]
@@ -191,11 +357,17 @@ class KernelAttributes:
 
                 for katlv_type in self.KATLV_TYPES:
                     if t == katlv_type.TLVID:
-                        katlv_len = katlv_type.SIZE
-                        if len(buffer) >= katlv_len and l == katlv_len:
-                            self.tlvs.append(katlv_type(buffer[-1 * katlv_len :]))
-                            buffer = buffer[: -1 * katlv_len]
+                        if hasattr(katlv_type, "SIZE"):
+                            katlv_len = katlv_type.SIZE
+                            if len(buffer) >= katlv_len and l == katlv_len:
+                                self.tlvs.append(katlv_type(buffer[-1 * katlv_len :]))
+                                buffer = buffer[: -1 * katlv_len]
+                        else:
+                            self.tlvs.append(katlv_type(buffer[-1 * l :]))
+                            buffer = buffer[: -1 * l]
+                        logging.debug(f"Found and parsed TLV ID {t}")
                         break
+
                 else:
                     break
 
@@ -208,10 +380,56 @@ class KernelAttributes:
         tlv = self._get_tlv(KATLV.TYPE_APP_MEMORY)
         if tlv:
             return (tlv.app_memory_start, tlv.app_memory_len)
-        else:
-            return None
+        return None
 
-            return ""
+    def get_kernel_binary_size(self):
+        """
+        Get the length of the actual kernel binary in bytes.
+
+        Returns `None` if the kernel binary header is not present.
+        """
+        tlv = self._get_tlv(KATLV.TYPE_KERNEL_BINARY)
+        if tlv:
+            return tlv.kernel_binary_len
+        return None
+
+    def add_tlv(self, tlvname, parameters):
+        logging.info(
+            "Adding TLV {} with {} parameters".format(tlvname, len(parameters))
+        )
+        tlv_obj = TLV_MAPPINGS[tlvname]
+
+        # Need to add an entirely new TLV.
+        new_tlv = tlv_obj(b"", parameters)
+        logging.debug(new_tlv)
+        self.tlvs.append(new_tlv)
+        self.modified = True
+
+    def get_binary(self):
+        """
+        Get the kernel attributes in a bytes array.
+        """
+        buf = bytearray()
+        for tlv in reversed(self.tlvs):
+            logging.debug(f"Packing TLV ID {tlv.TLVID}")
+            buf += tlv.pack()
+
+        version = 1
+        buf += struct.pack(">BBBB4s", 0, 0, 0, version, b"TOCK")
+
+        return buf
+
+    def get_size(self):
+        """
+        Get the size of the kernel attributes in bytes.
+        """
+        kernel_attrs_size = 0
+        for tlv in self.tlvs:
+            if not tlv.valid:
+                logging.debug(f"Skipping invalid TLV {tlv.TLVID}")
+                continue
+            kernel_attrs_size += tlv.get_size()
+        return footkernel_attrs_sizeer_size
 
     def _get_tlv(self, tlvid):
         """

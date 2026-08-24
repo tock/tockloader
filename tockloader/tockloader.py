@@ -1458,8 +1458,16 @@ class TockLoader:
             to_flash_apps = []
             app_address = address
             for app in apps:
+                logging.debug(
+                    f"Locating app {app.get_name()} at or after {app_address:#02x}"
+                )
+
                 # Get a version of that app that we can put at a desirable address.
                 next_loadable_address = app.fix_at_next_loadable_address(app_address)
+
+                logging.debug(
+                    f"Found next loadable address: {next_loadable_address:#02x}"
+                )
 
                 if next_loadable_address == app_address:
                     to_flash_apps.append(app)

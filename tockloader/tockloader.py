@@ -1144,13 +1144,21 @@ class TockLoader:
         # Next we check for kernel attributes.
         if self.channel:
             app_start_flash = self._get_apps_start_address()
-            kernel_attr_binary = self.channel.read_range(app_start_flash - 1000, 1000)
-            kernel_attrs = KernelAttributes(kernel_attr_binary, app_start_flash)
-            app_ram = kernel_attrs.get_app_memory_region()
-            if app_ram != None:
-                app_ram_start_address = app_ram[0]
-                self.app_ram_address = app_ram_start_address
-                return app_ram_start_address
+
+            # Check if there is room for the kernel before the apps. If not,
+            # this is OK, but unusual. In the future, we will need to have full
+            # tockloader support for boards where apps do not immediately follow
+            # the kernel in flash.
+            if app_start_flash >= 1000:
+                kernel_attr_binary = self.channel.read_range(
+                    app_start_flash - 1000, 1000
+                )
+                kernel_attrs = KernelAttributes(kernel_attr_binary, app_start_flash)
+                app_ram = kernel_attrs.get_app_memory_region()
+                if app_ram != None:
+                    app_ram_start_address = app_ram[0]
+                    self.app_ram_address = app_ram_start_address
+                    return app_ram_start_address
 
         # Finally we use a saved setting in tockloader itself.
         if "app_ram_address" in self.app_settings:
@@ -1311,6 +1319,7 @@ class TockLoader:
 
         # Get where app memory might start.
         ram_start_address = self._get_memory_start_address()
+        logging.debug(f"Using RAM start address {ram_start_address:#02x}")
 
         # elf2tab can produce TBFs which have a fixed flash start
         # address, but not a fixed RAM start address, in which case

@@ -35,9 +35,9 @@ class FlashFile(BoardInterface):
 
         # Boards should limit the file size to match their flash. However, we
         # don't want users to accidentally create gigantic files using the
-        # `--flash-file` flag, so we set a cap at 128 MB. If a future Tock board
+        # `--flash-file` flag, so we set a cap at 1 GB. If a future Tock board
         # needs more than that...well we can revisit this then.
-        self.max_size = 0x8000000
+        self.max_size = 0x40000000
 
         # Flash files almost certainly do not have bootloaders with an attribute
         # table. They could, but we don't really need to query the parameters

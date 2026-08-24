@@ -130,6 +130,7 @@ class TockLoader:
             "microbit_v2": {"start_address": 0x00040000},
             "qemu_rv32_virt": {
                 "start_address": 0x80100000,
+                "app_ram_address": 0x80300000,
             },
             "qemu_rv64_virt": {
                 "start_address": 0x80100000,

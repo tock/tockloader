@@ -298,6 +298,16 @@ class TabApp:
             # Align to get a reasonable address for this app.
             wanted_address = align_down_to(fixed_flash_address, 1024)
 
+            # Check if the header + protected region is larger than the size of
+            # [wanted_address:fixed_flash_address]. If so, move our wanted
+            # address down. This is probably not a normal case. But someone
+            # trying to make a very specific TBF could want the start of the TBF
+            # header to end up at an address that is not a normal "round"
+            # address.
+            header_size = tbf.tbfh.get_size_before_app()
+            if header_size > (fixed_flash_address - wanted_address):
+                wanted_address = fixed_flash_address - header_size
+
             if wanted_address >= address:
                 if best_address == None:
                     best_address = wanted_address

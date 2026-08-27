@@ -154,6 +154,10 @@ class TockLoader:
             "lpc55s69": {
                 "start_address": 0x20000,
             },
+            "stm32wle5jc": {
+                "start_address": 0x8018000,
+                "cmd_flags": {"openocd": True},
+            },
             "nucleo_u545re_q": {
                 "start_address": 0x08040000,
                 "cmd_flags": {"openocd": True},

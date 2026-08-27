@@ -328,6 +328,17 @@ class BoardInterface:
             "no_attribute_table": True,
             "linkserver": {"device": "LPC55S69"},
         },
+        "stm32wle5jc": {
+            "description": "Seeed Studio LoRa-E5 board based on the STM32WLE5JC SoC",
+            "arch": "cortex-m4",
+            "page_size": 2048,
+            "no_attribute_table": True,
+            "openocd": {
+                "prefix": "source [find interface/stlink.cfg]; \
+                           transport select hla_swd; \
+                           source [find target/stm32wlx.cfg];",
+            },
+        },
         "nucleo_u545re_q": {
             "description": "STM32U545RE-based Nucleo development board",
             "arch": "cortex-m4",

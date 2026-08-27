@@ -248,6 +248,11 @@ You may need to update OpenOCD to the version in latest git master."
                 openocd_cmd=self.openocd_cmd
             )
         )
+        openocd_commands.append(
+            '{openocd_cmd} -c "source [find interface/stlink.cfg]; transport select hla_swd; source [find target/stm32wlx.cfg]; init; exit;"'.format(
+                openocd_cmd=self.openocd_cmd
+            )
+        )
 
         # These are the magic strings in the output of openocd we are looking
         # for. If there is a better way to do this then we should change. But,
@@ -259,6 +264,7 @@ You may need to update OpenOCD to the version in latest git master."
             ("(mfg: 0x049 (Xilinx), part: 0x3631, ver: 0x1)", "arty"),
             ("SWD DPIDR 0x2ba01477", "microbit_v2"),
             ("stm32f4x.cpu", "stm32f4discovery"),
+            ("stm32wlx.cpu", "stm32wle5jc"),
         ]
 
         emulators = []

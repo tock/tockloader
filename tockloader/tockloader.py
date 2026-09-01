@@ -1324,7 +1324,6 @@ class TockLoader:
 
         # Get where app memory might start.
         ram_start_address = self._get_memory_start_address()
-        logging.debug(f"Using RAM start address {ram_start_address:#02x}")
 
         # elf2tab can produce TBFs which have a fixed flash start
         # address, but not a fixed RAM start address, in which case

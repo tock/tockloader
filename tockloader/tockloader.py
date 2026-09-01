@@ -1098,20 +1098,20 @@ class TockLoader:
         # have a good way to mark it as unset since
         # app_settings['start_address'] is set by default.
         cached = getattr(self, "apps_start_address", None)
-        if cached:
+        if cached is not None:
             return cached
 
         # Highest priority is the command line argument. If the user specifies
         # that, we use that unconditionally.
         cmdline_app_address = getattr(self.args, "app_address", None)
-        if cmdline_app_address:
+        if cmdline_app_address is not None:
             self.apps_start_address = cmdline_app_address
             return cmdline_app_address
 
         # Next we check if the attached board can tell us.
         if self.channel:
             channel_apps_start_address = self.channel.get_apps_start_address()
-            if channel_apps_start_address:
+            if channel_apps_start_address is not None:
                 self.apps_start_address = channel_apps_start_address
                 return channel_apps_start_address
 
@@ -1127,7 +1127,7 @@ class TockLoader:
         # Check if the attached board can tell us.
         if self.channel:
             channel_flash_address = self.channel.get_flash_address()
-            if channel_flash_address:
+            if channel_flash_address is not None:
                 return channel_flash_address
 
         # In the default case flash starts at address 0.
@@ -1143,7 +1143,7 @@ class TockLoader:
         # app RAM address often, so we don't want to have to query the board for
         # it each time.
         cached = getattr(self, "app_ram_address", None)
-        if cached:
+        if cached is not None:
             return cached
 
         # Next we check for kernel attributes.

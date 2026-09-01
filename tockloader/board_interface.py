@@ -563,7 +563,7 @@ class BoardInterface:
         """
         Return the address in flash where apps start.
         """
-        if hasattr(self, "app_address") and self.app_address:
+        if hasattr(self, "app_address") and self.app_address is not None:
             return self.app_address
         else:
             attributes = self.get_all_attributes()

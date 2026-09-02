@@ -73,7 +73,7 @@ class PaddingApp:
         tbfh_binary = self.tbfh.get_binary()
         # Calculate the padding length.
         padding_binary_size = self.get_size() - len(tbfh_binary)
-        return tbfh_binary + b"\xFF" * padding_binary_size
+        return tbfh_binary + b"\xff" * padding_binary_size
 
     def info(self, verbose=False):
         """

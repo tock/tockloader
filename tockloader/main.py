@@ -467,9 +467,9 @@ def command_local_board_set(args):
     logging.status(f"Setting the default local board to '{board_name}'")
     if args.arch:
         logging.status(f"  Using arch {args.arch}")
-    if args.app_address:
+    if args.app_address is not None:
         logging.status(f"  Using app_address {args.app_address:#02x}")
-    if args.flash_address:
+    if args.flash_address is not None:
         logging.status(f"  Using flash_address {args.flash_address:#02x}")
     if args.flush_command:
         logging.status(f'  Using flush_command "{args.flush_command}"')

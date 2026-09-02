@@ -120,7 +120,7 @@ class FlashFile(BoardInterface):
         return address - flash_address
 
     def get_flash_address(self):
-        if hasattr(self, "flash_address") and self.flash_address:
+        if hasattr(self, "flash_address") and self.flash_address is not None:
             return self.flash_address
         return None
 
@@ -216,9 +216,9 @@ def set_local_board(
     local_board = {"board": board, "filepath": filepath}
     if arch:
         local_board["arch"] = arch
-    if app_address:
+    if app_address is not None:
         local_board["app_address"] = app_address
-    if flash_address:
+    if flash_address is not None:
         local_board["flash_address"] = flash_address
     if flush_command:
         local_board["flush_command"] = flush_command

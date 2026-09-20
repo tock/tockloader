@@ -127,6 +127,8 @@ class TockLoader:
                 "start_address": 0x40000,
             },
             "nucleof4": {"start_address": 0x08040000},
+            "nucleoh7cm4": {"start_address": 0x08100000},       # per STM RM0399 ref. manual (sec. 2.6)
+            "nucleoh7cm7": {"start_address": 0x08000000},
             "microbit_v2": {"start_address": 0x00040000},
             "qemu_rv32_virt": {
                 "start_address": 0x80100000,

@@ -344,6 +344,13 @@ class BoardInterface:
             "arch": "cortex-m4",
             "page_size": 8192,
             "no_attribute_table": True,
+            # Unlike the other STM32 boards here, the STM32U5 does not map
+            # flash at address 0, so reading a flash offset as if it were an
+            # absolute address faults the debug port. Flash is aliased at
+            # 0x08000000 (non-secure) and 0x0c000000 (secure); we use the
+            # secure alias because that is what the board's `layout.ld` links
+            # the kernel and the apps at.
+            "flash_address": 0x0C000000,
             "openocd": {
                 "prefix": "source [find interface/stlink.cfg]; source [find target/stm32u5x.cfg];",
             },

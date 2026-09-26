@@ -159,7 +159,9 @@ class TockLoader:
                 "cmd_flags": {"openocd": True},
             },
             "nucleo_u545re_q": {
-                "start_address": 0x08040000,
+                # The board's `layout.ld` links against the secure flash alias,
+                # so apps live at the secure alias of the `prog` region too.
+                "start_address": 0x0C040000,
                 "cmd_flags": {"openocd": True},
             },
         },

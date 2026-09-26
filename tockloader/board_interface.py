@@ -585,6 +585,16 @@ class BoardInterface:
         """
         Return the address where flash starts.
         """
+        # Most boards map flash at address 0, so an offset into flash is also
+        # a valid absolute address and we do not need to know where flash
+        # starts. Boards where that is not true declare `flash_address` in
+        # `KNOWN_BOARDS`. We look this up on each call rather than caching it in
+        # `_configure_from_known_boards()` because the board name may only
+        # become known after we have already connected to the board.
+        board = getattr(self, "board", None)
+        if board and board in self.KNOWN_BOARDS:
+            return self.KNOWN_BOARDS[board].get("flash_address", None)
+
         return None
 
     def _decode_attribute(self, raw):

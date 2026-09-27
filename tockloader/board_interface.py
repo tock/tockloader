@@ -268,6 +268,21 @@ class BoardInterface:
                            source [find target/rp2040.cfg];",
             },
         },
+        "raspberry_pi_pico_2": {
+            "description": "Raspberry Pi Pico 2",
+            # Tock currently treats the `cortex-m33` as a `cortex-m4`.
+            "arch": "cortex-m4",
+            "page_size": 4096,
+            "no_attribute_table": True,
+            "openocd": {
+                "prefix": "source [find interface/cmsis-dap.cfg]; \
+                           source [find target/rp2350.cfg];",
+            },
+            "flash_file": {
+                "flash_address": 0x10000000,
+                "max_size": 0x400000,
+            },
+        },
         "sma_q3": {
             "description": "SMA Q3 smart watch (Bangle.js 2, Jazda)",
             "arch": "cortex-m4",

@@ -208,6 +208,9 @@ class BoardInterface:
             "openocd": {
                 "cfg": "st_nucleo_f4.cfg",
             },
+            "flash_file": {
+                "flash_address": 0x08000000,
+            },
         },
         "hifive1": {
             "description": "SiFive HiFive1 development board",

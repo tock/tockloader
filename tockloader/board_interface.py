@@ -283,6 +283,15 @@ class BoardInterface:
                 "max_size": 0x400000,
             },
         },
+        "esp32-c3-devkitm-1": {
+            "description": "Espressif ESP32-C3-DevKitM-1",
+            "arch": "rv32imc",
+            "no_attribute_table": True,
+            "flash_file": {
+                "flash_address": 0x40380000,
+                "max_size": 0x60000,
+            },
+        },
         "sma_q3": {
             "description": "SMA Q3 smart watch (Bangle.js 2, Jazda)",
             "arch": "cortex-m4",

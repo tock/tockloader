@@ -267,6 +267,10 @@ class BoardInterface:
                 "prefix": "source [find interface/raspberrypi-swd.cfg]; \
                            source [find target/rp2040.cfg];",
             },
+            "flash_file": {
+                "flash_address": 0x10000000,
+                "max_size": 0x200000,
+            },
         },
         "raspberry_pi_pico_2": {
             "description": "Raspberry Pi Pico 2",

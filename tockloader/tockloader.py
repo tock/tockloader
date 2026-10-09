@@ -35,6 +35,7 @@ from .nrfutil import NrfUtil
 from .openocd import OpenOCD, collect_temp_files
 from .probers import ProbeRs
 from .stlink import STLink
+from .esptool import EspTool
 from .linkserver import LinkServer
 from .flash_file import FlashFile
 from .tickv import TockTicKV
@@ -141,6 +142,8 @@ class TockLoader:
                 "cmd_flags": {"bundle_apps": True},
             },
             "raspberry_pi_pico": {"start_address": 0x10020000},
+            "esp32-c3-devkitm-1": {"start_address": 0x42100000},
+            "esp32-c3-devkit-rust-2": {"start_address": 0x42100000},
             "tickv": {
                 "tickv": {
                     "region_size": 4096,
@@ -197,6 +200,7 @@ class TockLoader:
                             getattr(self.args, "nrfutil", False),
                             getattr(self.args, "openocd", False),
                             getattr(self.args, "stlink", False),
+                            getattr(self.args, "esptool", False),
                             getattr(self.args, "flash_file") != None,
                             getattr(self.args, "serial", False),
                         ],
@@ -206,7 +210,7 @@ class TockLoader:
             > 1
         ):
             raise TockLoaderException(
-                "Can only use one of --jlink, --openocd, --stlink, --nrfutil, --flash-file or --serial options"
+                "Can only use one of --jlink, --openocd, --stlink, --esptool, --nrfutil, --flash-file or --serial options"
             )
 
         # Get an object that allows talking to the board.
@@ -222,6 +226,9 @@ class TockLoader:
         elif hasattr(self.args, "stlink") and self.args.stlink:
             # User passed `--stlink`. Force the STLink channel.
             self.channel = STLink(self.args)
+        elif hasattr(self.args, "esptool") and self.args.esptool:
+            # User passed `--esptool`. Force the esptool channel.
+            self.channel = EspTool(self.args)
         elif hasattr(self.args, "probers") and self.args.probers:
             # User passed `--probers`. Force the probe-rs channel.
             self.channel = ProbeRs(self.args)
@@ -291,6 +298,15 @@ class TockLoader:
                 if linkserver_channel.attached_board_exists():
                     self.channel = linkserver_channel
                     logging.info("Using LinkServer channel to comm. with the board.")
+                    break
+
+                # Next try esptool. This must come before the serial bootloader,
+                # which would otherwise claim the serial port of an Espressif
+                # chip.
+                esptool_channel = EspTool(self.args)
+                if esptool_channel.attached_board_exists():
+                    self.channel = esptool_channel
+                    logging.info("Using esptool channel to communicate with the board.")
                     break
 
                 # Try using the serial bootloader. Traditionally, we have

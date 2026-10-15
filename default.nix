@@ -36,7 +36,11 @@ in pkgs.python3Packages.buildPythonPackage rec {
     flit
   ];
 
-  propagatedBuildInputs = with python3Packages; [
+  propagatedBuildInputs = [
+    # For interacting with ESP32 boards, makes both the CLI and the `esptool`
+    # Python package available:
+    pkgs.esptool
+  ] ++ (with python3Packages; [
     appdirs
     argcomplete
     colorama
@@ -49,7 +53,7 @@ in pkgs.python3Packages.buildPythonPackage rec {
     six
     toml
     tqdm
-  ];
+  ]);
 
   # Ensure that Tockloader can, at runtime, find the `nrfutil` binary:
   postPatch = lib.optionalString withUnfreePkgs ''

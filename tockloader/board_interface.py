@@ -293,10 +293,17 @@ class BoardInterface:
         "esp32-c3-devkitm-1": {
             "description": "Espressif ESP32-C3-DevKitM-1",
             "arch": "rv32imc",
+            # Size of a sector of the external SPI flash.
+            "page_size": 4096,
             "no_attribute_table": True,
+            # The mask ROM maps the external SPI flash at this address.
+            "flash_address": 0x42000000,
+            "esptool": {
+                "chip": "ESP32-C3",
+            },
             "flash_file": {
-                "flash_address": 0x40380000,
-                "max_size": 0x60000,
+                "flash_address": 0x42000000,
+                "max_size": 0x400000,
             },
         },
         "sma_q3": {

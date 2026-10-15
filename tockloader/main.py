@@ -924,6 +924,11 @@ def main():
         "--stlink", action="store_true", help="Use ST-Link tools to flash."
     )
     parent_channel.add_argument(
+        "--esptool",
+        action="store_true",
+        help="Use esptool to flash an Espressif chip through its ROM bootloader.",
+    )
+    parent_channel.add_argument(
         "--probers", action="store_true", help="Use probe-rs to flash."
     )
     parent_channel.add_argument(

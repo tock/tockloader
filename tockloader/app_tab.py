@@ -222,7 +222,7 @@ class TabApp:
         [(address, size), (address, size), ...]
         """
         apps_in_flash = []
-        for tbf in self._get_tbfs():
+        for tbf in self._get_tbfs(filter_tbfs=True):
             apps_in_flash.append(
                 (tbf.tbfh.get_fixed_addresses()[1], tbf.tbfh.get_app_size())
             )
@@ -238,7 +238,7 @@ class TabApp:
             return True
 
         # Otherwise, see if we have a TBF which can go at the requested address.
-        for tbf in self._get_tbfs():
+        for tbf in self._get_tbfs(filter_tbfs=True):
             fixed_flash_address = tbf.tbfh.get_fixed_addresses()[1]
             tbf_header_length = tbf.tbfh.get_header_size()
 
@@ -292,7 +292,7 @@ class TabApp:
         # Find the binary with the lowest valid address that is above `address`.
         best_address = None
         best_index = None
-        for i, tbf in enumerate(self._get_tbfs()):
+        for i, tbf in enumerate(self._get_tbfs(filter_tbfs=True)):
             fixed_flash_address = tbf.tbfh.get_fixed_addresses()[1]
 
             # Align to get a reasonable address for this app.
@@ -317,7 +317,7 @@ class TabApp:
                     best_index = i
 
         if best_index != None:
-            self.tbfs = [self._get_tbfs()[best_index]]
+            self.tbfs = [self._get_tbfs(filter_tbfs=True)[best_index]]
             return best_address
         else:
             return None
@@ -475,7 +475,7 @@ const size_t {name}_embed_actual_size = {trimmed_length};
             out.append((tbf.filename, binary))
         return out
 
-    def _get_tbfs(self):
+    def _get_tbfs(self, filter_tbfs=False):
         """
         Helper function so we can implement TBF filtering.
 
@@ -483,7 +483,7 @@ const size_t {name}_embed_actual_size = {trimmed_length};
         address TBFs, this filters the list of TBFs within the TAB to only those
         that are plausibly within the app memory region for the board.
         """
-        if self.ram_address_filter == None:
+        if not filter_tbfs or self.ram_address_filter == None:
             return self.tbfs
         else:
             tbfs = []
@@ -493,6 +493,9 @@ const size_t {name}_embed_actual_size = {trimmed_length};
                     if fixed_addresses[0] < self.ram_address_filter or fixed_addresses[
                         0
                     ] > (self.ram_address_filter + 0x200000):
+                        logging.debug(
+                            f"Filtering TBF {fixed_addresses[1]:#02x}:{fixed_addresses[0]:#02x} for RAM (filter address: {self.ram_address_filter:#02x})"
+                        )
                         pass
                     else:
                         tbfs.append(tbf)

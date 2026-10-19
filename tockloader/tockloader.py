@@ -499,6 +499,7 @@ class TockLoader:
             # If we want to erase first, loop through looking for non sticky
             # apps and remove them from the existing app list.
             if erase:
+                logging.debug("Erasing any existing apps.")
                 new_existing_apps = []
                 for existing_app in existing_apps:
                     if existing_app.is_sticky():
@@ -691,40 +692,45 @@ class TockLoader:
             # Get a list of installed apps
             apps = self._extract_all_app_headers()
 
-            if len(apps) == 0:
-                raise TockLoaderException("No apps are installed on the board")
+            # Candidate apps to remove.
+            candidate_apps = []
 
-            # User did not specify apps. Pick from list.
+            # If the user didn't specify an app list...
             if len(app_names) == 0:
-                options = ["** All"]
-                options.extend([app.get_name() for app in apps])
-                name = helpers.menu(
-                    options,
-                    return_type="value",
-                    prompt="Select app to configure ",
-                    title="Which apps to configure?",
-                )
-                if name == "** All":
-                    app_names = [app.get_name() for app in apps]
+                if len(apps) == 0:
+                    raise TockLoaderException("No apps are installed on the board")
+                elif len(apps) == 1:
+                    # If there's only one app, delete it
+                    candidate_apps = apps
+                    logging.info("Only one app on board.")
                 else:
-                    app_names = [name]
+                    options = ["** All"]
+                    options.extend([app.get_name() for app in apps])
+                    app_indices = helpers.menu_multiple_indices(
+                        options, prompt="Select app to configure "
+                    )
+
+                    if 0 in app_indices:
+                        # Delete all
+                        candidate_apps = apps
+                    else:
+                        for app_index in app_indices:
+                            candidate_apps.append(apps[app_index - 1])
+            else:
+                # User did specify an app list.
+                for app in apps:
+                    if app.get_name() in app_names:
+                        candidate_apps.append(app)
 
             # Configure all selected apps
-            changed = False
-            for app in apps:
-                if app.get_name() in app_names:
-                    app.get_header().set_flag(flag_name, flag_value)
-                    changed = True
+            for app in candidate_apps:
+                app.get_header().set_flag(flag_name, flag_value)
 
-            if changed:
-                self._reshuffle_apps(apps)
+            self._reshuffle_apps(apps)
+            for app in candidate_apps:
                 logging.info(
-                    'Set flag "{}" to "{}" for apps: {}'.format(
-                        flag_name, flag_value, ", ".join(app_names)
-                    )
+                    f'Set flag "{flag_name}" to "{flag_value}" for app {app.get_name()}'
                 )
-            else:
-                logging.info("No matching apps found. Nothing changed.")
 
     def list_attributes(self):
         """

@@ -65,6 +65,30 @@ class TAB:
         fixed address, and multiple fixed address versions are included in the
         TAB.
         """
+
+        def matches_arch_and_aliases(candidate, arch):
+            """
+            Helper function to find matching architectures with aliases. We will
+            probably need to expand this list over time.
+            """
+            ALIASES = {
+                "rv32imc": ["riscv32imc"],
+                "rv32imac": ["riscv32imac"],
+                "rv63imac": ["riscv63imac"],
+            }
+
+            # Return early for a direct match.
+            if candidate == arch:
+                return True
+
+            # If there are aliases, loop through them and check for a match.
+            if arch in ALIASES:
+                for arch_alias in ALIASES[arch]:
+                    if candidate == arch_alias:
+                        return True
+
+            return False
+
         # Find all filenames that start with the architecture name.
         matching_tbf_filenames = []
         contained_files = self.tab.getnames()
@@ -72,7 +96,7 @@ class TAB:
         for contained_file in contained_files:
             name_pieces = contained_file.split(".")
             if len(name_pieces) >= 2 and name_pieces[-1] == "tbf":
-                if name_pieces[0] == arch:
+                if matches_arch_and_aliases(name_pieces[0], arch):
                     matching_tbf_filenames.append(contained_file)
 
         if len(matching_tbf_filenames) == 0:

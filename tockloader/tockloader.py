@@ -1318,6 +1318,8 @@ class TockLoader:
         in the array.
         """
 
+        logging.debug("Shuffling apps.")
+
         #
         # JUNE 2020: This function can be really complicated (balancing apps
         # compiled for a fixed address, MPU alignment concerns, ordering
@@ -1342,9 +1344,7 @@ class TockLoader:
         else:
             ram_start_address_hex = "{:#x}".format(ram_start_address)
 
-        logging.debug(
-            "Shuffling apps. Flash={:#x} RAM={}".format(address, ram_start_address_hex)
-        )
+        logging.debug("Apps@ Flash={:#x} RAM={}".format(address, ram_start_address_hex))
 
         # First, we are going to split the work into three cases:
         #
@@ -1420,6 +1420,7 @@ class TockLoader:
             # flash. Also keep around the index of the app in original array.
             slices = []
             for i, app in enumerate(apps):
+                logging.debug(f"Checking addresses for App {app.get_name()}")
                 apps_in_flash = app.get_fixed_addresses_flash_and_sizes()
                 app_slices = []
                 for starting_address, size in apps_in_flash:
@@ -1703,6 +1704,8 @@ class TockLoader:
         - `extract_app_binary`: Get the actual app binary in addition to the
           headers.
         """
+        logging.debug("Finding all existing apps.")
+
         apps = []
 
         # This can be the default, it can be configured in the attributes on

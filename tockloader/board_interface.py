@@ -61,6 +61,25 @@ class BoardInterface:
                 "cfg": "nordic_nrf52_dk.cfg",
             },
         },
+        "nrf5340dk": {
+            "description": "Nordic nRF5340 development kit, application core",
+            "arch": "cortex-m4",
+            "page_size": 4096,
+            "no_attribute_table": True,
+            "probers": {
+                "chip": "nRF5340_xxAA_APPONLY",
+            },
+        },
+        "nrf5340dk-net": {
+            "description": "Nordic nRF5340 development kit, network core",
+            "arch": "cortex-m3",
+            "page_size": 2048,
+            "no_attribute_table": True,
+            "probers": {
+                "chip": "nRF5340_xxAA",
+                "core": 1,
+            },
+        },
         "nano33ble": {
             "description": "Arduino Nano 33 BLE board",
             "arch": "cortex-m4",

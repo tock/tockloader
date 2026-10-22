@@ -31,6 +31,7 @@ class ProbeRs(BoardInterface):
     def open_link_to_board(self):
         # Use command line arguments to set the necessary settings.
         self.probers_board = getattr(self.args, "probers_board")
+        self.probers_core = None
         self.probers_prefix = ""
 
         # If the user specified a board, use that configuration to fill in any
@@ -46,6 +47,10 @@ class ProbeRs(BoardInterface):
                 if "probers" in board:
                     if "chip" in board["probers"]:
                         self.probers_board = board["probers"]["chip"]
+
+            # Multi-core chips need the core whose memory map holds the apps.
+            if "probers" in board and "core" in board["probers"]:
+                self.probers_core = board["probers"]["core"]
 
             # And we may need to setup other common board settings.
             self._configure_from_known_boards()
@@ -200,12 +205,18 @@ class ProbeRs(BoardInterface):
 
         self._run_probers_commands(command, binary)
 
-        # Reset so the core leaves the flash loader.
-        self._run_probers_commands("reset", None)
+        # Reset so the core leaves the flash loader. `download --reset` would
+        # leave the other cores of a multi-core chip halted.
+        reset = "reset"
+        if self.probers_core is not None:
+            reset += " --core {}".format(self.probers_core)
+        self._run_probers_commands(reset, None)
 
     def read_range(self, address, length):
         # The normal read command uses `dump_image`.
         command = "read --output {{binary}} --format binary b8 {address:#x} {length} "
+        if self.probers_core is not None:
+            command += "--core {} ".format(self.probers_core)
 
         # Translate the address from MCU address space to probe-rs
         # command addressing.

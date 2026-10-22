@@ -200,6 +200,9 @@ class ProbeRs(BoardInterface):
 
         self._run_probers_commands(command, binary)
 
+        # Reset so the core leaves the flash loader.
+        self._run_probers_commands("reset", None)
+
     def read_range(self, address, length):
         # The normal read command uses `dump_image`.
         command = "read --output {{binary}} --format binary b8 {address:#x} {length} "

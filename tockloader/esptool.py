@@ -63,7 +63,7 @@ class EspTool(BoardInterface):
         except ImportError:
             raise TockLoaderException(
                 "Tockloader esptool support requires esptool >= 5.0. "
-                "Install it with `pip install esptool`."
+                "Install it with `pip install esptool` or `pipx inject tockloader esptool`."
             )
 
         # esptool prints to stdout by default. Only show its output when
@@ -140,6 +140,7 @@ class EspTool(BoardInterface):
         try:
             self._import_esptool()
         except TockLoaderException:
+            logging.debug("No esptool installed.")
             return False
 
         for port in self._candidate_ports():

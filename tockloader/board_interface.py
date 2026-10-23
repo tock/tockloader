@@ -233,6 +233,9 @@ class BoardInterface:
             "openocd": {
                 "cfg": "sifive-hifive1-revb.cfg",
             },
+            "flash_file": {
+                "flash_address": 0x20000000,
+            },
         },
         "edu-ciaa": {
             "description": "Educational NXP board, from the CIAA project",

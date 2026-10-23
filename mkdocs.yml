@@ -12,12 +12,17 @@ pages:
     - OpenOCD: openocd.md
     - nrfutil: nrfutil.md
     - Flash File: flash_file.md
+    - probe-rs: probers.md
+    - STLINK: stlink.md
+    - esptool: esptool.md
   - App:
       - Installed Apps: app_installed.md
       - Apps from TABs: app_tab.md
       - Padding Apps: app_padding.md
   - TAB: tab.md
   - TBF Header: tbfh.md
+  - Kernel: kernel.md
+  - Kernel Attributes: kernel_attributes.md
   - TicKV: tickv.md
   - Display: display.md
   - Exceptions: exceptions.md

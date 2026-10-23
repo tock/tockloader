@@ -103,6 +103,9 @@ generatedocs("tockloader.jlinkexe", "jlinkexe.md")
 generatedocs("tockloader.openocd", "openocd.md")
 generatedocs("tockloader.nrfutil", "nrfutil.md")
 generatedocs("tockloader.flash_file", "flash_file.md")
+generatedocs("tockloader.esptool", "esptool.md")
+generatedocs("tockloader.probers", "probers.md")
+generatedocs("tockloader.stlink", "stlink.md")
 generatedocs("tockloader.tab", "tab.md")
 generatedocs("tockloader.app_installed", "app_installed.md")
 generatedocs("tockloader.app_tab", "app_tab.md")
@@ -112,6 +115,8 @@ generatedocs("tockloader.tickv", "tickv.md")
 generatedocs("tockloader.exceptions", "exceptions.md")
 generatedocs("tockloader.helpers", "helpers.md")
 generatedocs("tockloader.display", "display.md")
+generatedocs("tockloader.kernel", "kernel.md")
+generatedocs("tockloader.kernel_attributes", "kernel_attributes.md")
 
 # Make index from readme
 with open("../README.md") as infile:

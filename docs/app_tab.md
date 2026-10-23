@@ -436,7 +436,7 @@ def _concatenate_and_truncate_binary(self, header, program_binary, footer)
 ### \_get\_tbfs
 ```py
 
-def _get_tbfs(self)
+def _get_tbfs(self, filter_tbfs=False)
 
 ```
 

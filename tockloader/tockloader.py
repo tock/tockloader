@@ -124,6 +124,8 @@ class TockLoader:
                     "start_address": 0x12000000,
                 },
             },
+            "nrf5340dk": {"start_address": 0x40000},
+            "nrf5340dk-net": {"start_address": 0x01020000},
             "particle_boron": {
                 "start_address": 0x40000,
             },

@@ -300,6 +300,23 @@ This tool uses LinkServer to program NXP boards.
   command.
 - `linkserver_probe`: The probe index or serial number to use.
 
+For Espressif boards, Tockloader supports using
+[esptool](https://github.com/espressif/esptool). This tool can communicate with
+the serial-based bootloader in Espressif chips to program their external SPI
+flash.
+
+    tockloader [command] --esptool [--port [port]] [--board [board]]
+
+- `port`: The serial port that the ESP chip is attached to. Required if more
+  than one candidate port is found.
+- `board`: Defaults to `esp32-c3-devkitm-1` for chips attached to a USB-UART
+  bridge, and `esp32-c3-devkit-rust-2` for chips attached through their
+  integrated USB Serial/JTAG controller.
+
+`esptool` (>= 5.0) is an optional dependency, as it is GPL-licensed. Install it
+with `pip install esptool` or `pipx inject tockloader esptool`, depending on how
+you installed Tockloader.
+
 Finally, Tockloader can treat a local file as though it were the flash contents
 of a board. The file can then be loaded separately onto a board.
 
